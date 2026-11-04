@@ -3,7 +3,8 @@ client_id = ""
 
 [access_scopes]
 # read_themes: থিমে app embed চালু আছে কিনা দেখতে
-scopes = "read_themes"
+# read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook)
+scopes = "read_themes,read_orders"
 
 [webhooks]
 api_version = "2026-10"
@@ -23,7 +24,19 @@ api_version = "2026-10"
   topics = [ "app_subscriptions/update" ]
   uri = "/webhooks/app/subscriptions_update"
 
+  # Handled by: /app/routes/webhooks.orders.paid.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders/paid"
+
   # GDPR (App Store-এর জন্য বাধ্যতামূলক). Handled by: /app/routes/webhooks.compliance.tsx
   [[webhooks.subscriptions]]
   uri = "/webhooks/compliance"
   compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+
+# স্টোরফ্রন্ট উইজেট থেকে অ্যানালিটিক্স ইভেন্ট আসে: https://<store>/apps/app-tools/events
+# Handled by: /app/routes/proxy.events.tsx
+[app_proxy]
+url = "/proxy"
+prefix = "apps"
+subpath = "app-tools"

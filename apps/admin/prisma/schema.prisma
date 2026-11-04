@@ -47,6 +47,7 @@ model Shop {
   updatedAt      DateTime        @updatedAt
   tools          ToolSetting[]
   speedSnapshots SpeedSnapshot[]
+  dailyStats     DailyToolStat[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -79,4 +80,22 @@ model SpeedSnapshot {
   shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId, createdAt])
+}
+
+/// অ্যানালিটিক্স: প্রতিদিন প্রতিটি টুলের ভিউ, ক্লিক, কার্টে যোগ ও বিক্রি
+model DailyToolStat {
+  id         String   @id @default(cuid())
+  shopId     String
+  toolId     String
+  /// UTC দিন
+  date       DateTime @db.Date
+  views      Int      @default(0)
+  clicks     Int      @default(0)
+  addToCarts Int      @default(0)
+  orders     Int      @default(0)
+  /// স্টোরের মুদ্রায়
+  revenue    Decimal  @default(0) @db.Decimal(14, 2)
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, toolId, date])
 }

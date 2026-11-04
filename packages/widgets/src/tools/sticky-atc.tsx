@@ -2,6 +2,9 @@ import { render } from "preact";
 import { useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
+import { attribute, track } from "../analytics";
+
+const TOOL_ID = "sticky-atc";
 
 interface Settings {
   position: "bottom" | "top";
@@ -39,12 +42,17 @@ function StickyBar({
   const { colors } = settings;
 
   async function add() {
+    track(TOOL_ID, "click");
     setState("adding");
     const res = await fetch("/cart/add.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ items: [{ id: product.variantId, quantity: 1 }] }),
     });
+    if (res.ok) {
+      track(TOOL_ID, "add_to_cart");
+      attribute(TOOL_ID);
+    }
     setState(res.ok ? "added" : "idle");
   }
 
@@ -104,5 +112,6 @@ export function mount({ config, settings }: ToolContext) {
   const host = document.createElement("div");
   host.id = "app-sticky-atc";
   document.body.appendChild(host);
+  track(TOOL_ID, "view");
   render(<StickyBar settings={s} product={product} locale={config.locale} />, host);
 }

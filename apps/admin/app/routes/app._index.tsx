@@ -6,16 +6,26 @@ import { authenticate } from "../shopify.server";
 import { ensureShop, syncPlanFromBilling } from "../lib/shop.server";
 import { getEmbedStatus, getToolStates } from "../lib/tools.server";
 import { getSpeedSummary } from "../lib/speed.server";
+import { getToolStats } from "../lib/analytics.server";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, billing, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const [plan, embedEnabled, tools, speed] = await Promise.all([
+  const [plan, embedEnabled, tools, speed, stats, currency] = await Promise.all([
     syncPlanFromBilling(billing, session.shop),
     getEmbedStatus(admin),
     getToolStates(shop.id),
     getSpeedSummary(shop.id),
+    getToolStats(shop.id),
+    admin
+      .graphql(
+        `#graphql
+        query ShopCurrency { shop { currencyCode } }`,
+      )
+      .then((r) => r.json() as Promise<{ data?: { shop?: { currencyCode?: string } } }>)
+      .then((j) => j.data?.shop?.currencyCode ?? "USD")
+      .catch(() => "USD"),
   ]);
   const handle = session.shop.replace(".myshopify.com", "");
   return {
@@ -25,6 +35,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     totalTools: tools.length,
     baselineScore: speed.baseline?.score ?? null,
     latestScore: speed.latest?.score ?? null,
+    stats,
+    currency,
     // থিম এডিটরে সরাসরি আমাদের app embed খুলে দেয়
     themeEditorUrl: `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/app-tools-embed`,
   };
@@ -109,6 +121,43 @@ export default function Dashboard() {
           )}
         </s-section>
       </s-grid>
+
+      <s-section heading={t("analytics.title")}>
+        {data.stats.length === 0 ? (
+          <s-text color="subdued">{t("analytics.empty")}</s-text>
+        ) : (
+          <s-stack direction="block" gap="base">
+            <s-table>
+              <s-table-header-row>
+                <s-table-header>{t("analytics.tool")}</s-table-header>
+                <s-table-header>{t("analytics.views")}</s-table-header>
+                <s-table-header>{t("analytics.clicks")}</s-table-header>
+                <s-table-header>{t("analytics.addToCarts")}</s-table-header>
+                <s-table-header>{t("analytics.orders")}</s-table-header>
+                <s-table-header>{t("analytics.revenue")}</s-table-header>
+              </s-table-header-row>
+              <s-table-body>
+                {data.stats.map((row) => (
+                  <s-table-row key={row.toolId}>
+                    <s-table-cell>{t(`tool.${row.toolId}.name`)}</s-table-cell>
+                    <s-table-cell>{row.views}</s-table-cell>
+                    <s-table-cell>{row.clicks}</s-table-cell>
+                    <s-table-cell>{row.addToCarts}</s-table-cell>
+                    <s-table-cell>{row.orders}</s-table-cell>
+                    <s-table-cell>
+                      {new Intl.NumberFormat(undefined, {
+                        style: "currency",
+                        currency: data.currency,
+                      }).format(row.revenue)}
+                    </s-table-cell>
+                  </s-table-row>
+                ))}
+              </s-table-body>
+            </s-table>
+            <s-text color="subdued">{t("analytics.note")}</s-text>
+          </s-stack>
+        )}
+      </s-section>
     </s-page>
   );
 }
