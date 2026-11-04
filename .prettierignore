@@ -1,0 +1,6 @@
+node_modules
+build
+dist
+.turbo
+pnpm-lock.yaml
+apps/admin/.react-router

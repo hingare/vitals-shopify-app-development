@@ -1,0 +1,19 @@
+{
+  "name": "@app/widgets",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "size": "node scripts/check-size.mjs",
+    "test": "vite build && node scripts/check-size.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "preact": "^10.27.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
