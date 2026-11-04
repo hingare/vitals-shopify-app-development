@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 
-const dist = new URL("../dist/", import.meta.url).pathname;
+const dist = new URL("../../../apps/admin/extensions/theme-embed/assets/", import.meta.url)
+  .pathname;
 const LIMITS = { loader: 5 * 1024, tool: 10 * 1024, chunk: 10 * 1024 };
 let failed = false;
 

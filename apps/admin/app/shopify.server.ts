@@ -1,7 +1,41 @@
 import "@shopify/shopify-app-react-router/adapters/node";
-import { ApiVersion, AppDistribution, shopifyApp } from "@shopify/shopify-app-react-router/server";
+import {
+  ApiVersion,
+  AppDistribution,
+  BillingInterval,
+  BillingReplacementBehavior,
+  shopifyApp,
+} from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
+import { PRICES, PLAN_KEYS, TRIAL_DAYS, type PlanKey } from "./lib/plans";
+
+function plan(key: PlanKey) {
+  const price = PRICES[key];
+  return {
+    trialDays: TRIAL_DAYS,
+    // আপগ্রেড/ডাউনগ্রেডে আগের subscription সাথে সাথে বদলে যায়, দুটো বিল হয় না
+    replacementBehavior: BillingReplacementBehavior.ApplyImmediately,
+    lineItems: [
+      {
+        amount: price.amount,
+        currencyCode: "USD" as string,
+        interval:
+          price.interval === "annual"
+            ? (BillingInterval.Annual as const)
+            : (BillingInterval.Every30Days as const),
+      },
+    ],
+  };
+}
+
+/** শুধু দুটি প্ল্যান, মাসিক বা বার্ষিক। কোনো usage charge নেই। */
+export const billingConfig = {
+  [PLAN_KEYS.STARTER_MONTHLY]: plan(PLAN_KEYS.STARTER_MONTHLY),
+  [PLAN_KEYS.STARTER_ANNUAL]: plan(PLAN_KEYS.STARTER_ANNUAL),
+  [PLAN_KEYS.PRO_MONTHLY]: plan(PLAN_KEYS.PRO_MONTHLY),
+  [PLAN_KEYS.PRO_ANNUAL]: plan(PLAN_KEYS.PRO_ANNUAL),
+};
 
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
@@ -12,6 +46,7 @@ const shopify = shopifyApp({
   authPathPrefix: "/auth",
   sessionStorage: new PrismaSessionStorage(prisma),
   distribution: AppDistribution.AppStore,
+  billing: billingConfig,
   future: {
     expiringOfflineAccessTokens: true,
   },

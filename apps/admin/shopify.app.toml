@@ -2,8 +2,10 @@
 client_id = ""
 
 [access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "write_products"
+# read_themes: থিমে app embed চালু আছে কিনা দেখতে
+# read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook)
+# write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট)
+scopes = "read_themes,read_orders,write_pixels,read_customer_events"
 
 [webhooks]
 api_version = "2026-10"
@@ -18,44 +20,24 @@ api_version = "2026-10"
   topics = [ "app/scopes_update" ]
   uri = "/webhooks/app/scopes_update"
 
-  # Mandatory compliance topic for public apps only
-  # See: https://shopify.dev/docs/apps/build/privacy-law-compliance
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/data_request"
-  # compliance_topics = ["customers/data_request"]
+  # Handled by: /app/routes/webhooks.app.subscriptions_update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "app_subscriptions/update" ]
+  uri = "/webhooks/app/subscriptions_update"
 
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/redact"
-  # compliance_topics = ["customers/redact"]
+  # Handled by: /app/routes/webhooks.orders.paid.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "orders/paid" ]
+  uri = "/webhooks/orders/paid"
 
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/shop/redact"
-  # compliance_topics = ["shop/redact"]
+  # GDPR (App Store-এর জন্য বাধ্যতামূলক). Handled by: /app/routes/webhooks.compliance.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
 
-# Only receive Events when a variant's price changes and the product status is active.
-# See: https://shopify.dev/docs/apps/build/events-webhooks
-[events]
-api_version = "2026-10"
-
-  [[events.subscription]]
-  handle = "product-price-change"
-  topic = "Product"
-  actions = ["update"]
-  triggers = ["product.variants.price", "product.variants.compareAtPrice"]
-  uri = "/webhooks/products/update"
-  query = """
-  query product_variant_price_change($productId: ID!, $variantsId: ID!) {
-    product(id: $productId) {
-      id
-      title
-      status
-    }
-    productVariant(id: $variantsId) {
-      id
-      title
-      price
-      compareAtPrice
-    }
-  }
-  """
-  query_filter = "product.status:'ACTIVE'"
+# স্টোরফ্রন্ট উইজেট থেকে অ্যানালিটিক্স ইভেন্ট আসে: https://<store>/apps/app-tools/events
+# Handled by: /app/routes/proxy.events.tsx
+[app_proxy]
+url = "/proxy"
+prefix = "apps"
+subpath = "app-tools"

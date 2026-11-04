@@ -14,7 +14,8 @@ export default defineConfig({
   esbuild: { jsx: "automatic", jsxImportSource: "preact" },
   build: {
     target: "es2020",
-    outDir: "dist",
+    // সরাসরি Theme App Extension-এর assets ফোল্ডারে বিল্ড হয়
+    outDir: resolve(__dirname, "../../apps/admin/extensions/theme-embed/assets"),
     emptyOutDir: true,
     modulePreload: false,
     rollupOptions: {
