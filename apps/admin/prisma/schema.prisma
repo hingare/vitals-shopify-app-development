@@ -14,21 +14,69 @@ datasource db {
 }
 
 model Session {
-  id            String    @id
-  shop          String
-  state         String
-  isOnline      Boolean   @default(false)
-  scope         String?
-  expires       DateTime?
-  accessToken   String
-  userId        BigInt?
-  firstName     String?
-  lastName      String?
-  email         String?
-  accountOwner  Boolean   @default(false)
-  locale        String?
-  collaborator  Boolean?  @default(false)
-  emailVerified Boolean?  @default(false)
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
   refreshToken        String?
   refreshTokenExpires DateTime?
+}
+
+/// একটি ইনস্টল করা স্টোর
+model Shop {
+  id             String          @id @default(cuid())
+  domain         String          @unique
+  /// "starter" | "professional" | null (কোনো প্ল্যান নেই)
+  plan           String?
+  /// Shopify-র subscription id, যাতে প্ল্যান বদলালে মেলানো যায়
+  subscriptionId String?
+  installedAt    DateTime        @default(now())
+  uninstalledAt  DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  tools          ToolSetting[]
+  speedSnapshots SpeedSnapshot[]
+}
+
+/// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
+model ToolSetting {
+  id        String   @id @default(cuid())
+  shopId    String
+  toolId    String
+  enabled   Boolean  @default(false)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, toolId])
+}
+
+/// Speed Guard: মোবাইল স্পিড স্কোরের ইতিহাস
+model SpeedSnapshot {
+  id           String   @id @default(cuid())
+  shopId       String
+  url          String
+  /// "baseline" = কোনো টুল চালুর আগে, "check" = পরে
+  kind         String
+  score        Int
+  lcpMs        Int?
+  cls          Float?
+  tbtMs        Int?
+  enabledTools Int      @default(0)
+  createdAt    DateTime @default(now())
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
 }

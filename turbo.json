@@ -11,6 +11,12 @@
     "test": {
       "dependsOn": ["^build"]
     },
-    "lint": {}
+    "lint": {},
+    "@app/widgets#build": {
+      "cache": false
+    },
+    "@app/widgets#test": {
+      "cache": false
+    }
   }
 }

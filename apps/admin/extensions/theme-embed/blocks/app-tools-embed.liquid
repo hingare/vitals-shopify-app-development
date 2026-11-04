@@ -1,0 +1,36 @@
+{% comment %}
+  একটি মাত্র app embed সব টুল চালায়।
+  চালু টুলের কনফিগ app-owned metafield (app_config.tools) থেকে আসে, তাই কোনো API কল লাগে না।
+  লোডার ৫KB-র কম, আর শুধু চালু টুলগুলোর ফাইল আলাদাভাবে লোড করে।
+{% endcomment %}
+{%- assign app_config = app.metafields.app_config.tools.value -%}
+{%- if app_config and app_config.tools.size > 0 -%}
+  <script>
+    window.__APP_CONFIG__ = {
+      assetBase: {{ 'loader.js' | asset_url | split: 'loader.js' | first | json }},
+      pageType: {{ request.page_type | json }},
+      locale: {{ request.locale.iso_code | json }},
+      tools: {{ app_config.tools | json }}
+    };
+  </script>
+  {%- if request.page_type == 'product' -%}
+    {%- assign variant = product.selected_or_first_available_variant -%}
+    <script type="application/json" id="app-product-json">
+      {
+        "title": {{ product.title | json }},
+        "variantId": {{ variant.id | json }},
+        "price": {{ variant.price | money | strip_html | json }},
+        "available": {{ variant.available | json }}
+      }
+    </script>
+  {%- endif -%}
+  <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:name",
+  "target": "body",
+  "settings": []
+}
+{% endschema %}

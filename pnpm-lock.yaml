@@ -26,9 +26,15 @@ importers:
       '@app/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@app/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@app/tool-sdk':
         specifier: workspace:*
         version: link:../../packages/tool-sdk
+      '@app/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@prisma/client':
         specifier: ^6.19.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -126,6 +132,11 @@ importers:
       vite:
         specifier: ^7.3.1
         version: 7.3.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
+  apps/admin/extensions/theme-embed: {}
 
   packages/brand:
     devDependencies:
@@ -133,11 +144,33 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/i18n:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
   packages/tool-sdk:
     dependencies:
       zod:
         specifier: ^4.1.12
         version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
+  packages/tools:
+    dependencies:
+      '@app/tool-sdk':
+        specifier: workspace:*
+        version: link:../tool-sdk
     devDependencies:
       typescript:
         specifier: ^5.9.3
