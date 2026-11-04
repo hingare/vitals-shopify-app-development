@@ -1,4 +1,5 @@
-# লোকাল ডেভেলপমেন্টের জন্য PostgreSQL ও Redis
+# লোকাল ডেভেলপমেন্টের জন্য PostgreSQL ও Redis।
+# অন্য প্রজেক্টের সাথে পোর্ট না মেলে তাই 5433 আর 6380 ব্যবহার করা হয়েছে।
 services:
   postgres:
     image: postgres:16-alpine
@@ -8,13 +9,13 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: allinone
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
 volumes:
   pgdata:
