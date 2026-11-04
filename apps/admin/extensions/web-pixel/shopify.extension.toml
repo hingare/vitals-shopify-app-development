@@ -1,0 +1,26 @@
+# স্টোরের Analytics: ভিজিটর, পেজ ভিউ, কার্ট, চেকআউট আর অর্ডার গোনে।
+# Shopify নিজেই কাস্টমারের সম্মতি (cookie consent) মেনে এটা চালায়।
+name = "store-analytics"
+type = "web_pixel_extension"
+runtime_context = "strict"
+
+[customer_privacy]
+analytics = true
+marketing = false
+preferences = false
+sale_of_data = "disabled"
+
+[settings]
+type = "object"
+
+[settings.fields.ingestKey]
+name = "Ingest key"
+description = "Identifies the store when sending events. Set by the app."
+type = "single_line_text_field"
+validations = [{ name = "min", value = "1" }]
+
+[settings.fields.endpoint]
+name = "Endpoint"
+description = "Where events are sent. Set by the app."
+type = "single_line_text_field"
+validations = [{ name = "min", value = "1" }]

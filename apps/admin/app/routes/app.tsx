@@ -6,11 +6,14 @@ import { createT } from "@app/i18n";
 
 import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
+import { ensurePixel } from "../lib/store-analytics.server";
 import { localeFromRequest } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
-  await ensureShop(session.shop);
+  const { admin, session } = await authenticate.admin(request);
+  const shop = await ensureShop(session.shop);
+  // স্টোরের Analytics পিক্সেল চালু রাখা; ব্যর্থ হলেও অ্যাপ খুলবে
+  await ensurePixel(admin, shop).catch((error) => console.warn("[pixel]", error));
 
   // eslint-disable-next-line no-undef
   return { apiKey: process.env.SHOPIFY_API_KEY || "", locale: localeFromRequest(request) };
@@ -25,6 +28,7 @@ export default function App() {
       <s-app-nav>
         <s-link href="/app">{t("nav.dashboard")}</s-link>
         <s-link href="/app/tools">{t("nav.tools")}</s-link>
+        <s-link href="/app/analytics">{t("nav.analytics")}</s-link>
         <s-link href="/app/speed">{t("nav.speed")}</s-link>
         <s-link href="/app/plans">{t("nav.plans")}</s-link>
       </s-app-nav>

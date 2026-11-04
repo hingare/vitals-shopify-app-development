@@ -43,11 +43,21 @@ model Shop {
   subscriptionId String?
   installedAt    DateTime        @default(now())
   uninstalledAt  DateTime?
+  /// Web Pixel ইভেন্ট পাঠানোর গোপন নয় এমন চাবি (কোন স্টোরের ইভেন্ট তা চেনার জন্য)
+  ingestKey      String?         @unique
+  /// Shopify-তে তৈরি web pixel-এর id ও যে URL-এ সে ইভেন্ট পাঠায়
+  pixelId        String?
+  pixelEndpoint  String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   tools          ToolSetting[]
   speedSnapshots SpeedSnapshot[]
+  speedJobs      SpeedJob[]
   dailyStats     DailyToolStat[]
+  storeStats     DailyStoreStat[]
+  trafficStats   DailyTrafficStat[]
+  pageStats      DailyPageStat[]
+  visitorDays    VisitorDay[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -98,4 +108,77 @@ model DailyToolStat {
   shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, toolId, date])
+}
+
+/// Speed Guard মাপ ব্যাকগ্রাউন্ডে চলে (PageSpeed এক মিনিটের বেশি নিতে পারে)
+model SpeedJob {
+  id         String    @id @default(cuid())
+  shopId     String
+  url        String
+  /// "pending" | "running" | "done" | "failed"
+  status     String    @default("pending")
+  error      String?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([shopId, createdAt])
+}
+
+/// পুরো স্টোরের দৈনিক হিসাব (Web Pixel থেকে)
+model DailyStoreStat {
+  id           String   @id @default(cuid())
+  shopId       String
+  date         DateTime @db.Date
+  /// দিনে আলাদা ভিজিটর
+  visitors     Int      @default(0)
+  pageViews    Int      @default(0)
+  productViews Int      @default(0)
+  addToCarts   Int      @default(0)
+  checkouts    Int      @default(0)
+  orders       Int      @default(0)
+  revenue      Decimal  @default(0) @db.Decimal(14, 2)
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, date])
+}
+
+/// ভিজিটর কোথা থেকে এলো আর কোন ডিভাইসে
+model DailyTrafficStat {
+  id       String   @id @default(cuid())
+  shopId   String
+  date     DateTime @db.Date
+  /// direct | search | social | ai | email | paid | referral
+  source   String
+  /// mobile | tablet | desktop
+  device   String
+  visitors Int      @default(0)
+  shop     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, date, source, device])
+}
+
+/// কোন পেজ কতবার দেখা হলো
+model DailyPageStat {
+  id     String   @id @default(cuid())
+  shopId String
+  date   DateTime @db.Date
+  path   String
+  views  Int      @default(0)
+  shop   Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, date, path])
+}
+
+/// দিনে আলাদা ভিজিটর গোনার জন্য (clientId-এর hash, কোনো ব্যক্তিগত তথ্য নয়); ২ দিন পর মুছে ফেলা হয়
+model VisitorDay {
+  shopId  String
+  date    DateTime @db.Date
+  visitor String
+  shop    Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@id([shopId, date, visitor])
 }

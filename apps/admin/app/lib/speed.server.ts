@@ -56,12 +56,10 @@ export async function primaryDomainUrl(admin: GraphqlClient): Promise<string> {
 }
 
 /**
- * মেপে ইতিহাসে রাখে। কোনো টুল চালুর আগের প্রথম মাপটা "baseline",
+ * মাপের ফল ইতিহাসে রাখে। কোনো টুল চালুর আগের প্রথম মাপটা "baseline",
  * যাতে পরে দেখানো যায় অ্যাপ চালুর আগে আর পরে স্কোর কত।
  */
-export async function runSpeedCheck(admin: GraphqlClient, shopId: string) {
-  const url = await primaryDomainUrl(admin);
-  const result = await measure(url);
+export async function saveSnapshot(shopId: string, url: string, result: SpeedResult) {
   const [enabledTools, hasBaseline] = await Promise.all([
     db.toolSetting.count({ where: { shopId, enabled: true } }),
     db.speedSnapshot.count({ where: { shopId, kind: "baseline" } }),

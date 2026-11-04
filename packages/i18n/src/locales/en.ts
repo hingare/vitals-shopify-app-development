@@ -3,6 +3,7 @@ export const en = {
   "nav.tools": "Tools",
   "nav.speed": "Speed Guard",
   "nav.plans": "Plans",
+  "nav.analytics": "Analytics",
 
   "dashboard.title": "Dashboard",
   "dashboard.setup": "Get started",
@@ -91,6 +92,44 @@ export const en = {
   "speed.passwordNote":
     "Password-protected stores can't be measured. Remove the password or use a live store.",
   "speed.failed": "Measurement failed: {error}",
+  "speed.measuring":
+    "Measuring your store. This usually takes under a minute; you can leave this page.",
+  "store.period": "Period",
+  "store.lastDays": "Last {days} days",
+  "store.visitors": "Visitors",
+  "store.pageViews": "Page views",
+  "store.productViews": "Viewed a product",
+  "store.addToCarts": "Added to cart",
+  "store.checkouts": "Started checkout",
+  "store.orders": "Orders",
+  "store.revenue": "Revenue",
+  "store.conversion": "Conversion rate",
+  "store.cartRate": "Add to cart rate",
+  "store.funnel": "Shopper journey",
+  "store.step": "Step",
+  "store.count": "Visitors",
+  "store.ofVisitors": "Of all visitors",
+  "store.daily": "Visitors per day",
+  "store.sources": "Where visitors come from",
+  "store.devices": "Devices",
+  "store.topPages": "Top pages",
+  "store.page": "Page",
+  "store.tools": "Results by tool",
+  "store.empty": "No visits counted yet. Numbers appear here as soon as shoppers visit your store.",
+  "store.pixelMissing":
+    "Store analytics is not connected yet. Reopen the app; if this stays, reinstall it to grant the analytics permission.",
+  "store.privacy":
+    "Visitors are counted only when they allow analytics in your cookie banner. No names, emails or addresses are collected.",
+  "source.direct": "Direct",
+  "source.search": "Search engines",
+  "source.social": "Social media",
+  "source.ai": "AI assistants",
+  "source.email": "Email and SMS",
+  "source.paid": "Paid ads",
+  "source.referral": "Other websites",
+  "device.mobile": "Mobile",
+  "device.tablet": "Tablet",
+  "device.desktop": "Desktop",
 } as const;
 
 export type MessageKey = keyof typeof en;

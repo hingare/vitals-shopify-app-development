@@ -4,7 +4,8 @@ client_id = ""
 [access_scopes]
 # read_themes: থিমে app embed চালু আছে কিনা দেখতে
 # read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook)
-scopes = "read_themes,read_orders"
+# write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট)
+scopes = "read_themes,read_orders,write_pixels,read_customer_events"
 
 [webhooks]
 api_version = "2026-10"

@@ -1,17 +1,20 @@
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
+import { useEffect } from "react";
+import { useFetcher, useLoaderData, useRevalidator } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
-import { getSpeedSummary, runSpeedCheck } from "../lib/speed.server";
+import { getSpeedSummary } from "../lib/speed.server";
+import { enqueueSpeedCheck, latestSpeedJob } from "../lib/jobs.server";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const summary = await getSpeedSummary(shop.id);
+  const [summary, job] = await Promise.all([getSpeedSummary(shop.id), latestSpeedJob(shop.id)]);
   return {
+    job: job ? { status: job.status, error: job.error } : null,
     baseline: summary.baseline,
     latest: summary.latest,
     history: summary.history.map((s) => ({ ...s, createdAt: s.createdAt.toISOString() })),
@@ -22,7 +25,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
   try {
-    await runSpeedCheck(admin, shop.id);
+    await enqueueSpeedCheck(admin, shop.id);
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : String(error) };
@@ -30,10 +33,21 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function SpeedPage() {
-  const { baseline, latest, history } = useLoaderData<typeof loader>();
+  const { baseline, latest, history, job } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
+  const revalidator = useRevalidator();
   const t = useT();
-  const running = fetcher.state !== "idle";
+  const measuring = job?.status === "pending" || job?.status === "running";
+  const running = fetcher.state !== "idle" || measuring;
+
+  // মাপ ব্যাকগ্রাউন্ডে চলে; শেষ না হওয়া পর্যন্ত কয়েক সেকেন্ড পরপর পেজ রিফ্রেশ
+  useEffect(() => {
+    if (!measuring) return;
+    const id = setInterval(() => {
+      if (revalidator.state === "idle") void revalidator.revalidate();
+    }, 4000);
+    return () => clearInterval(id);
+  }, [measuring, revalidator]);
 
   return (
     <s-page heading={t("speed.title")}>
@@ -46,6 +60,10 @@ export default function SpeedPage() {
         {t("speed.run")}
       </s-button>
 
+      {measuring && <s-banner tone="info">{t("speed.measuring")}</s-banner>}
+      {job?.status === "failed" && !measuring && (
+        <s-banner tone="critical">{t("speed.failed", { error: job.error ?? "" })}</s-banner>
+      )}
       {fetcher.data && !fetcher.data.ok && (
         <s-banner tone="critical">{t("speed.failed", { error: fetcher.data.error })}</s-banner>
       )}
