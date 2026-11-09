@@ -8,6 +8,9 @@
       "name": "Star rating",
       "color": "Star color",
       "show_empty": "Show when there are no reviews"
+    },
+    "store_reviews": {
+      "name": "Store reviews"
     }
   }
 }

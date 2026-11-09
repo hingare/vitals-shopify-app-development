@@ -20,6 +20,13 @@ describe("parseReviewInput", () => {
     expect(result).toMatchObject({ ok: true, input: { body: "Loved it", rating: 5 } });
   });
 
+  it("turns the store keyword into a store review", () => {
+    expect(parseReviewInput({ ...valid, productId: "store" })).toMatchObject({
+      ok: true,
+      input: { productId: null },
+    });
+  });
+
   it("allows an empty email and title", () => {
     expect(parseReviewInput({ ...valid, email: "", title: undefined }).ok).toBe(true);
   });

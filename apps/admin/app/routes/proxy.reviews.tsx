@@ -12,7 +12,7 @@ import { allowRequest } from "../lib/rate-limit.server";
 
 /**
  * স্টোরফ্রন্টের রিভিউ উইজেট এখানে কথা বলে (App Proxy: /apps/app-tools/reviews)।
- * GET: প্রকাশিত রিভিউ আর রেটিং সারাংশ। POST: নতুন রিভিউ জমা।
+ * GET: প্রকাশিত রিভিউ আর রেটিং সারাংশ (product=<id> বা product=store)। POST: নতুন রিভিউ জমা।
  * Shopify প্রক্সি সিগনেচার যাচাই করে, তাই স্টোর চেনা নিরাপদ।
  */
 const json = (data: unknown, status = 200) =>
@@ -35,9 +35,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!settings) return json({ error: "disabled" }, 404);
 
   const url = new URL(request.url);
-  const productId = url.searchParams.get("product") ?? "";
-  if (!/^\d{1,20}$/.test(productId)) return json({ error: "invalid" }, 400);
+  const product = url.searchParams.get("product") ?? "";
+  if (!/^(\d{1,20}|store)$/.test(product)) return json({ error: "invalid" }, 400);
   const page = Number(url.searchParams.get("page")) || 1;
+  const productId = product === "store" ? null : product;
   return json(await publishedReviews(shop.id, productId, page, settings.perPage));
 };
 
@@ -66,8 +67,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const result = await createReview(shop.id, parsed.input, settings);
   if (result.duplicate) return json({ error: "duplicate" }, 409);
-  if (result.review.status === "published" && admin) {
-    await syncProductRating(admin, shop.id, parsed.input.productId).catch((error) =>
+  const productId = parsed.input.productId;
+  if (result.review.status === "published" && admin && productId) {
+    await syncProductRating(admin, shop.id, productId).catch((error) =>
       console.warn("[reviews] rating sync failed", error),
     );
   }

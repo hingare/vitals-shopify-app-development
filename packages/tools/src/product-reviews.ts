@@ -11,7 +11,8 @@ export const productReviews = defineTool({
   id: "product-reviews",
   category: "reviews",
   plan: "starter",
-  surfaces: ["product"],
+  // প্রোডাক্ট পেজে প্রোডাক্ট রিভিউ; "Store reviews" ব্লক দিয়ে যেকোনো পেজে স্টোর রিভিউ
+  surfaces: ["product", "all"],
   delivery: "block",
   settings: z.object({
     /** নতুন রিভিউ কখন নিজে থেকে প্রকাশ হবে: none = সব হাতে অনুমোদন */

@@ -222,8 +222,10 @@ function Reviews({ productId, settings, t }: { productId: string; settings: Sett
 
   const count = data?.summary.count ?? 0;
   return (
-    <section aria-labelledby="app-reviews-heading" style={{ margin: "32px 0" }}>
-      <h2 id="app-reviews-heading">{t("reviews")}</h2>
+    <section aria-labelledby={`app-reviews-heading-${productId}`} style={{ margin: "32px 0" }}>
+      <h2 id={`app-reviews-heading-${productId}`}>
+        {t(productId === "store" ? "storeReviews" : "reviews")}
+      </h2>
       <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
         {count > 0 ? (
           <>
@@ -306,6 +308,13 @@ function findHost(): HTMLElement {
 }
 
 export function mount({ config, settings }: ToolContext) {
+  const t: T = (key) => widgetT(config.locale, key);
+  const s = settings as unknown as Settings;
+
+  // স্টোর রিভিউ: থিমের "Store reviews" ব্লক যেকোনো পেজে থাকতে পারে
+  const storeHost = document.querySelector<HTMLElement>("[data-app-store-reviews]");
+  if (storeHost) render(<Reviews productId="store" settings={s} t={t} />, storeHost);
+
   if (config.pageType !== "product") return;
   const el = document.getElementById("app-product-json");
   let productId = "";
@@ -317,10 +326,6 @@ export function mount({ config, settings }: ToolContext) {
     productId = "";
   }
   if (!/^\d+$/.test(productId)) return;
-  const t: T = (key) => widgetT(config.locale, key);
   track(TOOL_ID, "view");
-  render(
-    <Reviews productId={productId} settings={settings as unknown as Settings} t={t} />,
-    findHost(),
-  );
+  render(<Reviews productId={productId} settings={s} t={t} />, findHost());
 }

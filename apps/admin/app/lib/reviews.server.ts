@@ -10,7 +10,11 @@ export type ReviewSettings = z.output<typeof productReviews.settings>;
 
 /** স্টোরফ্রন্টের ফর্ম থেকে যা আসে */
 const reviewInput = z.object({
-  productId: z.string().regex(/^\d{1,20}$/),
+  /** প্রোডাক্টের সংখ্যা-id, অথবা "store" মানে স্টোর রিভিউ */
+  productId: z
+    .string()
+    .regex(/^(\d{1,20}|store)$/)
+    .transform((v) => (v === "store" ? null : v)),
   rating: z.coerce.number().int().min(1).max(5),
   title: z.string().trim().max(120).optional().default(""),
   body: z.string().trim().min(1).max(5000),
@@ -107,7 +111,11 @@ export function summarize(
   return { average, count, distribution };
 }
 
-export async function ratingSummary(shopId: string, productId: string): Promise<RatingSummary> {
+/** productId null = স্টোর রিভিউ */
+export async function ratingSummary(
+  shopId: string,
+  productId: string | null,
+): Promise<RatingSummary> {
   const rows = await db.review.groupBy({
     by: ["rating"],
     where: { shopId, productId, status: "published" },
@@ -119,7 +127,7 @@ export async function ratingSummary(shopId: string, productId: string): Promise<
 /** স্টোরে দেখানোর জন্য প্রকাশিত রিভিউ (ইমেইল কখনো যায় না) */
 export async function publishedReviews(
   shopId: string,
-  productId: string,
+  productId: string | null,
   page: number,
   perPage: number,
 ) {
