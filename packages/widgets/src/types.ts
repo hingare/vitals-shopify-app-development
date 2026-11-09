@@ -80,6 +80,17 @@ export interface StoreOffers {
     value: OfferValue;
     rules?: OfferRules;
   }>;
+  upsells?: Array<{
+    id: string;
+    /** খালি = যেকোনো প্রোডাক্ট */
+    triggerProductIds: string[];
+    products: Array<{ id: string; handle: string }>;
+    /** ছাড় না থাকলে null */
+    value: OfferValue | null;
+    title: string;
+    placements: Array<"popup" | "product" | "cart">;
+    rules?: OfferRules;
+  }>;
   /** কোনো অফার A/B টেস্টে আছে কিনা */
   ab?: boolean;
 }

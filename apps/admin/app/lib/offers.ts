@@ -1,5 +1,5 @@
 /** সার্ভার ও অ্যাডমিন পেজ দুই জায়গায় লাগে, তাই .server ফাইলের বাইরে */
-export const OFFER_TYPES = ["volume", "bundle", "gift", "bogo"] as const;
+export const OFFER_TYPES = ["volume", "bundle", "gift", "bogo", "upsell"] as const;
 export type OfferType = (typeof OFFER_TYPES)[number];
 
 /** কোন ক্রেতাদের জন্য অফার */
@@ -23,4 +23,9 @@ export const DEFAULT_LABELS: Record<OfferType, string> = {
   bundle: "Bundle discount",
   gift: "Free gift",
   bogo: "Buy more, get more",
+  upsell: "Special offer",
 };
+
+/** Upsell কোথায় দেখাবে */
+export const UPSELL_PLACEMENTS = ["popup", "product", "cart"] as const;
+export type UpsellPlacement = (typeof UPSELL_PLACEMENTS)[number];

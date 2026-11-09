@@ -16,6 +16,8 @@ import {
   type AbGroup,
   type Audience,
   type OfferType,
+  UPSELL_PLACEMENTS,
+  type UpsellPlacement,
 } from "../lib/offers";
 import { useT } from "../lib/i18n";
 
@@ -65,6 +67,8 @@ interface Draft {
   getProducts: ProductRef[];
   getQty: number;
   maxUses: number;
+  triggerProducts: ProductRef[];
+  placements: UpsellPlacement[];
 }
 
 const RULES: Rules = {
@@ -85,7 +89,8 @@ function emptyDraft(type: OfferType): Draft {
       { minQty: 2, value: { percent: 10 } },
       { minQty: 3, value: { percent: 15 } },
     ],
-    value: type === "bogo" ? { percent: 100 } : { percent: 10 },
+    value:
+      type === "bogo" ? { percent: 100 } : type === "upsell" ? { percent: 0 } : { percent: 10 },
     title: "",
     message: DEFAULT_LABELS[type],
     rules: type === "gift" ? { ...RULES, minSubtotal: 50 } : RULES,
@@ -98,6 +103,8 @@ function emptyDraft(type: OfferType): Draft {
     getProducts: [],
     getQty: 1,
     maxUses: 1,
+    triggerProducts: [],
+    placements: ["popup", "cart"],
   };
 }
 
@@ -197,7 +204,7 @@ function ValueFields({
       <s-number-field
         label={label}
         value={String(number ?? "")}
-        min={0.01}
+        min={0}
         {...(kind === "percent" ? { max: 100 } : {})}
         onChange={(e) => {
           const n = Number(e.currentTarget.value);
@@ -398,6 +405,15 @@ function configFor(type: OfferType, d: Draft) {
         getQty: d.getQty,
         value: d.value,
         maxUses: d.maxUses,
+      };
+    case "upsell":
+      return {
+        ...common,
+        triggerProducts: d.triggerProducts,
+        products: d.products,
+        value: d.value,
+        title: d.title,
+        placements: d.placements,
       };
   }
 }
@@ -698,6 +714,62 @@ export default function OfferEditor() {
                   update({ maxUses: Math.max(0, Number(e.currentTarget.value) || 0) })
                 }
               />
+            </s-stack>
+          </s-section>
+        </>
+      )}
+
+      {type === "upsell" && (
+        <>
+          <s-section heading={t("offers.upsellWhen")}>
+            <s-stack direction="block" gap="base">
+              <s-paragraph>{t("offers.upsellWhenHelp")}</s-paragraph>
+              <ProductList
+                products={draft.triggerProducts}
+                onChange={(triggerProducts) => update({ triggerProducts })}
+                emptyText={t("offers.anyProduct")}
+                max={100}
+              />
+            </s-stack>
+          </s-section>
+          <s-section heading={t("offers.upsellOffer")}>
+            <s-stack direction="block" gap="base">
+              <s-paragraph>{t("offers.upsellOfferHelp")}</s-paragraph>
+              <ProductList
+                products={draft.products}
+                onChange={(products) => update({ products })}
+                max={4}
+              />
+              <s-text-field
+                label={t("offers.upsellTitle")}
+                details={t("offers.upsellTitleHelp")}
+                value={draft.title}
+                maxLength={80}
+                onInput={(e) => update({ title: e.currentTarget.value })}
+              />
+              <ValueFields
+                label={t("offers.upsellDiscount")}
+                value={draft.value}
+                onChange={(value) => update({ value })}
+              />
+              <s-text color="subdued">{t("offers.upsellDiscountHelp")}</s-text>
+              <s-stack direction="block" gap="small">
+                <s-text>{t("offers.placements")}</s-text>
+                {UPSELL_PLACEMENTS.map((p) => (
+                  <s-checkbox
+                    key={p}
+                    label={t(`offers.placement.${p}`)}
+                    checked={draft.placements.includes(p)}
+                    onChange={(e) =>
+                      update({
+                        placements: e.currentTarget.checked
+                          ? [...draft.placements, p]
+                          : draft.placements.filter((x) => x !== p),
+                      })
+                    }
+                  />
+                ))}
+              </s-stack>
             </s-stack>
           </s-section>
         </>

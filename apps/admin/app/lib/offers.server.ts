@@ -9,6 +9,7 @@ import {
   DEFAULT_LABELS,
   OFFER_TYPES,
   type OfferType,
+  UPSELL_PLACEMENTS,
 } from "./offers";
 import type { GraphqlClient } from "./tools.server";
 
@@ -133,6 +134,23 @@ export const bogoConfig = z.object({
   rules: rulesSchema,
 });
 
+export const upsellConfig = z.object({
+  /** এগুলোর কোনোটা কার্টে বা পেজে থাকলে প্রস্তাব (খালি = যেকোনো প্রোডাক্ট) */
+  triggerProducts: z.array(productRef).max(100).default([]),
+  products: z.array(productRef).min(1).max(4),
+  /** ছাড় ঐচ্ছিক; percent 0 মানে ছাড় নেই, শুধু প্রস্তাব */
+  value: z
+    .object({
+      percent: z.number().min(0).max(100).optional(),
+      amountEach: z.number().min(0.01).max(1_000_000).optional(),
+    })
+    .default({ percent: 0 }),
+  title: z.string().trim().max(80).default(""),
+  placements: z.array(z.enum(UPSELL_PLACEMENTS)).min(1).default(["popup", "cart"]),
+  message: label,
+  rules: rulesSchema,
+});
+
 /** স্টোর জুড়ে অফারের সেটিংস (Shop.offerSettings) */
 export const offerSettingsSchema = z.object({
   conflict: z.enum(CONFLICT_MODES).default("best"),
@@ -148,9 +166,16 @@ export type VolumeConfig = z.output<typeof volumeConfig>;
 export type BundleConfig = z.output<typeof bundleConfig>;
 export type GiftConfig = z.output<typeof giftConfig>;
 export type BogoConfig = z.output<typeof bogoConfig>;
+export type UpsellConfig = z.output<typeof upsellConfig>;
 export type Rules = z.output<typeof rulesSchema>;
 
-const SCHEMAS = { volume: volumeConfig, bundle: bundleConfig, gift: giftConfig, bogo: bogoConfig };
+const SCHEMAS = {
+  volume: volumeConfig,
+  bundle: bundleConfig,
+  gift: giftConfig,
+  bogo: bogoConfig,
+  upsell: upsellConfig,
+};
 
 export function parseOfferConfig(type: OfferType, raw: unknown) {
   return SCHEMAS[type].safeParse(raw);
@@ -208,6 +233,7 @@ export function buildOfferConfigs(
     bundles: [] as Array<Record<string, unknown>>,
     gifts: [] as Array<Record<string, unknown>>,
     bogo: [] as Array<Record<string, unknown>>,
+    upsells: [] as Array<Record<string, unknown>>,
     /** কোনো অফার A/B টেস্টে থাকলে স্টোরফ্রন্ট ক্রেতাকে একটা গ্রুপে রাখে */
     ab: false,
   };
@@ -271,6 +297,32 @@ export function buildOfferConfigs(
         title: g.gift.title,
         qty: g.giftQty,
         progressText: g.progressText,
+        rules: sfRules,
+      });
+    } else if (type === "upsell") {
+      const u = c as UpsellConfig;
+      const triggerProductIds = u.triggerProducts.map((p) => p.id);
+      const discounted = (u.value.percent ?? 0) > 0 || (u.value.amountEach ?? 0) > 0;
+      // ছাড় থাকলে চেকআউটে "trigger ১টা কিনলে upsell ১টা ছাড়ে" (BOGO-র নিয়মেই, যতবার মেলে)
+      if (discounted) {
+        fn.push({
+          ...base,
+          type: "bogo",
+          buyProductIds: triggerProductIds,
+          buyQty: 1,
+          getProductIds: u.products.map((p) => p.id),
+          getQty: 1,
+          value: u.value,
+          maxUses: 0,
+        });
+      }
+      storefront.upsells.push({
+        id: offer.id,
+        triggerProductIds,
+        products: u.products.map((p) => ({ id: p.id, handle: p.handle })),
+        value: discounted ? u.value : null,
+        title: u.title,
+        placements: u.placements,
         rules: sfRules,
       });
     } else {

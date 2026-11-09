@@ -4,7 +4,8 @@ import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { currencyRate, onCartChange } from "../cart";
 import { fill } from "../dom";
-import { money, placeNearCheckout, root } from "../product";
+import { money, placeNearCheckout } from "../product";
+import { type CartLine, QUIET_ADD_PATH, cartPost, getCart } from "../cart-api";
 import { offerShown, syncAbGroup } from "../offers";
 
 const TOOL_ID = "free-gifts";
@@ -19,37 +20,18 @@ interface Settings {
 
 type Gift = NonNullable<StoreOffers["gifts"]>[number];
 
-interface CartItem {
-  key: string;
-  variant_id: number;
-  product_id: number;
-  quantity: number;
-  /** সেন্টে, ছাড়ের আগে */
-  original_line_price: number;
-  final_line_price: number;
-  properties?: Record<string, string> | null;
-}
-interface FullCart {
-  items: CartItem[];
-}
+type CartItem = Pick<
+  CartLine,
+  | "key"
+  | "variant_id"
+  | "product_id"
+  | "quantity"
+  | "original_line_price"
+  | "final_line_price"
+  | "properties"
+>;
 
-async function getCart(): Promise<FullCart | null> {
-  try {
-    const res = await fetch(`${root()}cart.js`, { headers: { Accept: "application/json" } });
-    return res.ok ? ((await res.json()) as FullCart) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function post(path: string, body: unknown) {
-  const res = await fetch(`${root()}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  return res.ok;
-}
+const post = cartPost;
 
 const session = {
   get(key: string) {
@@ -130,7 +112,7 @@ async function reconcile(config: StoreConfig, s: Settings, gifts: Gift[], busy: 
       if (session.get(addedKey)) session.set(skipKey, "1");
       if (!s.autoAdd || session.get(skipKey)) continue;
 
-      const added = await post("cart/add.js", {
+      const added = await post(QUIET_ADD_PATH, {
         items: [
           {
             id: Number(gift.variantId),

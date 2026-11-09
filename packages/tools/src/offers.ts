@@ -63,10 +63,71 @@ export const bogo = defineTool({
   attribution: ["view", "add_to_cart"],
 });
 
+/**
+ * Upsell Builder: কার্টে যোগের পর পপআপ, প্রোডাক্ট পেজ আর কার্টে "এটাও নিন" প্রস্তাব,
+ * চাইলে প্রস্তাবিত প্রোডাক্টে ছাড়। অফার Offers পেজে বানানো হয়।
+ */
+export const upsells = defineTool({
+  id: "upsells",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["product", "cart", "checkout"],
+  delivery: "function",
+  settings: z.object({
+    popupAfterAdd: z.boolean().default(true),
+    showOnProduct: z.boolean().default(true),
+    showInCart: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "click", "add_to_cart"],
+});
+
 /** কোন টুল কোন ধরনের অফার চালায় */
 export const OFFER_TOOL_BY_TYPE = {
   volume: volumeDiscounts.id,
   bundle: bundles.id,
   gift: freeGifts.id,
   bogo: bogo.id,
+  upsell: upsells.id,
 } as const;
+
+/**
+ * Cart Drawer: পাশ থেকে খোলা কার্ট, পরিমাণ বদলানো, ছাড় ও মোট দাম, upsell আর চেকআউট বাটন।
+ * কার্টে কিছু যোগ হলে বা কার্ট আইকনে চাপলে খোলে।
+ */
+export const cartDrawer = defineTool({
+  id: "cart-drawer",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["all"],
+  delivery: "embed",
+  settings: z.object({
+    openOnAdd: z.boolean().default(true),
+    replaceThemeCart: z.boolean().default(true),
+    title: z.string().trim().max(60).default("Your cart"),
+    checkoutText: z.string().trim().max(40).default("Checkout"),
+    showUpsells: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "click"],
+});
+
+/** Cart Notice: কার্ট পেজ ও Cart Drawer-এ একটা ছোট বার্তা (যেমন "দুপুর ২টার আগে অর্ডারে আজই পাঠানো হয়") */
+export const cartNotice = defineTool({
+  id: "cart-notice",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["cart"],
+  delivery: "embed",
+  settings: z.object({
+    noticeText: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .default("Your items are not reserved. Check out soon so you don't miss them."),
+    icon: z.enum(["info", "truck", "gift", "clock", "plain"]).default("info"),
+    colors: themeColors({ background: "#F3F4F6" }),
+  }),
+  attribution: ["view"],
+});

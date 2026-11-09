@@ -206,6 +206,7 @@ export interface AjaxProduct {
   featured_image?: string | null;
   tags?: string[];
   created_at?: string;
+  variants?: Array<{ id: number; title: string; price: number; available: boolean }>;
 }
 
 const productCache = new Map<string, Promise<AjaxProduct | null>>();
