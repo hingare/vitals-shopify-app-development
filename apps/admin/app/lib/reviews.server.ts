@@ -167,61 +167,78 @@ export function shortName(name: string): string {
  * Dawn সহ বেশিরভাগ থিম এগুলো পড়ে প্রোডাক্ট কার্ডে স্টার দেখায়, আর Liquid দিয়ে JSON-LD বানানো যায়।
  */
 export async function syncProductRating(admin: GraphqlClient, shopId: string, productId: string) {
-  const summary = await ratingSummary(shopId, productId);
-  const ownerId = `gid://shopify/Product/${productId}`;
-  if (summary.count === 0) {
-    await admin.graphql(
-      `#graphql
-      mutation ClearProductRating($metafields: [MetafieldIdentifierInput!]!) {
-        metafieldsDelete(metafields: $metafields) { userErrors { message } }
-      }`,
+  await syncProductRatings(admin, shopId, [productId]);
+}
+
+/** অনেক প্রোডাক্টের রেটিং একসাথে (Shopify এক কলে সর্বোচ্চ ২৫টা metafield নেয়) */
+export async function syncProductRatings(
+  admin: GraphqlClient,
+  shopId: string,
+  productIds: string[],
+) {
+  const ids = [...new Set(productIds)];
+  if (ids.length === 0) return;
+  const rows = await db.review.groupBy({
+    by: ["productId", "rating"],
+    where: { shopId, productId: { in: ids }, status: "published" },
+    _count: { _all: true },
+  });
+  const set: Array<Record<string, string>> = [];
+  const clear: Array<Record<string, string>> = [];
+  for (const productId of ids) {
+    const summary = summarize(rows.filter((r) => r.productId === productId));
+    const ownerId = `gid://shopify/Product/${productId}`;
+    if (summary.count === 0) {
+      clear.push(
+        { ownerId, namespace: "reviews", key: "rating" },
+        { ownerId, namespace: "reviews", key: "rating_count" },
+      );
+      continue;
+    }
+    set.push(
       {
-        variables: {
-          metafields: [
-            { ownerId, namespace: "reviews", key: "rating" },
-            { ownerId, namespace: "reviews", key: "rating_count" },
-          ],
-        },
+        ownerId,
+        namespace: "reviews",
+        key: "rating",
+        type: "rating",
+        value: JSON.stringify({
+          value: summary.average.toFixed(1),
+          scale_min: "1.0",
+          scale_max: "5.0",
+        }),
+      },
+      {
+        ownerId,
+        namespace: "reviews",
+        key: "rating_count",
+        type: "number_integer",
+        value: String(summary.count),
       },
     );
-    return summary;
   }
-  const res = await admin.graphql(
-    `#graphql
-    mutation SetProductRating($metafields: [MetafieldsSetInput!]!) {
-      metafieldsSet(metafields: $metafields) { userErrors { field message } }
-    }`,
-    {
-      variables: {
-        metafields: [
-          {
-            ownerId,
-            namespace: "reviews",
-            key: "rating",
-            type: "rating",
-            value: JSON.stringify({
-              value: summary.average.toFixed(1),
-              scale_min: "1.0",
-              scale_max: "5.0",
-            }),
-          },
-          {
-            ownerId,
-            namespace: "reviews",
-            key: "rating_count",
-            type: "number_integer",
-            value: String(summary.count),
-          },
-        ],
-      },
-    },
-  );
-  const json = (await res.json()) as {
-    data?: { metafieldsSet?: { userErrors: Array<{ message: string }> } };
-  };
-  const errors = json.data?.metafieldsSet?.userErrors ?? [];
-  if (errors.length > 0) throw new Error(errors.map((e) => e.message).join(", "));
-  return summary;
+  for (let i = 0; i < set.length; i += 24) {
+    const res = await admin.graphql(
+      `#graphql
+      mutation SetProductRatings($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) { userErrors { field message } }
+      }`,
+      { variables: { metafields: set.slice(i, i + 24) } },
+    );
+    const json = (await res.json()) as {
+      data?: { metafieldsSet?: { userErrors: Array<{ message: string }> } };
+    };
+    const errors = json.data?.metafieldsSet?.userErrors ?? [];
+    if (errors.length > 0) throw new Error(errors.map((e) => e.message).join(", "));
+  }
+  for (let i = 0; i < clear.length; i += 24) {
+    await admin.graphql(
+      `#graphql
+      mutation ClearProductRatings($metafields: [MetafieldIdentifierInput!]!) {
+        metafieldsDelete(metafields: $metafields) { userErrors { message } }
+      }`,
+      { variables: { metafields: clear.slice(i, i + 24) } },
+    );
+  }
 }
 
 /** অ্যাডমিনের রিভিউ তালিকা */

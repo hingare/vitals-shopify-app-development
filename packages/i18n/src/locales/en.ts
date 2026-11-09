@@ -92,6 +92,28 @@ export const en = {
   "reviews.updated": "Reviews updated",
   "reviews.prev": "Previous",
   "reviews.next": "Next",
+  "reviews.import.title": "Import reviews",
+  "reviews.import.help":
+    "Upload a CSV file exported from Judge.me, Loox, Shopify Product Reviews or another app. Up to {max} reviews per file.",
+  "reviews.import.columns":
+    "Needed columns: rating, review text, and product ID or product handle. Name, email, title, date and reply are used when present.",
+  "reviews.import.file": "CSV file",
+  "reviews.import.publish": "Publish imported reviews right away",
+  "reviews.import.start": "Import",
+  "reviews.import.done": "Import finished",
+  "reviews.import.imported": "{n} reviews imported.",
+  "reviews.import.duplicates": "{n} reviews were already here and were skipped.",
+  "reviews.import.skipped": "{n} rows could not be imported.",
+  "reviews.import.tooMany":
+    "Only the first {max} rows were read. Split the file and import the rest.",
+  "reviews.import.rowError": "Row {line}: {reason}",
+  "reviews.import.reason.rating": "rating must be 1 to 5",
+  "reviews.import.reason.body": "review text is empty",
+  "reviews.import.reason.product": "no product ID or handle",
+  "reviews.import.reason.product_not_found": "product not found in this store",
+  "reviews.import.error.empty": "The file is empty.",
+  "reviews.import.error.too_large": "The file is too large. Split it into smaller files.",
+  "reviews.import.view": "View published reviews",
   "reviews.toolOff":
     "Product Reviews is off, so shoppers can't see or write reviews. Turn it on in Tools.",
   "option.bottom": "Bottom",

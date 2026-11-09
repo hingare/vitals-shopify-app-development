@@ -212,6 +212,9 @@ export default function ReviewsPage() {
 
   return (
     <s-page heading={t("nav.reviews")}>
+      <s-button slot="secondary-actions" href="/app/reviews/import">
+        {t("reviews.import.title")}
+      </s-button>
       {status === "pending" && reviews.length > 0 && (
         <s-button
           slot="primary-action"
