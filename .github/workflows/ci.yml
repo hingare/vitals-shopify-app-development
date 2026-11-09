@@ -21,3 +21,25 @@ jobs:
       - name: Test (includes widget bundle size budget)
         run: pnpm test
       - run: pnpm build
+
+  functions:
+    # Shopify Functions (Rust): টেস্ট, lint, আর wasm সাইজ Shopify-র ২৫৬KB সীমার নিচে কিনা
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin/extensions/offers-discount
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-wasip1
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - run: cargo build --target=wasm32-wasip1 --release
+      - name: Wasm size budget (256 KB)
+        run: |
+          size=$(stat -c %s target/wasm32-wasip1/release/offers-discount.wasm)
+          echo "offers-discount.wasm: $size bytes"
+          test "$size" -le 262144

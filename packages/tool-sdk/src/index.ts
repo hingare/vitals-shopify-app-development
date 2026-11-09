@@ -87,16 +87,19 @@ export function canUseTool(tool: AnyTool, plan: Plan): boolean {
   return plan === "professional" || tool.plan === "starter";
 }
 
-/** থিমের রং: প্রতিটি টুলে একই রকম রঙের সেটিং */
-export function themeColors() {
+/** থিমের রং: প্রতিটি টুলে একই রকম রঙের সেটিং (টুল চাইলে নিজের ডিফল্ট রং দিতে পারে) */
+export function themeColors(
+  defaults: { background?: string; text?: string; accent?: string } = {},
+) {
   const hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+  const d = { background: "#FFFFFF", text: "#111827", accent: "#4F46E5", ...defaults };
   return z
     .object({
-      background: hex.default("#FFFFFF"),
-      text: hex.default("#111827"),
-      accent: hex.default("#4F46E5"),
+      background: hex.default(d.background),
+      text: hex.default(d.text),
+      accent: hex.default(d.accent),
     })
-    .default({ background: "#FFFFFF", text: "#111827", accent: "#4F46E5" });
+    .default(d);
 }
 
 export interface Registry {

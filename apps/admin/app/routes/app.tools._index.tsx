@@ -63,6 +63,9 @@ export default function ToolsPage() {
 
   return (
     <s-page heading={t("tools.title")}>
+      <s-button slot="secondary-actions" href="/app/placement">
+        {t("placement.title")}
+      </s-button>
       <s-section>
         <s-stack direction="inline" gap="base">
           <s-search-field

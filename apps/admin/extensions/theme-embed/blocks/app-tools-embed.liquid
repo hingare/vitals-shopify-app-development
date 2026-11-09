@@ -10,20 +10,68 @@
       assetBase: {{ 'loader.js' | asset_url | split: 'loader.js' | first | json }},
       pageType: {{ request.page_type | json }},
       locale: {{ request.locale.iso_code | json }},
-      tools: {{ app_config.tools | json }}
+      currency: {{ cart.currency.iso_code | json }},
+      tzOffset: {{ 'now' | date: '%z' | json }},
+      tools: {{ app_config.tools | json }},
+      placement: {{ app_config.placement | json }},
+      offers: {{ app.metafields.app_config.offers.value | json }}
     };
   </script>
   {%- if request.page_type == 'product' -%}
     {%- assign variant = product.selected_or_first_available_variant -%}
     <script type="application/json" id="app-product-json">
       {
+        "productId": {{ product.id | json }},
         "title": {{ product.title | json }},
         "variantId": {{ variant.id | json }},
         "price": {{ variant.price | money | strip_html | json }},
-        "available": {{ variant.available | json }}
+        "priceCents": {{ variant.price | json }},
+        "available": {{ variant.available | json }},
+        "inventory": {
+          {%- assign first = true -%}
+          {%- for v in product.variants -%}
+            {%- if v.inventory_management == 'shopify' and v.inventory_policy == 'deny' -%}
+              {%- unless first -%},{%- endunless -%}"{{ v.id }}": {{ v.inventory_quantity | json }}
+              {%- assign first = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        }
       }
     </script>
+    {%- comment -%} রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে) {%- endcomment -%}
+    {%- assign reviews_on = false -%}
+    {%- for tool in app_config.tools -%}
+      {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
+    {%- endfor -%}
+    {%- assign rating_count = product.metafields.reviews.rating_count.value | default: 0 -%}
+    {%- if reviews_on and rating_count > 0 -%}
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": {{ product.title | json }},
+          "url": {{ request.origin | append: product.url | json }},
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": {{ product.metafields.reviews.rating.value.rating | json }},
+            "bestRating": 5,
+            "worstRating": 1,
+            "reviewCount": {{ rating_count | json }}
+          }
+        }
+      </script>
+    {%- endif -%}
   {%- endif -%}
+  {%- comment -%} পেমেন্ট লোগো: Shopify নিজেই স্টোরে চালু পেমেন্টের লোগো দেয় {%- endcomment -%}
+  {%- for tool in app_config.tools -%}
+    {%- if tool.id == 'payment-logos' -%}
+      <template id="app-payment-icons">
+        {%- for type in shop.enabled_payment_types -%}
+          {{ type | payment_type_svg_tag }}
+        {%- endfor -%}
+      </template>
+    {%- endif -%}
+  {%- endfor -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
 {%- endif -%}
 

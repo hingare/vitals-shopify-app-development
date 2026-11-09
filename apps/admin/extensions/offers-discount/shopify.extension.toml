@@ -1,0 +1,19 @@
+api_version = "2025-04"
+
+[[extensions]]
+name = "t:name"
+handle = "offers-discount"
+type = "function"
+description = "t:description"
+
+  # সব অফার (Volume Discounts, Bundles, পরে BOGO/Free Gift) একটাই automatic discount দিয়ে চলে।
+  # অফারের কনফিগ discount-এর metafield ($app:offers.config)-এ থাকে, অ্যাপ সেভ করলেই আপডেট হয়।
+  [[extensions.targeting]]
+  target = "cart.lines.discounts.generate.run"
+  input_query = "src/cart_lines_discounts_generate_run.graphql"
+  export = "cart_lines_discounts_generate_run"
+
+  [extensions.build]
+  command = "cargo build --target=wasm32-wasip1 --release"
+  path = "target/wasm32-wasip1/release/offers-discount.wasm"
+  watch = ["src/**/*.rs"]

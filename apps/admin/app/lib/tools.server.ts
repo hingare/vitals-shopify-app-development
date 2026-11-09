@@ -2,6 +2,8 @@ import { buildStoreConfig, registry } from "@app/tools";
 import { canUseTool, type Plan } from "@app/tool-sdk";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
+import { syncOffers } from "./offers.server";
+import { readPlacement } from "./placement";
 
 export const CONFIG_NAMESPACE = "app_config";
 export const CONFIG_KEY = "tools";
@@ -71,7 +73,10 @@ export async function syncStoreConfig(
   admin: GraphqlClient,
   shop: { id: string; plan: Plan | null },
 ) {
-  const rows = await db.toolSetting.findMany({ where: { shopId: shop.id } });
+  const [rows, shopRow] = await Promise.all([
+    db.toolSetting.findMany({ where: { shopId: shop.id } }),
+    db.shop.findUnique({ where: { id: shop.id }, select: { placement: true } }),
+  ]);
   const config = buildStoreConfig(
     registry,
     rows.map((r) => ({ toolId: r.toolId, enabled: r.enabled, settings: r.settings })),
@@ -83,6 +88,14 @@ export async function syncStoreConfig(
   const idJson = (await idRes.json()) as { data?: { currentAppInstallation?: { id: string } } };
   const ownerId = idJson.data?.currentAppInstallation?.id;
   if (!ownerId) throw new Error("Could not read app installation id");
+
+  // চেকআউটের অফার discount আর স্টোরফ্রন্টের অফার তালিকাও একই সাথে
+  const offersMetafield = await syncOffers(
+    admin,
+    shop,
+    ownerId,
+    config.tools.map((t) => t.id),
+  );
 
   const res = await admin.graphql(
     `#graphql
@@ -97,8 +110,9 @@ export async function syncStoreConfig(
             namespace: CONFIG_NAMESPACE,
             key: CONFIG_KEY,
             type: "json",
-            value: JSON.stringify(config),
+            value: JSON.stringify({ ...config, placement: readPlacement(shopRow?.placement) }),
           },
+          offersMetafield,
         ],
       },
     },

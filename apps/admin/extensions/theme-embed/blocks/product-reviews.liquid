@@ -1,0 +1,14 @@
+{% comment %}
+  রিভিউ তালিকা কোথায় বসবে তা মার্চেন্ট থিম এডিটরে ঠিক করেন।
+  আসল তালিকা app embed-এর রিভিউ টুল এখানে বসিয়ে দেয়; এই ব্লক না থাকলে প্রোডাক্ট সেকশনের পরে বসে।
+{% endcomment %}
+<div data-app-reviews id="app-product-reviews"></div>
+
+{% schema %}
+{
+  "name": "t:blocks.reviews.name",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "settings": []
+}
+{% endschema %}

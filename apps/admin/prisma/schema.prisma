@@ -35,29 +35,35 @@ model Session {
 
 /// একটি ইনস্টল করা স্টোর
 model Shop {
-  id             String          @id @default(cuid())
-  domain         String          @unique
+  id               String             @id @default(cuid())
+  domain           String             @unique
   /// "starter" | "professional" | null (কোনো প্ল্যান নেই)
-  plan           String?
+  plan             String?
   /// Shopify-র subscription id, যাতে প্ল্যান বদলালে মেলানো যায়
-  subscriptionId String?
-  installedAt    DateTime        @default(now())
-  uninstalledAt  DateTime?
+  subscriptionId   String?
+  installedAt      DateTime           @default(now())
+  uninstalledAt    DateTime?
   /// Web Pixel ইভেন্ট পাঠানোর গোপন নয় এমন চাবি (কোন স্টোরের ইভেন্ট তা চেনার জন্য)
-  ingestKey      String?         @unique
+  ingestKey        String?            @unique
   /// Shopify-তে তৈরি web pixel-এর id ও যে URL-এ সে ইভেন্ট পাঠায়
-  pixelId        String?
-  pixelEndpoint  String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  tools          ToolSetting[]
-  speedSnapshots SpeedSnapshot[]
-  speedJobs      SpeedJob[]
-  dailyStats     DailyToolStat[]
-  storeStats     DailyStoreStat[]
-  trafficStats   DailyTrafficStat[]
-  pageStats      DailyPageStat[]
-  visitorDays    VisitorDay[]
+  pixelId          String?
+  pixelEndpoint    String?
+  /// সব অফারের জন্য আমাদের একটাই automatic app discount (Shopify gid)
+  offersDiscountId String?
+  /// থিমে উইজেট কোথায় বসবে, মার্চেন্ট নিজে ঠিক করলে (app/lib/placement.ts)
+  placement        Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  tools            ToolSetting[]
+  speedSnapshots   SpeedSnapshot[]
+  speedJobs        SpeedJob[]
+  dailyStats       DailyToolStat[]
+  storeStats       DailyStoreStat[]
+  trafficStats     DailyTrafficStat[]
+  pageStats        DailyPageStat[]
+  visitorDays      VisitorDay[]
+  reviews          Review[]
+  offers           Offer[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -181,4 +187,68 @@ model VisitorDay {
   shop    Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@id([shopId, date, visitor])
+}
+
+/// ক্রেতার রিভিউ। productId null মানে স্টোর রিভিউ (কোনো প্রোডাক্টের নয়)
+model Review {
+  id          String        @id @default(cuid())
+  shopId      String
+  /// Shopify প্রোডাক্টের সংখ্যা-id (gid ছাড়া)
+  productId   String?
+  /// ১ থেকে ৫
+  rating      Int
+  title       String?
+  body        String
+  authorName  String
+  /// শুধু মার্চেন্ট দেখেন; স্টোরে কখনো দেখানো হয় না; GDPR redact এলে মুছে যায়
+  authorEmail String?
+  /// অর্ডার থেকে নিশ্চিত ক্রেতা
+  verified    Boolean       @default(false)
+  /// pending | published | rejected
+  status      String        @default("pending")
+  /// form | import | request | manual
+  source      String        @default("form")
+  /// মার্চেন্টের উত্তর (স্টোরে রিভিউর নিচে দেখায়)
+  reply       String?
+  repliedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  shop        Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  media       ReviewMedia[]
+
+  @@index([shopId, productId, status, createdAt])
+  @@index([shopId, status, createdAt])
+  @@index([shopId, authorEmail])
+}
+
+/// রিভিউর ছবি। ফাইল মার্চেন্টের Shopify Files-এ থাকে (আমাদের সার্ভারে নয়), তাই স্টোরেজ খরচ নেই
+model ReviewMedia {
+  id        String   @id @default(cuid())
+  reviewId  String
+  /// Shopify-র MediaImage gid
+  fileId    String
+  /// Shopify ছবি প্রসেস শেষ করলে CDN URL আসে; তার আগে null
+  url       String?
+  createdAt DateTime @default(now())
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@index([reviewId])
+}
+
+/// Volume Discount বা Bundle অফার। চেকআউটে একটাই Shopify discount function সব অফার চালায়
+model Offer {
+  id        String   @id @default(cuid())
+  shopId    String
+  /// volume | bundle
+  type      String
+  /// শুধু মার্চেন্টের জন্য নাম
+  name      String
+  active    Boolean  @default(true)
+  /// টাইপ অনুযায়ী সেটিংস (offers.server.ts-এর zod schema দিয়ে যাচাই করা)
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, type])
 }

@@ -6,8 +6,8 @@ import { defineConfig } from "vite";
 const toolsDir = resolve(__dirname, "src/tools");
 const toolEntries = Object.fromEntries(
   readdirSync(toolsDir)
-    .filter((f) => f.endsWith(".tsx"))
-    .map((f) => [`tool-${f.replace(/\.tsx$/, "")}`, resolve(toolsDir, f)]),
+    .filter((f) => /\.tsx?$/.test(f) && !f.includes(".test."))
+    .map((f) => [`tool-${f.replace(/\.tsx?$/, "")}`, resolve(toolsDir, f)]),
 );
 
 export default defineConfig({

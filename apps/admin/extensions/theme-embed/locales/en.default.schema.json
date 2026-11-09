@@ -1,3 +1,34 @@
 {
-  "name": "App tools"
+  "name": "App tools",
+  "blocks": {
+    "reviews": {
+      "name": "Product reviews"
+    },
+    "rating": {
+      "name": "Star rating",
+      "color": "Star color",
+      "show_empty": "Show when there are no reviews"
+    },
+    "store_reviews": {
+      "name": "Store reviews"
+    },
+    "volume_discounts": {
+      "name": "Volume discount table"
+    },
+    "bundles": {
+      "name": "Bundle box"
+    },
+    "trust_seals": {
+      "name": "Trust badges"
+    },
+    "payment_logos": {
+      "name": "Payment logos"
+    },
+    "countdown_timer": {
+      "name": "Countdown timer"
+    },
+    "stock_scarcity": {
+      "name": "Low stock message"
+    }
+  }
 }
