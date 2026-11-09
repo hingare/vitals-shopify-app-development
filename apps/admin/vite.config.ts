@@ -41,6 +41,12 @@ export default defineConfig({
     },
     port: Number(process.env.PORT || 3000),
     hmr: hmrConfig,
+    watch: {
+      // Extensions are built and watched by the Shopify CLI. Watching them here also
+      // watches the Rust function's target/ folder, and on Windows Vite crashes with
+      // EBUSY when cargo locks a .dll it is writing.
+      ignored: ["**/extensions/**"],
+    },
     fs: {
       // See https://vitejs.dev/config/server-options.html#server-fs-allow for more information
       allow: ["app", "node_modules"],

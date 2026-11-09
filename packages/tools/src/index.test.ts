@@ -1,4 +1,6 @@
 import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { buildStoreConfig, registry } from "./index";
 
@@ -10,10 +12,11 @@ describe("tool catalog", () => {
   });
 
   it("every storefront tool has a widget file", () => {
-    const widgets = new URL("../../widgets/src/tools/", import.meta.url).pathname;
+    // fileURLToPath, not URL.pathname: on Windows pathname is "/D:/..." with %20 for spaces.
+    const widgets = fileURLToPath(new URL("../../widgets/src/tools/", import.meta.url));
     const missing = registry.all
       .filter((tool) => tool.delivery === "embed" || tool.delivery === "block")
-      .filter((tool) => !["ts", "tsx"].some((ext) => existsSync(`${widgets}${tool.id}.${ext}`)))
+      .filter((tool) => !["ts", "tsx"].some((ext) => existsSync(join(widgets, `${tool.id}.${ext}`))))
       .map((tool) => tool.id);
     expect(missing).toEqual([]);
   });

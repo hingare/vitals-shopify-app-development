@@ -1,10 +1,13 @@
 // পারফরম্যান্স বাজেট: লোডার ৫KB আর প্রতিটি টুল ১০KB gzip-এর বেশি হলে CI ফেল করবে।
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 
-const dist = new URL("../../../apps/admin/extensions/theme-embed/assets/", import.meta.url)
-  .pathname;
+// fileURLToPath, not URL.pathname: on Windows pathname is "/D:/..." with %20 for spaces.
+const dist = fileURLToPath(
+  new URL("../../../apps/admin/extensions/theme-embed/assets/", import.meta.url),
+);
 const LIMITS = { loader: 5 * 1024, tool: 10 * 1024, chunk: 10 * 1024 };
 let failed = false;
 
