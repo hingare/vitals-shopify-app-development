@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildStoreConfig, registry } from "./index";
 
@@ -6,6 +7,15 @@ describe("tool catalog", () => {
     for (const tool of registry.all) {
       expect(() => tool.settings.parse({})).not.toThrow();
     }
+  });
+
+  it("every storefront tool has a widget file", () => {
+    const widgets = new URL("../../widgets/src/tools/", import.meta.url).pathname;
+    const missing = registry.all
+      .filter((tool) => tool.delivery === "embed" || tool.delivery === "block")
+      .filter((tool) => !["ts", "tsx"].some((ext) => existsSync(`${widgets}${tool.id}.${ext}`)))
+      .map((tool) => tool.id);
+    expect(missing).toEqual([]);
   });
 });
 

@@ -113,5 +113,8 @@ export function mount({ config, settings }: ToolContext) {
     // private mode
   }
   track(TOOL_ID, "view");
-  render(<Bar s={s} messages={messages} locale={config.locale} />, barHost(s.position, s.sticky));
+  render(
+    <Bar s={s} messages={messages} locale={config.locale} />,
+    barHost(s.position, TOOL_ID, s.sticky),
+  );
 }

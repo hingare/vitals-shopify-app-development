@@ -12,7 +12,9 @@ export function fill(template: string, vars: Record<string, string | number>) {
  * উপরে বা নিচে বারের জায়গা। একাধিক বার (ঘোষণা, স্পেন্ডিং গোল) একটার নিচে আরেকটা বসে, একে অন্যকে ঢাকে না।
  * উপরের বার পেজের শুরুতে বসে (কনটেন্ট নিচে সরে); নিচেরটা স্ক্রিনে আটকে থাকে।
  */
-export function barHost(position: "top" | "bottom", sticky = false): HTMLElement {
+const BAR_ORDER = ["announcement-bar", "spending-goal"];
+
+export function barHost(position: "top" | "bottom", name: string, sticky = false): HTMLElement {
   const id = `app-bars-${position}`;
   let stack = document.getElementById(id);
   if (!stack) {
@@ -28,7 +30,12 @@ export function barHost(position: "top" | "bottom", sticky = false): HTMLElement
     stack.style.cssText = "position:sticky;top:0;z-index:2147482000";
   }
   const host = document.createElement("div");
-  stack.appendChild(host);
+  host.dataset.appWidget = name;
+  const rank = (n?: string) => BAR_ORDER.indexOf(n ?? "") + 1 || 99;
+  const next = [...stack.children].find(
+    (child) => rank((child as HTMLElement).dataset.appWidget) > rank(name),
+  );
+  stack.insertBefore(host, next ?? null);
   return host;
 }
 

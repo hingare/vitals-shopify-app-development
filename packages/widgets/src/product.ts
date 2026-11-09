@@ -46,6 +46,7 @@ const AFTER_FORM_ORDER = [
   "bundles",
   "trust-seals",
   "payment-logos",
+  "social-buttons",
 ];
 
 /**
@@ -80,7 +81,7 @@ export function placeAfterProductForm(slot: string): HTMLElement {
   return host;
 }
 
-function productForm(): HTMLFormElement | null {
+export function productForm(): HTMLFormElement | null {
   return document.querySelector<HTMLFormElement>(
     'main form[action*="/cart/add"]:not([id*="installment"])',
   );

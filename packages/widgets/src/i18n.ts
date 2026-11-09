@@ -57,6 +57,10 @@ const strings = {
     copy: "Copy",
     copied: "Copied",
     chat: "Chat with us",
+    backToTop: "Back to top",
+    share: "Share on",
+    copyLink: "Copy link",
+    linkCopied: "Link copied",
   },
 } satisfies Record<string, Record<string, string>>;
 

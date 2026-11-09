@@ -176,6 +176,45 @@ export const en = {
   "option.home": "Home page only",
   "option.product": "Product pages only",
 
+  "tool.scroll-to-top.name": "Scroll to Top",
+  "tool.scroll-to-top.description":
+    "A small button that takes shoppers back to the top of long pages.",
+  "tool.inactive-tab-message.name": "Inactive Tab Message",
+  "tool.inactive-tab-message.description":
+    "Changes the browser tab title when shoppers switch to another tab, to bring them back.",
+  "tool.content-protection.name": "Content Protection",
+  "tool.content-protection.description":
+    "Makes it harder to copy your product photos and text. It can't stop a determined copier, but stops casual copying.",
+  "tool.animated-atc.name": "Animated Add to Cart",
+  "tool.animated-atc.description":
+    "Gently animates the Add to cart button every few seconds so shoppers notice it.",
+  "tool.social-buttons.name": "Social Share Buttons",
+  "tool.social-buttons.description":
+    "Buttons on product pages to share the product on social apps or copy its link.",
+  "tool.auto-external-links.name": "Auto External Links",
+  "tool.auto-external-links.description":
+    "Opens links to other websites in a new tab, so shoppers don't leave your store.",
+  "tool.favicon-cart-count.name": "Favicon Cart Count",
+  "tool.favicon-cart-count.description":
+    "Shows the number of items in the cart on the browser tab icon.",
+  "field.showAfter": "Show after scrolling (px)",
+  "field.onlyWithCart": "Only when the cart has items",
+  "field.protectImages": "Stop right-click and dragging on images",
+  "field.disableTextSelection": "Stop selecting text",
+  "field.disableRightClick": "Stop right-click everywhere",
+  "field.disableShortcuts": "Stop copy, save and print shortcuts",
+  "field.animation": "Animation",
+  "field.intervalSeconds": "Seconds between animations",
+  "field.networks": "Buttons",
+  "option.shake": "Shake",
+  "option.pulse": "Pulse",
+  "option.bounce": "Bounce",
+  "option.wobble": "Wobble",
+  "option.facebook": "Facebook",
+  "option.x": "X",
+  "option.pinterest": "Pinterest",
+  "option.copy": "Copy link",
+
   "offers.newVolume": "New volume discount",
   "offers.newBundle": "New bundle",
   "offers.toolsOff":

@@ -82,5 +82,5 @@ export function mount({ config, settings }: ToolContext) {
   const s = settings as unknown as Settings;
   if (!s.showOnMobile && isMobile()) return;
   track(TOOL_ID, "view");
-  render(<GoalBar s={s} config={config} />, barHost(s.position));
+  render(<GoalBar s={s} config={config} />, barHost(s.position, TOOL_ID));
 }
