@@ -31,8 +31,145 @@ export const bundles = defineTool({
   attribution: ["view", "click", "add_to_cart"],
 });
 
+/**
+ * Free Gifts: শর্ত পূরণ হলে (যেমন নির্দিষ্ট টাকার কেনাকাটা) একটা প্রোডাক্ট ফ্রি।
+ * স্টোরফ্রন্ট গিফটটা নিজে কার্টে যোগ করে, আর চেকআউট function সত্যিই ফ্রি হলে তবেই রাখে।
+ */
+export const freeGifts = defineTool({
+  id: "free-gifts",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["all", "cart", "checkout"],
+  delivery: "function",
+  settings: z.object({
+    autoAdd: z.boolean().default(true),
+    showProgress: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "add_to_cart"],
+});
+
+/** Buy X Get Y (BOGO): কয়েকটা কিনলে পরেরটা ফ্রি বা ছাড়ে */
+export const bogo = defineTool({
+  id: "bogo",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["product", "cart", "checkout"],
+  delivery: "function",
+  settings: z.object({
+    showBadge: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "add_to_cart"],
+});
+
+/**
+ * Upsell Builder: কার্টে যোগের পর পপআপ, প্রোডাক্ট পেজ আর কার্টে "এটাও নিন" প্রস্তাব,
+ * চাইলে প্রস্তাবিত প্রোডাক্টে ছাড়। অফার Offers পেজে বানানো হয়।
+ */
+export const upsells = defineTool({
+  id: "upsells",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["product", "cart", "checkout"],
+  delivery: "function",
+  settings: z.object({
+    popupAfterAdd: z.boolean().default(true),
+    showOnProduct: z.boolean().default(true),
+    showInCart: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "click", "add_to_cart"],
+});
+
 /** কোন টুল কোন ধরনের অফার চালায় */
 export const OFFER_TOOL_BY_TYPE = {
   volume: volumeDiscounts.id,
   bundle: bundles.id,
+  gift: freeGifts.id,
+  bogo: bogo.id,
+  upsell: upsells.id,
 } as const;
+
+/**
+ * Cart Drawer: পাশ থেকে খোলা কার্ট, পরিমাণ বদলানো, ছাড় ও মোট দাম, upsell আর চেকআউট বাটন।
+ * কার্টে কিছু যোগ হলে বা কার্ট আইকনে চাপলে খোলে।
+ */
+export const cartDrawer = defineTool({
+  id: "cart-drawer",
+  category: "upsell",
+  plan: "starter",
+  surfaces: ["all"],
+  delivery: "embed",
+  settings: z.object({
+    openOnAdd: z.boolean().default(true),
+    replaceThemeCart: z.boolean().default(true),
+    title: z.string().trim().max(60).default("Your cart"),
+    checkoutText: z.string().trim().max(40).default("Checkout"),
+    showUpsells: z.boolean().default(true),
+    colors: themeColors(),
+  }),
+  attribution: ["view", "click"],
+});
+
+/** Cart Notice: কার্ট পেজ ও Cart Drawer-এ একটা ছোট বার্তা (যেমন "দুপুর ২টার আগে অর্ডারে আজই পাঠানো হয়") */
+export const cartNotice = defineTool({
+  id: "cart-notice",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["cart"],
+  delivery: "embed",
+  settings: z.object({
+    noticeText: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .default("Your items are not reserved. Check out soon so you don't miss them."),
+    icon: z.enum(["info", "truck", "gift", "clock", "plain"]).default("info"),
+    colors: themeColors({ background: "#F3F4F6" }),
+  }),
+  attribution: ["view"],
+});
+
+/**
+ * Accelerated Checkout: প্রোডাক্ট পেজে "এখনই কিনুন" বাটন (ফর্মের সব তথ্যসহ সোজা চেকআউটে),
+ * আর চাইলে Add to cart চাপলেই কার্ট এড়িয়ে চেকআউটে।
+ */
+export const acceleratedCheckout = defineTool({
+  id: "accelerated-checkout",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["product"],
+  delivery: "embed",
+  settings: z.object({
+    buyNowButton: z.boolean().default(true),
+    buttonText: z.string().trim().min(1).max(40).default("Buy it now"),
+    skipCart: z.boolean().default(false),
+    colors: themeColors(),
+  }),
+  attribution: ["click", "add_to_cart"],
+});
+
+/**
+ * Pre-Orders: স্টক শেষ কিন্তু "স্টক না থাকলেও বিক্রি চালু" এমন ভ্যারিয়েন্টে বাটন "Pre-order" হয়,
+ * কবে পাঠানো হবে তা দেখায়, আর অর্ডারের লাইনে "Pre-order" লেখা যায় যাতে মার্চেন্ট চেনেন।
+ */
+export const preOrders = defineTool({
+  id: "pre-orders",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["product"],
+  delivery: "embed",
+  settings: z.object({
+    buttonText: z.string().trim().min(1).max(40).default("Pre-order"),
+    preorderMessage: z.string().trim().max(160).default("Pre-order now. Ships by {date}."),
+    shipDate: z
+      .string()
+      .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
+      .default(""),
+    onlyTag: z.string().trim().max(60).default(""),
+    colors: themeColors({ background: "#EEF2FF" }),
+  }),
+  attribution: ["view", "add_to_cart"],
+});

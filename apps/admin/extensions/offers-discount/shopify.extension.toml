@@ -13,6 +13,11 @@ description = "t:description"
   input_query = "src/cart_lines_discounts_generate_run.graphql"
   export = "cart_lines_discounts_generate_run"
 
+  # অফারে ব্যবহার হওয়া ক্রেতার ট্যাগগুলো (customerTags) এই metafield থেকে query-তে যায়
+  [extensions.input.variables]
+  namespace = "$app:offers"
+  key = "input"
+
   [extensions.build]
   command = "cargo build --target=wasm32-wasip1 --release"
   path = "target/wasm32-wasip1/release/offers-discount.wasm"

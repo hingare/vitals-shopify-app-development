@@ -4,6 +4,7 @@ import type { StoreOffers, ToolContext } from "../types";
 import { widgetT, type WidgetString } from "../i18n";
 import { attribute, track } from "../analytics";
 import { discounted, money, placeAfterProductForm, readPageProduct } from "../product";
+import { offerShown, syncAbGroup } from "../offers";
 
 const TOOL_ID = "bundles";
 
@@ -87,7 +88,7 @@ function BundleBox({
       });
       if (!res.ok) throw new Error("cart");
       track(TOOL_ID, "add_to_cart");
-      attribute(TOOL_ID);
+      void attribute(TOOL_ID);
       setState("added");
       document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
     } catch {
@@ -186,11 +187,14 @@ function BundleBox({
 
 /** প্রোডাক্ট পেজে "একসাথে কিনুন" বক্স: এই প্রোডাক্ট যে বান্ডেলে আছে তার প্রথমটা */
 export function mount({ config, settings }: ToolContext) {
+  syncAbGroup(config);
   if (config.pageType !== "product") return;
   const product = readPageProduct();
   if (!product) return;
   const id = String(product.productId);
-  const bundle = config.offers?.bundles.find((b) => b.items.some((i) => i.productId === id));
+  const bundle = config.offers?.bundles.find(
+    (b) => offerShown(b.rules, config) && b.items.some((i) => i.productId === id),
+  );
   if (!bundle) return;
   track(TOOL_ID, "view");
   render(

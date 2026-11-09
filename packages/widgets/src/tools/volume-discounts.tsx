@@ -3,6 +3,7 @@ import type { OfferValue, ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { discounted, money, placeAfterProductForm, readPageProduct } from "../product";
+import { offerShown, syncAbGroup } from "../offers";
 
 const TOOL_ID = "volume-discounts";
 
@@ -19,12 +20,13 @@ function label(value: OfferValue, format: (cents: number) => string) {
 /** প্রোডাক্ট পেজে "বেশি কিনলে বেশি ছাড়" টেবিল */
 export function mount({ config, settings }: ToolContext) {
   const s = settings as unknown as Settings;
+  syncAbGroup(config);
   if (config.pageType !== "product" || !s.showTable) return;
   const product = readPageProduct();
   if (!product) return;
   const id = String(product.productId);
   const offer = config.offers?.volume.find(
-    (o) => o.productIds.length === 0 || o.productIds.includes(id),
+    (o) => offerShown(o.rules, config) && (o.productIds.length === 0 || o.productIds.includes(id)),
   );
   if (!offer || offer.tiers.length === 0) return;
 

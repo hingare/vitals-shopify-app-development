@@ -12,6 +12,8 @@ export interface PageProduct {
   compareAtCents?: number;
   /** ভেরিয়েন্ট id → স্টকে কয়টা আছে (শুধু যেগুলোর স্টক Shopify গোনে) */
   inventory?: Record<string, number>;
+  /** স্টক শেষ কিন্তু বিক্রি চালু এমন ভ্যারিয়েন্ট (Pre-Orders) */
+  preorder?: number[];
 }
 
 export function readPageProduct(): PageProduct | null {
@@ -49,6 +51,7 @@ const AFTER_FORM_ORDER = [
   "countdown-timer",
   "stock-scarcity",
   "volume-discounts",
+  "bogo",
   "bundles",
   "trust-seals",
   "payment-logos",
@@ -205,6 +208,7 @@ export interface AjaxProduct {
   featured_image?: string | null;
   tags?: string[];
   created_at?: string;
+  variants?: Array<{ id: number; title: string; price: number; available: boolean }>;
 }
 
 const productCache = new Map<string, Promise<AjaxProduct | null>>();

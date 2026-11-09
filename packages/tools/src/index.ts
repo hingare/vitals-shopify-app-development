@@ -7,7 +7,17 @@ import {
   spendingGoal,
   stockScarcity,
 } from "./conversion";
-import { bundles, volumeDiscounts } from "./offers";
+import {
+  acceleratedCheckout,
+  bogo,
+  bundles,
+  cartDrawer,
+  cartNotice,
+  freeGifts,
+  preOrders,
+  upsells,
+  volumeDiscounts,
+} from "./offers";
 import { productReviews } from "./product-reviews";
 import { cookiesBanner, currencyConverter, geolocationRedirect } from "./shopify-alternatives";
 import {
@@ -40,6 +50,13 @@ export const registry = createRegistry([
   productReviews,
   volumeDiscounts,
   bundles,
+  freeGifts,
+  bogo,
+  upsells,
+  cartDrawer,
+  cartNotice,
+  acceleratedCheckout,
+  preOrders,
   spendingGoal,
   trustSeals,
   paymentLogos,
@@ -73,7 +90,18 @@ export const registry = createRegistry([
 export { buildStoreConfig } from "./config";
 export type { SavedToolState, StoreToolConfig } from "./config";
 export { productReviews } from "./product-reviews";
-export { bundles, OFFER_TOOL_BY_TYPE, volumeDiscounts } from "./offers";
+export {
+  acceleratedCheckout,
+  bogo,
+  bundles,
+  cartDrawer,
+  cartNotice,
+  freeGifts,
+  OFFER_TOOL_BY_TYPE,
+  preOrders,
+  upsells,
+  volumeDiscounts,
+} from "./offers";
 export { CHAT_CHANNELS } from "./conversion";
 export { TRUST_BADGES } from "./trust";
 export { SHARE_NETWORKS } from "./small";

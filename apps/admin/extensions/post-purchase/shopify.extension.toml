@@ -1,0 +1,6 @@
+# পেমেন্টের পর এক ক্লিকে আপসেল: ক্রেতা আবার কার্ড না দিয়েই একই অর্ডারে প্রোডাক্ট যোগ করেন।
+# লাইভ স্টোরে চালাতে Partner Dashboard থেকে post-purchase extension-এর অনুমতি চাইতে হয়
+# (ডেভেলপমেন্ট স্টোরে লাগে না)।
+name = "post-purchase-upsell"
+handle = "post-purchase-upsell"
+type = "checkout_post_purchase"

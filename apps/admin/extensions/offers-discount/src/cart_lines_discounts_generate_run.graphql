@@ -1,6 +1,29 @@
-query Input {
+query Input($customerTags: [String!]) {
   presentmentCurrencyRate
+  shop {
+    localTime {
+      date
+    }
+  }
+  localization {
+    country {
+      isoCode
+    }
+  }
   cart {
+    abGroup: attribute(key: "_app_ab") {
+      value
+    }
+    buyerIdentity {
+      isAuthenticated
+      customer {
+        numberOfOrders
+        hasTags(tags: $customerTags) {
+          tag
+          hasTag
+        }
+      }
+    }
     lines {
       id
       quantity

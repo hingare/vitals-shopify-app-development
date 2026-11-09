@@ -1,0 +1,21 @@
+# চেকআউটের অর্ডার সারাংশের নিচে আপসেল (শুধু Shopify Plus স্টোরে চেকআউটের ধাপে দেখায়)।
+# অফারের তালিকা শপের app-owned metafield ($app:checkout.offers) থেকে আসে, অ্যাপ সেভ করলেই আপডেট হয়।
+# ছাড় আলাদা করে দেওয়া হয় না: offers-discount function যোগ করা প্রোডাক্টে নিজেই ছাড় বসায়।
+api_version = "2026-10"
+
+[[extensions]]
+name = "t:name"
+handle = "checkout-upsell"
+type = "ui_extension"
+
+  [[extensions.targeting]]
+  module = "./src/Checkout.tsx"
+  target = "purchase.checkout.cart-line-list.render-after"
+
+  [extensions.capabilities]
+  # প্রোডাক্টের নাম, ছবি আর দাম Storefront API থেকে
+  api_access = true
+
+  [[extensions.metafields]]
+  namespace = "$app:checkout"
+  key = "offers"

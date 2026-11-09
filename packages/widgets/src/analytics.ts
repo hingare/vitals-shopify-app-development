@@ -33,23 +33,26 @@ export function track(toolId: string, type: EventType) {
 }
 
 /** কার্টে যোগের পর ডাকুন: এই টুলকে অর্ডারের কৃতিত্ব দেওয়ার জন্য */
-export function attribute(toolId: string) {
+export function attribute(toolId: string): Promise<void> {
   let tools: string[] = [];
   try {
     tools = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "[]") as string[];
   } catch {
     tools = [];
   }
-  if (tools.includes(toolId)) return;
+  if (tools.includes(toolId)) return Promise.resolve();
   tools.push(toolId);
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(tools));
   } catch {
     // private mode: attribution still sent below
   }
-  fetch("/cart/update.js", {
+  return fetch("/cart/update.js", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ attributes: { [ATTRIBUTE]: tools.join(",") } }),
-  }).catch(() => {});
+  }).then(
+    () => undefined,
+    () => undefined,
+  );
 }

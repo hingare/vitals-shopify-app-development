@@ -84,16 +84,19 @@ export async function syncStoreConfig(
   );
 
   const idRes = await admin.graphql(`#graphql
-    query AppInstallationId { currentAppInstallation { id } }`);
-  const idJson = (await idRes.json()) as { data?: { currentAppInstallation?: { id: string } } };
+    query AppInstallationId { currentAppInstallation { id } shop { id } }`);
+  const idJson = (await idRes.json()) as {
+    data?: { currentAppInstallation?: { id: string }; shop?: { id: string } };
+  };
   const ownerId = idJson.data?.currentAppInstallation?.id;
-  if (!ownerId) throw new Error("Could not read app installation id");
+  const shopGid = idJson.data?.shop?.id;
+  if (!ownerId || !shopGid) throw new Error("Could not read app installation id");
 
-  // চেকআউটের অফার discount আর স্টোরফ্রন্টের অফার তালিকাও একই সাথে
-  const offersMetafield = await syncOffers(
+  // চেকআউটের অফার discount আর স্টোরফ্রন্ট ও চেকআউটের অফার তালিকাও একই সাথে
+  const offersMetafields = await syncOffers(
     admin,
     shop,
-    ownerId,
+    { installationId: ownerId, shopGid },
     config.tools.map((t) => t.id),
   );
 
@@ -112,7 +115,7 @@ export async function syncStoreConfig(
             type: "json",
             value: JSON.stringify({ ...config, placement: readPlacement(shopRow?.placement) }),
           },
-          offersMetafield,
+          ...offersMetafields,
         ],
       },
     },

@@ -1,6 +1,7 @@
-use crate::offers::{calculate, Applied, Config, Line};
+use crate::offers::{calculate, Applied, Config, Context, Line};
 use shopify_function::prelude::*;
 use shopify_function::Result;
+use std::collections::HashSet;
 
 // কার্টের লাইন থেকে অফারের ছাড় বের করে Shopify-কে দেয়।
 // কনফিগ না থাকলে বা ভুল হলে কোনো ছাড় দেয় না (চেকআউট কখনো ভাঙে না)।
@@ -36,6 +37,10 @@ fn cart_lines_discounts_generate_run(
                     .id
                     .trim_start_matches("gid://shopify/Product/")
                     .to_string(),
+                variant_id: v
+                    .id
+                    .trim_start_matches("gid://shopify/ProductVariant/")
+                    .to_string(),
                 quantity: l.quantity,
                 unit_price: l.cost.amount_per_quantity.amount.0,
             }),
@@ -43,7 +48,31 @@ fn cart_lines_discounts_generate_run(
         })
         .collect();
 
-    let discounts = calculate(&config, &lines, input.presentment_currency_rate.0);
+    let buyer = input.cart.buyer_identity.as_ref();
+    let customer = buyer.and_then(|b| b.customer.as_ref());
+    let ctx = Context {
+        today: input.shop.local_time.date.to_string(),
+        rate: input.presentment_currency_rate.0,
+        logged_in: buyer.map(|b| b.is_authenticated).unwrap_or(false),
+        orders_count: customer.map(|c| c.number_of_orders),
+        tags: customer
+            .map(|c| {
+                c.has_tags
+                    .iter()
+                    .filter(|t| t.has_tag)
+                    .map(|t| t.tag.clone())
+                    .collect::<HashSet<String>>()
+            })
+            .unwrap_or_default(),
+        // enum-এর Debug নাম ব্যবহার করলে wasm অনেক বড় হয়, তাই serde দিয়ে ISO কোড
+        country: serde_json::to_value(&input.localization.country.iso_code)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default(),
+        ab_group: input.cart.ab_group.as_ref().and_then(|a| a.value.clone()),
+    };
+
+    let discounts = calculate(&config, &lines, &ctx);
     if discounts.is_empty() {
         return Ok(empty);
     }
@@ -95,7 +124,9 @@ mod tests {
         let input = format!(
             r#"{{
               "presentmentCurrencyRate": "1.0",
-              "cart": {{ "lines": [
+              "shop": {{ "localTime": {{ "date": "2026-11-09" }} }},
+              "localization": {{ "country": {{ "isoCode": "BD" }} }},
+              "cart": {{ "abGroup": null, "buyerIdentity": null, "lines": [
                 {{ "id": "gid://shopify/CartLine/1", "quantity": 3,
                    "cost": {{ "amountPerQuantity": {{ "amount": "10.0" }} }},
                    "merchandise": {{ "__typename": "ProductVariant", "id": "gid://shopify/ProductVariant/9",
