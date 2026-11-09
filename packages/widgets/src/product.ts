@@ -6,6 +6,10 @@ export interface PageProduct {
   price: string;
   priceCents: number;
   available: boolean;
+  handle?: string;
+  tags?: string[];
+  createdAt?: string;
+  compareAtCents?: number;
   /** ভেরিয়েন্ট id → স্টকে কয়টা আছে (শুধু যেগুলোর স্টক Shopify গোনে) */
   inventory?: Record<string, number>;
 }
@@ -40,6 +44,8 @@ export function discounted(cents: number, value: { percent?: number; amountEach?
 
 /** Add to cart-এর নিচে উইজেটগুলোর ক্রম (ফাইল যে ক্রমেই লোড হোক, সাজানো থাকে একই রকম) */
 const AFTER_FORM_ORDER = [
+  "shipping-info",
+  "size-chart",
   "countdown-timer",
   "stock-scarcity",
   "volume-discounts",
@@ -47,6 +53,9 @@ const AFTER_FORM_ORDER = [
   "trust-seals",
   "payment-logos",
   "social-buttons",
+  // মূল প্রোডাক্ট সেকশনের পরে
+  "related-products",
+  "recently-viewed",
 ];
 
 /**
@@ -163,4 +172,57 @@ export function placeNearCheckout(slot: string): HTMLElement {
     },
     slot,
   );
+}
+
+/** স্টোরের ভাষা অনুযায়ী পথের শুরু, যেমন "/" বা "/fr/" */
+export const root = () => window.Shopify?.routes?.root ?? "/";
+
+/** মূল প্রোডাক্ট সেকশনের ঠিক পরে (সুপারিশ, আগে দেখা প্রোডাক্ট) */
+export function placeAfterProductSection(slot: string): HTMLElement {
+  const block = slotHost(slot);
+  if (block) return block;
+  return ordered(
+    "app-after-section",
+    (box) =>
+      put(
+        box,
+        productForm()?.closest<HTMLElement>(".shopify-section") ??
+          document.querySelector<HTMLElement>("main .shopify-section"),
+      ),
+    slot,
+  );
+}
+
+/** /products/x.js থেকে পাওয়া প্রোডাক্ট (Shopify-র Ajax API) */
+export interface AjaxProduct {
+  id: number;
+  title: string;
+  handle: string;
+  url?: string;
+  price: number;
+  compare_at_price?: number | null;
+  available: boolean;
+  featured_image?: string | null;
+  tags?: string[];
+  created_at?: string;
+}
+
+const productCache = new Map<string, Promise<AjaxProduct | null>>();
+
+export function fetchProduct(handle: string): Promise<AjaxProduct | null> {
+  let pending = productCache.get(handle);
+  if (!pending) {
+    pending = fetch(`${root()}products/${encodeURIComponent(handle)}.js`)
+      .then((res) => (res.ok ? (res.json() as Promise<AjaxProduct>) : null))
+      .catch(() => null);
+    productCache.set(handle, pending);
+  }
+  return pending;
+}
+
+/** "//cdn.shopify.com/...jpg" → ছোট সাইজের https URL */
+export function imageUrl(src: string | null | undefined, width = 360): string {
+  if (!src) return "";
+  const url = src.startsWith("//") ? `https:${src}` : src;
+  return `${url}${url.includes("?") ? "&" : "?"}width=${width}`;
 }

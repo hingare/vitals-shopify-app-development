@@ -19,6 +19,18 @@ import {
   socialButtons,
 } from "./small";
 import { stickyAtc } from "./sticky-atc";
+import {
+  agreeToTerms,
+  descriptionTabs,
+  hideDynamicCheckout,
+  productLabels,
+  quickLinks,
+  recentlyViewed,
+  recentSales,
+  relatedProducts,
+  shippingInfo,
+  sizeChart,
+} from "./stage3";
 import { paymentLogos, trustSeals } from "./trust";
 
 /** সব টুলের তালিকা। নতুন টুল বানালে এখানে যোগ করুন। */
@@ -42,6 +54,16 @@ export const registry = createRegistry([
   socialButtons,
   autoExternalLinks,
   faviconCartCount,
+  shippingInfo,
+  recentSales,
+  productLabels,
+  descriptionTabs,
+  sizeChart,
+  relatedProducts,
+  recentlyViewed,
+  quickLinks,
+  hideDynamicCheckout,
+  agreeToTerms,
 ]);
 
 export { buildStoreConfig } from "./config";
@@ -51,3 +73,4 @@ export { bundles, OFFER_TOOL_BY_TYPE, volumeDiscounts } from "./offers";
 export { CHAT_CHANNELS } from "./conversion";
 export { TRUST_BADGES } from "./trust";
 export { SHARE_NETWORKS } from "./small";
+export { recentSales } from "./stage3";

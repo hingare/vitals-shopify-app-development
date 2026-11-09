@@ -51,6 +51,9 @@ export type ToolModule = { mount: (ctx: ToolContext) => void | Promise<void> };
 declare global {
   interface Window {
     __APP_CONFIG__?: StoreConfig;
-    Shopify?: { currency?: { active?: string; rate?: string } };
+    Shopify?: {
+      currency?: { active?: string; rate?: string };
+      routes?: { root?: string };
+    };
   }
 }

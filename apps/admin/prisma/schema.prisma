@@ -64,6 +64,7 @@ model Shop {
   visitorDays      VisitorDay[]
   reviews          Review[]
   offers           Offer[]
+  recentSales      RecentSale[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -251,4 +252,18 @@ model Offer {
   shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId, type])
+}
+
+/// Recent Sales Notifications-এর জন্য সাম্প্রতিক বিক্রি। শুধু প্রোডাক্ট আর সময়, ক্রেতার কোনো তথ্য নয়।
+model RecentSale {
+  id        String   @id @default(cuid())
+  shopId    String
+  productId String
+  title     String
+  handle    String
+  imageUrl  String?
+  soldAt    DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, soldAt])
 }
