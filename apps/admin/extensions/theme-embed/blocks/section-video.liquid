@@ -1,0 +1,42 @@
+{% comment %}
+  থিম সেকশন: Video। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-video ats-video--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+<div class="ats-video__media">
+{%- if s.video != blank -%}
+  {%- if s.video.type == 'youtube' -%}
+  <iframe src="https://www.youtube-nocookie.com/embed/{{ s.video.id }}?rel=0" title="{{ s.heading | default: 'Video' | escape }}" loading="lazy" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+  {%- else -%}
+  <iframe src="https://player.vimeo.com/video/{{ s.video.id }}?dnt=1" title="{{ s.heading | default: 'Video' | escape }}" loading="lazy" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+  {%- endif -%}
+{%- else -%}{{ 'image' | placeholder_svg_tag: 'ats__ph' }}{%- endif -%}
+</div>
+<div class="ats-video__text">{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+{{ s.text }}
+{%- if s.button_label != blank -%}<a class="ats__btn" href="{{ s.button_link | default: '#' }}">{{ s.button_label | escape }}</a>{%- endif -%}
+</div>
+</div>
+</div>
+
+{% schema %}
+{"name": "Video", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "full", "options": [{"value": "full", "label": "Video only"}, {"value": "with_text", "label": "Video with text"}]},
+    {"type": "video_url", "id": "video", "label": "YouTube or Vimeo link", "accept": ["youtube", "vimeo"]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": ""},
+    {"type": "richtext", "id": "text", "label": "Text"},
+    {"type": "text", "id": "button_label", "label": "Button text", "default": ""},
+    {"type": "url", "id": "button_link", "label": "Button link"},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

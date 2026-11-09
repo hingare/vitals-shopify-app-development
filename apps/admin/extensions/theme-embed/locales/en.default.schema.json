@@ -12,23 +12,20 @@
     "store_reviews": {
       "name": "Store reviews"
     },
-    "volume_discounts": {
-      "name": "Volume discount table"
-    },
-    "bundles": {
-      "name": "Bundle box"
-    },
-    "trust_seals": {
-      "name": "Trust badges"
-    },
-    "payment_logos": {
-      "name": "Payment logos"
-    },
-    "countdown_timer": {
-      "name": "Countdown timer"
-    },
-    "stock_scarcity": {
-      "name": "Low stock message"
+    "widget": {
+      "name": "App widget",
+      "widget": "Widget",
+      "trust_seals": "Trust badges",
+      "payment_logos": "Payment logos",
+      "countdown_timer": "Countdown timer",
+      "stock_scarcity": "Low stock message",
+      "shipping_info": "Delivery date",
+      "size_chart": "Size chart button",
+      "volume_discounts": "Volume discount table",
+      "bundles": "Bundle box",
+      "social_buttons": "Share buttons",
+      "related_products": "Related products",
+      "recently_viewed": "Recently viewed"
     }
   }
 }

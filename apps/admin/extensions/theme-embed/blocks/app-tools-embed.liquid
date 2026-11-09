@@ -12,6 +12,19 @@
       locale: {{ request.locale.iso_code | json }},
       currency: {{ cart.currency.iso_code | json }},
       tzOffset: {{ 'now' | date: '%z' | json }},
+      shopCurrency: {{ shop.currency | json }},
+      moneyFormat: {{ shop.money_format | strip_html | json }},
+      marketsCurrencies: {{ shop.enabled_currencies.size | json }},
+      country: {{ localization.country.iso_code | json }},
+      countries: [
+        {%- for tool in app_config.tools -%}
+          {%- if tool.id == 'geolocation-redirect' -%}
+            {%- for c in localization.available_countries -%}
+              {{ c.iso_code | json }}{%- unless forloop.last -%},{%- endunless -%}
+            {%- endfor -%}
+          {%- endif -%}
+        {%- endfor -%}
+      ],
       tools: {{ app_config.tools | json }},
       placement: {{ app_config.placement | json }},
       offers: {{ app.metafields.app_config.offers.value | json }}
@@ -22,6 +35,10 @@
     <script type="application/json" id="app-product-json">
       {
         "productId": {{ product.id | json }},
+        "handle": {{ product.handle | json }},
+        "tags": {{ product.tags | json }},
+        "createdAt": {{ product.created_at | date: '%Y-%m-%dT%H:%M:%S%z' | json }},
+        "compareAtCents": {{ variant.compare_at_price | default: 0 | json }},
         "title": {{ product.title | json }},
         "variantId": {{ variant.id | json }},
         "price": {{ variant.price | money | strip_html | json }},
@@ -70,6 +87,19 @@
           {{ type | payment_type_svg_tag }}
         {%- endfor -%}
       </template>
+    {%- endif -%}
+  {%- endfor -%}
+  {%- comment -%} দ্রুত চেকআউট বাটন লুকানো: পেজ আঁকার আগেই, যাতে এক মুহূর্তের জন্যও না দেখায় {%- endcomment -%}
+  {%- for tool in app_config.tools -%}
+    {%- if tool.id == 'hide-dynamic-checkout' -%}
+      <style>
+        {%- if tool.settings.hideOnProduct and request.page_type == 'product' -%}
+          .shopify-payment-button{display:none!important}
+        {%- endif -%}
+        {%- if tool.settings.hideOnCart -%}
+          .additional-checkout-buttons,[data-shopify="dynamic-checkout-cart"]{display:none!important}
+        {%- endif -%}
+      </style>
     {%- endif -%}
   {%- endfor -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>

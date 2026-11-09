@@ -33,3 +33,4 @@ yarn.lock
 
 # উইজেটের বিল্ড ফাইল (packages/widgets থেকে তৈরি হয়)
 /extensions/theme-embed/assets/*.js
+/extensions/theme-embed/assets/*.css

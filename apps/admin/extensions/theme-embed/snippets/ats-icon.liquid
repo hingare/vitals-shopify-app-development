@@ -1,0 +1,17 @@
+{%- comment -%} থিম সেকশনের ছোট আইকন। icon: truck | shield | return | star | heart | leaf | clock | chat | gift | lock {%- endcomment -%}
+{%- if icon != 'none' and icon != blank -%}
+<svg class="ats-icon" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+{%- case icon -%}
+{%- when 'truck' -%}<path d="M2 6h11v9H2zM13 9h4l4 4v2h-8"/><circle cx="6" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+{%- when 'shield' -%}<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>
+{%- when 'return' -%}<path d="M4 10h11a5 5 0 010 10H9"/><path d="M8 6l-4 4 4 4"/>
+{%- when 'star' -%}<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/>
+{%- when 'heart' -%}<path d="M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z"/>
+{%- when 'leaf' -%}<path d="M5 19c0-9 6-14 15-14 0 9-5 15-14 15"/><path d="M5 19l8-8"/>
+{%- when 'clock' -%}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{%- when 'chat' -%}<path d="M4 5h16v11H9l-5 4z"/>
+{%- when 'gift' -%}<path d="M4 10h16v10H4zM3 7h18v3H3zM12 7v13"/><path d="M12 7c-2-4-6-3-5 0M12 7c2-4 6-3 5 0"/>
+{%- when 'lock' -%}<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>
+{%- endcase -%}
+</svg>
+{%- endif -%}

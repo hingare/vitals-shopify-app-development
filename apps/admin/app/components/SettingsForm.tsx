@@ -151,6 +151,18 @@ function Field({
       />
     );
   }
+  if (schema.type === "string" && (schema.maxLength ?? 0) > 300) {
+    return (
+      <s-text-area
+        label={label}
+        {...details}
+        rows={6}
+        maxLength={schema.maxLength}
+        value={String(value ?? "")}
+        onChange={(e) => onChange(e.currentTarget.value)}
+      />
+    );
+  }
   return (
     <s-text-field
       label={label}

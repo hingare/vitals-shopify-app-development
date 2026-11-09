@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "size": "node scripts/check-size.mjs",
-    "test": "vite build && node scripts/check-size.mjs",
+    "test": "vitest run && vite build && node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.7"
   }
 }

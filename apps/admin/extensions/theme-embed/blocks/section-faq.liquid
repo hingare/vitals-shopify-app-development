@@ -1,0 +1,47 @@
+{% comment %}
+  থিম সেকশন: FAQ। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-faq ats-faq--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+<div class="ats-faq__list">
+{%- for i in (1..6) -%}
+  {%- capture q %}q_{{ i }}{% endcapture -%}{%- capture a %}a_{{ i }}{% endcapture -%}
+  {%- if s[q] != blank -%}
+  <details class="ats-faq__item"{% if forloop.first and s.open_first %} open{% endif %}><summary>{{ s[q] | escape }}</summary><div>{{ s[a] }}</div></details>
+  {%- endif -%}
+{%- endfor -%}
+</div>
+</div>
+</div>
+
+{% schema %}
+{"name": "FAQ", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "accordion", "options": [{"value": "accordion", "label": "Accordion"}, {"value": "columns", "label": "Two columns"}]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": "Frequently asked questions"},
+    {"type": "checkbox", "id": "open_first", "label": "Open the first question", "default": false},
+    {"type": "text", "id": "q_1", "label": "Question 1", "default": "How long does delivery take?"},
+    {"type": "richtext", "id": "a_1", "label": "Answer 1", "default": "<p>Most orders arrive within a few days.</p>"},
+    {"type": "text", "id": "q_2", "label": "Question 2"},
+    {"type": "richtext", "id": "a_2", "label": "Answer 2"},
+    {"type": "text", "id": "q_3", "label": "Question 3"},
+    {"type": "richtext", "id": "a_3", "label": "Answer 3"},
+    {"type": "text", "id": "q_4", "label": "Question 4"},
+    {"type": "richtext", "id": "a_4", "label": "Answer 4"},
+    {"type": "text", "id": "q_5", "label": "Question 5"},
+    {"type": "richtext", "id": "a_5", "label": "Answer 5"},
+    {"type": "text", "id": "q_6", "label": "Question 6"},
+    {"type": "richtext", "id": "a_6", "label": "Answer 6"},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

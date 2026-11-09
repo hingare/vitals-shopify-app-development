@@ -1,0 +1,41 @@
+{% comment %}
+  থিম সেকশন: Featured product। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-product ats-product--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- assign p = s.product -%}
+<div class="ats-fp__media">{%- if p != blank and p.featured_image -%}{{ p.featured_image | image_url: width: 1200 | image_tag: loading: 'lazy', widths: '400, 800, 1200', sizes: '(min-width: 750px) 50vw, 100vw', class: 'ats__img' }}{%- else -%}{{ 'product-1' | placeholder_svg_tag: 'ats__img ats__ph' }}{%- endif -%}</div>
+<div class="ats-fp__text">
+  <h2 class="ats__h">{%- if p != blank -%}{{ p.title | escape }}{%- else -%}Your product{%- endif -%}</h2>
+  {%- if p != blank -%}
+  <p class="ats-card__price">{%- if p.compare_at_price > p.price -%}<s>{{ p.compare_at_price | money }}</s> {% endif -%}{{ p.price | money }}</p>
+  {%- if s.show_description -%}<div class="ats-fp__desc">{{ p.description | strip_html | truncatewords: 40 }}</div>{%- endif -%}
+  {%- if p.has_only_default_variant and p.available -%}
+  {%- form 'product', p, class: 'ats-fp__form' -%}<input type="hidden" name="id" value="{{ p.selected_or_first_available_variant.id }}"><button type="submit" class="ats__btn">{{ s.add_label | escape }}</button>{%- endform -%}
+  {%- endif -%}
+  <a class="ats__btn ats__btn--ghost" href="{{ p.url }}">{{ s.view_label | escape }}</a>
+  {%- endif -%}
+</div>
+</div>
+</div>
+
+{% schema %}
+{"name": "Featured product", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "image_left", "options": [{"value": "image_left", "label": "Image left"}, {"value": "image_right", "label": "Image right"}]},
+    {"type": "product", "id": "product", "label": "Product"},
+    {"type": "checkbox", "id": "show_description", "label": "Show short description", "default": true},
+    {"type": "text", "id": "add_label", "label": "Add to cart text (only for products without options)", "default": "Add to cart"},
+    {"type": "text", "id": "view_label", "label": "Link text", "default": "View details"},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}
