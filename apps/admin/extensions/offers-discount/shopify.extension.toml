@@ -1,8 +1,9 @@
-api_version = "2025-04"
+api_version = "2026-10"
 
 [[extensions]]
 name = "t:name"
 handle = "offers-discount"
+uid = "b9e9d6d4-4e87-4554-d8d2-9d52df6def61cd14651b"
 type = "function"
 description = "t:description"
 
