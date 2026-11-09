@@ -13,6 +13,7 @@
       currency: {{ cart.currency.iso_code | json }},
       tzOffset: {{ 'now' | date: '%z' | json }},
       tools: {{ app_config.tools | json }},
+      placement: {{ app_config.placement | json }},
       offers: {{ app.metafields.app_config.offers.value | json }}
     };
   </script>

@@ -10,6 +10,13 @@ export interface StoreConfig {
   /** স্টোরের টাইমজোন, যেমন "+0600" */
   tzOffset?: string;
   tools: Array<{ id: string; settings: Record<string, unknown> }>;
+  /** মার্চেন্ট নিজে উইজেটের জায়গা ঠিক করলে (না করলে উইজেট নিজেই খুঁজে নেয়) */
+  placement?: {
+    productAnchor: string;
+    productWhere: "after" | "before";
+    cartAnchor: string;
+    cartWhere: "after" | "before";
+  } | null;
   /** Volume Discount আর Bundle অফার (app_config.offers metafield থেকে) */
   offers?: StoreOffers | null;
 }

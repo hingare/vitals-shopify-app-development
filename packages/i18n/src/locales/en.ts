@@ -215,6 +215,23 @@ export const en = {
   "option.pinterest": "Pinterest",
   "option.copy": "Copy link",
 
+  "placement.title": "Widget placement",
+  "placement.blocksTitle": "Choose the spot in your theme",
+  "placement.blocksBody":
+    "Widgets find the right spot by themselves on most themes. To put one somewhere else, open the theme editor, click Add block, and pick it under Apps (for example Trust badges or Countdown timer).",
+  "placement.openProduct": "Edit product page",
+  "placement.openCart": "Edit cart page",
+  "placement.advancedTitle": "Advanced: custom position",
+  "placement.advancedBody":
+    "Only needed if your theme is unusual and widgets show in the wrong place. Leave empty to let the app decide.",
+  "placement.productAnchor": "Product page: place widgets next to",
+  "placement.cartAnchor": "Cart page: place widgets next to",
+  "placement.selectorHelp":
+    "A CSS selector from your theme, like .product-form. Ask us if you're not sure.",
+  "placement.where": "Position",
+  "placement.after": "After it",
+  "placement.before": "Before it",
+
   "offers.newVolume": "New volume discount",
   "offers.newBundle": "New bundle",
   "offers.toolsOff":

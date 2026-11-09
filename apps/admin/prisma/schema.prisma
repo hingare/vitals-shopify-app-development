@@ -50,6 +50,8 @@ model Shop {
   pixelEndpoint    String?
   /// সব অফারের জন্য আমাদের একটাই automatic app discount (Shopify gid)
   offersDiscountId String?
+  /// থিমে উইজেট কোথায় বসবে, মার্চেন্ট নিজে ঠিক করলে (app/lib/placement.ts)
+  placement        Json?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   tools            ToolSetting[]
