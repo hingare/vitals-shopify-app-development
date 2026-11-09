@@ -3,6 +3,7 @@
 name = "store-analytics"
 type = "web_pixel_extension"
 runtime_context = "strict"
+uid = "aa3ad6ce-6f46-b54a-5b74-69c31f7f90aa3f70eae1"
 
 [customer_privacy]
 analytics = true

@@ -1,5 +1,8 @@
 # This file stores configurations for your Shopify app.
-client_id = ""
+client_id = "880c58207eea1a971dd169e9d99f8932"
+name = "AllInOne Dev"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = true
 
 [access_scopes]
 # read_themes: থিমে app embed চালু আছে কিনা দেখতে
@@ -46,3 +49,7 @@ subpath = "app-tools"
 [build]
 dev_store_url = "authentic-store-bd.myshopify.com"
 automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
