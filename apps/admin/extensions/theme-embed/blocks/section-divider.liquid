@@ -1,0 +1,25 @@
+{% comment %}
+  থিম সেকশন: Divider। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-divider ats-divider--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.layout == 'line' -%}<hr class="ats-div__line">{%- elsif s.layout == 'wave' -%}<svg class="ats-div__wave" viewBox="0 0 1200 40" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d="M0 20 Q150 0 300 20 T600 20 T900 20 T1200 20" fill="none" stroke="currentColor" stroke-width="2"/></svg>{%- endif -%}
+</div>
+</div>
+
+{% schema %}
+{"name": "Divider", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "line", "options": [{"value": "line", "label": "Thin line"}, {"value": "space", "label": "Empty space"}, {"value": "wave", "label": "Wave"}]},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

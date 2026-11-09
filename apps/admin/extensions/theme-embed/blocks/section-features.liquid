@@ -1,0 +1,50 @@
+{% comment %}
+  থিম সেকশন: Icon features। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-features ats-features--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+<ul class="ats-grid ats-feat__list">
+{%- for i in (1..4) -%}
+  {%- capture t %}title_{{ i }}{% endcapture -%}{%- capture d %}text_{{ i }}{% endcapture -%}{%- capture c %}icon_{{ i }}{% endcapture -%}
+  {%- if s[t] != blank -%}
+  <li class="ats-feat__item">{%- render 'ats-icon', icon: s[c] -%}<h3>{{ s[t] | escape }}</h3>{%- if s[d] != blank -%}<p>{{ s[d] | escape }}</p>{%- endif -%}</li>
+  {%- endif -%}
+{%- endfor -%}
+</ul>
+</div>
+</div>
+
+{% schema %}
+{"name": "Icon features", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "col4", "options": [{"value": "col3", "label": "Three columns"}, {"value": "col4", "label": "Four columns"}, {"value": "list", "label": "List with icons on the side"}]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": ""},
+    {"type": "header", "content": "Item 1"},
+    {"type": "select", "id": "icon_1", "label": "Icon", "default": "truck", "options": [{"value": "truck", "label": "Delivery truck"}, {"value": "shield", "label": "Shield"}, {"value": "return", "label": "Return arrow"}, {"value": "star", "label": "Star"}, {"value": "heart", "label": "Heart"}, {"value": "leaf", "label": "Leaf"}, {"value": "clock", "label": "Clock"}, {"value": "chat", "label": "Chat"}, {"value": "gift", "label": "Gift"}, {"value": "lock", "label": "Lock"}, {"value": "none", "label": "No icon"}]},
+    {"type": "text", "id": "title_1", "label": "Title", "default": "Fast delivery"},
+    {"type": "text", "id": "text_1", "label": "Text"},
+    {"type": "header", "content": "Item 2"},
+    {"type": "select", "id": "icon_2", "label": "Icon", "default": "shield", "options": [{"value": "truck", "label": "Delivery truck"}, {"value": "shield", "label": "Shield"}, {"value": "return", "label": "Return arrow"}, {"value": "star", "label": "Star"}, {"value": "heart", "label": "Heart"}, {"value": "leaf", "label": "Leaf"}, {"value": "clock", "label": "Clock"}, {"value": "chat", "label": "Chat"}, {"value": "gift", "label": "Gift"}, {"value": "lock", "label": "Lock"}, {"value": "none", "label": "No icon"}]},
+    {"type": "text", "id": "title_2", "label": "Title", "default": "Secure payment"},
+    {"type": "text", "id": "text_2", "label": "Text"},
+    {"type": "header", "content": "Item 3"},
+    {"type": "select", "id": "icon_3", "label": "Icon", "default": "return", "options": [{"value": "truck", "label": "Delivery truck"}, {"value": "shield", "label": "Shield"}, {"value": "return", "label": "Return arrow"}, {"value": "star", "label": "Star"}, {"value": "heart", "label": "Heart"}, {"value": "leaf", "label": "Leaf"}, {"value": "clock", "label": "Clock"}, {"value": "chat", "label": "Chat"}, {"value": "gift", "label": "Gift"}, {"value": "lock", "label": "Lock"}, {"value": "none", "label": "No icon"}]},
+    {"type": "text", "id": "title_3", "label": "Title", "default": "Easy returns"},
+    {"type": "text", "id": "text_3", "label": "Text"},
+    {"type": "header", "content": "Item 4"},
+    {"type": "select", "id": "icon_4", "label": "Icon", "default": "chat", "options": [{"value": "truck", "label": "Delivery truck"}, {"value": "shield", "label": "Shield"}, {"value": "return", "label": "Return arrow"}, {"value": "star", "label": "Star"}, {"value": "heart", "label": "Heart"}, {"value": "leaf", "label": "Leaf"}, {"value": "clock", "label": "Clock"}, {"value": "chat", "label": "Chat"}, {"value": "gift", "label": "Gift"}, {"value": "lock", "label": "Lock"}, {"value": "none", "label": "No icon"}]},
+    {"type": "text", "id": "title_4", "label": "Title", "default": "Friendly support"},
+    {"type": "text", "id": "text_4", "label": "Text"},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

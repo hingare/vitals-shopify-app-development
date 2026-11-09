@@ -7,6 +7,7 @@ import {
   type AjaxProduct,
   fetchProduct,
   placeAfterProductSection,
+  slotHost,
   readPageProduct,
 } from "../product";
 
@@ -49,9 +50,8 @@ export async function mount({ config, settings }: ToolContext) {
   );
   if (products.length === 0) return;
 
-  let host: HTMLElement;
-  if (current) host = placeAfterProductSection(TOOL_ID);
-  else {
+  let host = current ? placeAfterProductSection(TOOL_ID) : slotHost(TOOL_ID);
+  if (!host) {
     host = document.createElement("div");
     host.dataset.appWidget = TOOL_ID;
     (document.querySelector("main") ?? document.body).appendChild(host);

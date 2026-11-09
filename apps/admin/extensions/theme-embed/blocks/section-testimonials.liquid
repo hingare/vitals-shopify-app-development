@@ -1,0 +1,50 @@
+{% comment %}
+  থিম সেকশন: Testimonials। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-testimonials ats-testimonials--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+<div class="ats-grid ats-tst__list">
+{%- for i in (1..3) -%}
+  {%- capture q %}quote_{{ i }}{% endcapture -%}{%- capture n %}name_{{ i }}{% endcapture -%}{%- capture r %}stars_{{ i }}{% endcapture -%}
+  {%- if s[q] != blank -%}
+  <figure class="ats-tst__item">
+    {%- if s[r] > 0 -%}<span class="ats-stars" role="img" aria-label="{{ s[r] }} / 5">{% for x in (1..s[r]) %}★{% endfor %}</span>{%- endif -%}
+    <blockquote>{{ s[q] | escape | newline_to_br }}</blockquote>
+    {%- if s[n] != blank -%}<figcaption>{{ s[n] | escape }}</figcaption>{%- endif -%}
+  </figure>
+  {%- endif -%}
+{%- endfor -%}
+</div>
+</div>
+</div>
+
+{% schema %}
+{"name": "Testimonials", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "cards", "options": [{"value": "cards", "label": "Cards in a row"}, {"value": "single", "label": "One big quote at a time"}, {"value": "scroll", "label": "Swipe row"}]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": "What customers say"},
+    {"type": "header", "content": "Review 1"},
+    {"type": "textarea", "id": "quote_1", "label": "Quote", "default": "Great quality and fast delivery."},
+    {"type": "text", "id": "name_1", "label": "Name", "default": "Happy customer"},
+    {"type": "range", "id": "stars_1", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5},
+    {"type": "header", "content": "Review 2"},
+    {"type": "textarea", "id": "quote_2", "label": "Quote"},
+    {"type": "text", "id": "name_2", "label": "Name"},
+    {"type": "range", "id": "stars_2", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5},
+    {"type": "header", "content": "Review 3"},
+    {"type": "textarea", "id": "quote_3", "label": "Quote"},
+    {"type": "text", "id": "name_3", "label": "Name"},
+    {"type": "range", "id": "stars_3", "label": "Stars", "min": 0, "max": 5, "step": 1, "default": 5},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

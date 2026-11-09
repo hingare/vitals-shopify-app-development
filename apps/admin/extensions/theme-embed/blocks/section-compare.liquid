@@ -1,0 +1,59 @@
+{% comment %}
+  থিম সেকশন: Comparison table। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-compare ats-compare--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+<div class="ats-cmp__wrap"><table class="ats-cmp">
+<thead><tr><th scope="col"><span class="ats-vh">{{ s.feature_label | escape }}</span></th><th scope="col">{{ s.us_label | escape }}</th><th scope="col">{{ s.them_label | escape }}</th></tr></thead>
+<tbody>
+{%- for i in (1..6) -%}
+  {%- capture r %}row_{{ i }}{% endcapture -%}{%- capture u %}us_{{ i }}{% endcapture -%}{%- capture t %}them_{{ i }}{% endcapture -%}
+  {%- if s[r] != blank -%}
+  <tr><th scope="row">{{ s[r] | escape }}</th>
+    <td>{% if s[u] %}<span class="ats-yes" aria-label="Yes">✓</span>{% else %}<span class="ats-no" aria-label="No">✕</span>{% endif %}</td>
+    <td>{% if s[t] %}<span class="ats-yes" aria-label="Yes">✓</span>{% else %}<span class="ats-no" aria-label="No">✕</span>{% endif %}</td></tr>
+  {%- endif -%}
+{%- endfor -%}
+</tbody></table></div>
+</div>
+</div>
+
+{% schema %}
+{"name": "Comparison table", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "table", "options": [{"value": "table", "label": "Table"}]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": "Why choose us"},
+    {"type": "text", "id": "feature_label", "label": "First column name", "default": "Feature"},
+    {"type": "text", "id": "us_label", "label": "Your column name", "default": "Us"},
+    {"type": "text", "id": "them_label", "label": "Other column name", "default": "Others"},
+    {"type": "text", "id": "row_1", "label": "Row 1", "default": "Free shipping"},
+    {"type": "checkbox", "id": "us_1", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_1", "label": "Others have it", "default": false},
+    {"type": "text", "id": "row_2", "label": "Row 2", "default": "30-day returns"},
+    {"type": "checkbox", "id": "us_2", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_2", "label": "Others have it", "default": false},
+    {"type": "text", "id": "row_3", "label": "Row 3", "default": "Made to last"},
+    {"type": "checkbox", "id": "us_3", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_3", "label": "Others have it", "default": false},
+    {"type": "text", "id": "row_4", "label": "Row 4"},
+    {"type": "checkbox", "id": "us_4", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_4", "label": "Others have it", "default": false},
+    {"type": "text", "id": "row_5", "label": "Row 5"},
+    {"type": "checkbox", "id": "us_5", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_5", "label": "Others have it", "default": false},
+    {"type": "text", "id": "row_6", "label": "Row 6"},
+    {"type": "checkbox", "id": "us_6", "label": "We have it", "default": true},
+    {"type": "checkbox", "id": "them_6", "label": "Others have it", "default": false},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

@@ -1,0 +1,33 @@
+{% comment %}
+  একটাই ব্লক দিয়ে যেকোনো উইজেট থিমের যেকোনো জায়গায় বসানো যায় (Shopify-র ৩০ ব্লকের সীমা বাঁচাতে)।
+  মার্চেন্ট "Widget" থেকে বাছেন; সেই টুল চালু থাকলে উইজেট এখানেই বসে, না হলে কিছুই দেখায় না।
+{% endcomment %}
+<div data-app-slot="{{ block.settings.widget }}" {{ block.shopify_attributes }}></div>
+
+{% schema %}
+{
+  "name": "t:blocks.widget.name",
+  "target": "section",
+  "settings": [
+    {
+      "type": "select",
+      "id": "widget",
+      "label": "t:blocks.widget.widget",
+      "default": "trust-seals",
+      "options": [
+        { "value": "trust-seals", "label": "t:blocks.widget.trust_seals" },
+        { "value": "payment-logos", "label": "t:blocks.widget.payment_logos" },
+        { "value": "countdown-timer", "label": "t:blocks.widget.countdown_timer" },
+        { "value": "stock-scarcity", "label": "t:blocks.widget.stock_scarcity" },
+        { "value": "shipping-info", "label": "t:blocks.widget.shipping_info" },
+        { "value": "size-chart", "label": "t:blocks.widget.size_chart" },
+        { "value": "volume-discounts", "label": "t:blocks.widget.volume_discounts" },
+        { "value": "bundles", "label": "t:blocks.widget.bundles" },
+        { "value": "social-buttons", "label": "t:blocks.widget.social_buttons" },
+        { "value": "related-products", "label": "t:blocks.widget.related_products" },
+        { "value": "recently-viewed", "label": "t:blocks.widget.recently_viewed" }
+      ]
+    }
+  ]
+}
+{% endschema %}

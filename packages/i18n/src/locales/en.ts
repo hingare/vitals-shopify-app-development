@@ -354,7 +354,7 @@ export const en = {
   "placement.title": "Widget placement",
   "placement.blocksTitle": "Choose the spot in your theme",
   "placement.blocksBody":
-    "Widgets find the right spot by themselves on most themes. To put one somewhere else, open the theme editor, click Add block, and pick it under Apps (for example Trust badges or Countdown timer).",
+    "Widgets find the right spot by themselves on most themes. To put one somewhere else, open the theme editor, click Add block, and pick App widget under Apps, then choose the widget (for example Trust badges or Countdown timer).",
   "placement.openProduct": "Edit product page",
   "placement.openCart": "Edit cart page",
   "placement.advancedTitle": "Advanced: custom position",

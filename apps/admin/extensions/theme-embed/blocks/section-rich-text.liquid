@@ -1,0 +1,31 @@
+{% comment %}
+  থিম সেকশন: Rich text। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+{% endcomment %}
+{%- liquid
+  assign s = block.settings
+-%}
+<div class="ats ats-rich-text ats-rich-text--{{ s.layout }}{% if s.full %} ats--full{% endif %}" style="--ats-pad:{{ s.pad }}px;{% if s.bg != blank %}--ats-bg:{{ s.bg }};{% endif %}{% if s.fg != blank %}--ats-fg:{{ s.fg }};{% endif %}{% if s.accent != blank %}--ats-accent:{{ s.accent }};{% endif %}" {{ block.shopify_attributes }}>
+<div class="ats__in">
+{%- if s.heading != blank -%}<h2 class="ats__h">{{ s.heading | escape }}</h2>{%- endif -%}
+<div class="ats-rt__body">{{ s.text }}</div>
+{%- if s.button_label != blank -%}<a class="ats__btn" href="{{ s.button_link | default: '#' }}">{{ s.button_label | escape }}</a>{%- endif -%}
+</div>
+</div>
+
+{% schema %}
+{"name": "Rich text", "target": "section", "stylesheet": "sections.css",
+  "settings": [
+    {"type": "select", "id": "layout", "label": "Layout", "default": "center", "options": [{"value": "center", "label": "Centered"}, {"value": "left", "label": "Left aligned"}]},
+    {"type": "text", "id": "heading", "label": "Heading", "default": "Talk about your brand"},
+    {"type": "richtext", "id": "text", "label": "Text", "default": "<p>Share information about your brand with your customers.</p>"},
+    {"type": "text", "id": "button_label", "label": "Button text", "default": ""},
+    {"type": "url", "id": "button_link", "label": "Button link"},
+    {"type": "header", "content": "Style"},
+    {"type": "color", "id": "bg", "label": "Background"},
+    {"type": "color", "id": "fg", "label": "Text color"},
+    {"type": "color", "id": "accent", "label": "Button color"},
+    {"type": "range", "id": "pad", "label": "Space above and below", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 40},
+    {"type": "checkbox", "id": "full", "label": "Full width", "default": false}
+  ]
+}
+{% endschema %}

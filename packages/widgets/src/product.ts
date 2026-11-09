@@ -105,7 +105,7 @@ function put(box: HTMLElement, anchor: HTMLElement | null, where: "after" | "bef
 }
 
 /** থিম এডিটরে মার্চেন্ট আমাদের app block বসালে উইজেট সেখানেই যায় */
-function slotHost(slot: string): HTMLElement | null {
+export function slotHost(slot: string): HTMLElement | null {
   const block = document.querySelector<HTMLElement>(`[data-app-slot="${slot}"]`);
   if (!block) return null;
   const host = document.createElement("div");
