@@ -7,12 +7,16 @@ export interface JsonSchema {
   pattern?: string;
   minimum?: number;
   maximum?: number;
+  maxLength?: number;
+  items?: JsonSchema;
   properties?: Record<string, JsonSchema>;
 }
 
 type Values = Record<string, unknown>;
 
 const HEX = /^\^#\[0-9a-fA-F\]\{6\}\$$/;
+/** তারিখের ফিল্ড (YYYY-MM-DD, ফাঁকাও চলে) */
+const DATE = "^$|^\\d{4}-\\d{2}-\\d{2}$";
 
 /**
  * যেকোনো টুলের সেটিংস ফর্ম স্কিমা দেখে নিজে থেকেই তৈরি হয়।
@@ -55,6 +59,9 @@ function Field({
 }) {
   const t = useT();
   const label = t(`field.${name}`);
+  const helpKey = `help.${name}`;
+  const help = t(helpKey);
+  const details = help !== helpKey ? { details: help } : {};
 
   if (schema.type === "object" && schema.properties) {
     return (
@@ -64,10 +71,34 @@ function Field({
       </s-stack>
     );
   }
+  if (schema.type === "array" && schema.items?.enum) {
+    const selected = Array.isArray(value) ? (value as string[]) : [];
+    const options = schema.items.enum;
+    return (
+      <s-stack direction="block" gap="small-200">
+        <s-text>{label}</s-text>
+        {options.map((option) => (
+          <s-checkbox
+            key={option}
+            label={t(`option.${option}`)}
+            checked={selected.includes(option)}
+            onChange={(e) =>
+              onChange(
+                e.currentTarget.checked
+                  ? options.filter((o) => o === option || selected.includes(o))
+                  : selected.filter((o) => o !== option),
+              )
+            }
+          />
+        ))}
+      </s-stack>
+    );
+  }
   if (schema.enum) {
     return (
       <s-select
         label={label}
+        {...details}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.currentTarget.value)}
       >
@@ -83,6 +114,7 @@ function Field({
     return (
       <s-checkbox
         label={label}
+        {...details}
         checked={value === true}
         onChange={(e) => onChange(e.currentTarget.checked)}
       />
@@ -97,10 +129,21 @@ function Field({
       />
     );
   }
+  if (schema.type === "string" && schema.pattern === DATE) {
+    return (
+      <s-date-field
+        label={label}
+        {...details}
+        value={String(value ?? "")}
+        onChange={(e) => onChange(e.currentTarget.value)}
+      />
+    );
+  }
   if (schema.type === "number" || schema.type === "integer") {
     return (
       <s-number-field
         label={label}
+        {...details}
         value={String(value ?? "")}
         {...(schema.minimum !== undefined ? { min: schema.minimum } : {})}
         {...(schema.maximum !== undefined ? { max: schema.maximum } : {})}
@@ -111,6 +154,8 @@ function Field({
   return (
     <s-text-field
       label={label}
+      {...details}
+      {...(schema.maxLength !== undefined ? { maxLength: schema.maxLength } : {})}
       value={String(value ?? "")}
       onChange={(e) => onChange(e.currentTarget.value)}
     />

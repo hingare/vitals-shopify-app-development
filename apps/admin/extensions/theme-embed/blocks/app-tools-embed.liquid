@@ -11,6 +11,7 @@
       pageType: {{ request.page_type | json }},
       locale: {{ request.locale.iso_code | json }},
       currency: {{ cart.currency.iso_code | json }},
+      tzOffset: {{ 'now' | date: '%z' | json }},
       tools: {{ app_config.tools | json }},
       offers: {{ app.metafields.app_config.offers.value | json }}
     };
@@ -24,7 +25,16 @@
         "variantId": {{ variant.id | json }},
         "price": {{ variant.price | money | strip_html | json }},
         "priceCents": {{ variant.price | json }},
-        "available": {{ variant.available | json }}
+        "available": {{ variant.available | json }},
+        "inventory": {
+          {%- assign first = true -%}
+          {%- for v in product.variants -%}
+            {%- if v.inventory_management == 'shopify' and v.inventory_policy == 'deny' -%}
+              {%- unless first -%},{%- endunless -%}"{{ v.id }}": {{ v.inventory_quantity | json }}
+              {%- assign first = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        }
       }
     </script>
     {%- comment -%} রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে) {%- endcomment -%}
@@ -51,6 +61,16 @@
       </script>
     {%- endif -%}
   {%- endif -%}
+  {%- comment -%} পেমেন্ট লোগো: Shopify নিজেই স্টোরে চালু পেমেন্টের লোগো দেয় {%- endcomment -%}
+  {%- for tool in app_config.tools -%}
+    {%- if tool.id == 'payment-logos' -%}
+      <template id="app-payment-icons">
+        {%- for type in shop.enabled_payment_types -%}
+          {{ type | payment_type_svg_tag }}
+        {%- endfor -%}
+      </template>
+    {%- endif -%}
+  {%- endfor -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
 {%- endif -%}
 

@@ -7,6 +7,8 @@ export interface StoreConfig {
   locale: string;
   /** কার্টের মুদ্রা (দাম দেখানোর জন্য) */
   currency?: string;
+  /** স্টোরের টাইমজোন, যেমন "+0600" */
+  tzOffset?: string;
   tools: Array<{ id: string; settings: Record<string, unknown> }>;
   /** Volume Discount আর Bundle অফার (app_config.offers metafield থেকে) */
   offers?: StoreOffers | null;
@@ -42,5 +44,6 @@ export type ToolModule = { mount: (ctx: ToolContext) => void | Promise<void> };
 declare global {
   interface Window {
     __APP_CONFIG__?: StoreConfig;
+    Shopify?: { currency?: { active?: string; rate?: string } };
   }
 }

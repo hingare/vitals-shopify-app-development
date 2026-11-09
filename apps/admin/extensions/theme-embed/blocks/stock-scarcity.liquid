@@ -1,0 +1,14 @@
+{% comment %}
+  এই উইজেট কোথায় বসবে তা মার্চেন্ট থিম এডিটরে ঠিক করেন।
+  ব্লক না থাকলে উইজেট নিজের ডিফল্ট জায়গায় বসে।
+{% endcomment %}
+<div data-app-slot="stock-scarcity"></div>
+
+{% schema %}
+{
+  "name": "t:blocks.stock_scarcity.name",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "settings": []
+}
+{% endschema %}
