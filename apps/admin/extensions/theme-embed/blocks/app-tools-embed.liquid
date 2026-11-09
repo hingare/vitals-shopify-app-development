@@ -17,12 +17,36 @@
     {%- assign variant = product.selected_or_first_available_variant -%}
     <script type="application/json" id="app-product-json">
       {
+        "productId": {{ product.id | json }},
         "title": {{ product.title | json }},
         "variantId": {{ variant.id | json }},
         "price": {{ variant.price | money | strip_html | json }},
         "available": {{ variant.available | json }}
       }
     </script>
+    {%- comment -%} রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে) {%- endcomment -%}
+    {%- assign reviews_on = false -%}
+    {%- for tool in app_config.tools -%}
+      {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
+    {%- endfor -%}
+    {%- assign rating_count = product.metafields.reviews.rating_count.value | default: 0 -%}
+    {%- if reviews_on and rating_count > 0 -%}
+      <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Product",
+          "name": {{ product.title | json }},
+          "url": {{ request.origin | append: product.url | json }},
+          "aggregateRating": {
+            "@type": "AggregateRating",
+            "ratingValue": {{ product.metafields.reviews.rating.value.rating | json }},
+            "bestRating": 5,
+            "worstRating": 1,
+            "reviewCount": {{ rating_count | json }}
+          }
+        }
+      </script>
+    {%- endif -%}
   {%- endif -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
 {%- endif -%}

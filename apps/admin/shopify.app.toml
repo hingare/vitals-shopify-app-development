@@ -9,7 +9,8 @@ embedded = true
 # read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook)
 # write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট)
 # write_app_proxy: স্টোরফ্রন্ট থেকে /apps/app-tools-এ ইভেন্ট পাঠানোর app proxy-র জন্য Shopify-র বাধ্যতামূলক scope
-scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy"
+# write_products: রিভিউর রেটিং প্রোডাক্টের reviews.rating metafield-এ লেখার জন্য (থিম স্টার দেখায়)
+scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products"
 
 [webhooks]
 api_version = "2026-10"

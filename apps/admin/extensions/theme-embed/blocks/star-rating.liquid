@@ -1,0 +1,38 @@
+{% comment %}
+  প্রোডাক্টের নামের নিচে স্টার রেটিং। কোনো JavaScript নেই, সরাসরি reviews.* metafield থেকে আসে।
+  ক্লিক করলে পেজের রিভিউ অংশে যায়।
+{% endcomment %}
+{%- assign rating_product = product -%}
+{%- assign count = rating_product.metafields.reviews.rating_count.value | default: 0 -%}
+{%- if count > 0 or block.settings.show_empty -%}
+  {%- assign value = rating_product.metafields.reviews.rating.value.rating | default: 0 -%}
+  {%- assign rounded = value | round -%}
+  <a
+    href="#app-product-reviews"
+    class="app-star-rating"
+    style="display:inline-flex;gap:6px;align-items:center;text-decoration:none;color:inherit;margin:4px 0;"
+  >
+    <span aria-hidden="true" style="color:{{ block.settings.color }};letter-spacing:1px;">
+      {%- for i in (1..5) -%}{%- if i <= rounded -%}★{%- else -%}☆{%- endif -%}{%- endfor -%}
+    </span>
+    <span>
+      {%- if count > 0 -%}
+        {{ value | round: 1 }} ({{ count }})
+      {%- else -%}
+        {{ 'blocks.rating.none' | t }}
+      {%- endif -%}
+    </span>
+  </a>
+{%- endif -%}
+
+{% schema %}
+{
+  "name": "t:blocks.rating.name",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "settings": [
+    { "type": "color", "id": "color", "label": "t:blocks.rating.color", "default": "#F5A623" },
+    { "type": "checkbox", "id": "show_empty", "label": "t:blocks.rating.show_empty", "default": false }
+  ]
+}
+{% endschema %}

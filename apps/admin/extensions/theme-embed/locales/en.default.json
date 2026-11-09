@@ -1,3 +1,8 @@
 {
-  "name": "App tools"
+  "name": "App tools",
+  "blocks": {
+    "rating": {
+      "none": "No reviews yet"
+    }
+  }
 }

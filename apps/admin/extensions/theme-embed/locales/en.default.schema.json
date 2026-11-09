@@ -1,3 +1,13 @@
 {
-  "name": "App tools"
+  "name": "App tools",
+  "blocks": {
+    "reviews": {
+      "name": "Product reviews"
+    },
+    "rating": {
+      "name": "Star rating",
+      "color": "Star color",
+      "show_empty": "Show when there are no reviews"
+    }
+  }
 }
