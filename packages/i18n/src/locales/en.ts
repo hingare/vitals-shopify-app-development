@@ -478,6 +478,10 @@ export const en = {
   "offers.placement.popup": "Pop-up after adding to cart",
   "offers.placement.product": "On the product page",
   "offers.placement.cart": "In the cart and cart drawer",
+  "offers.placement.checkout": "In checkout, under the order summary (Shopify Plus only)",
+  "offers.placement.post_purchase": "One-click offer after payment",
+  "offers.postPurchaseHelp":
+    "After payment the buyer can add the offer to the same order without paying again. Offers limited to some customers, countries or an A/B group are not shown there.",
   "offers.rules": "Who and when",
   "offers.rulesHelp": "Leave these empty to show the offer to everyone, all the time.",
   "offers.startsOn": "Start date",

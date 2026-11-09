@@ -237,6 +237,10 @@ export function buildOfferConfigs(
     /** কোনো অফার A/B টেস্টে থাকলে স্টোরফ্রন্ট ক্রেতাকে একটা গ্রুপে রাখে */
     ab: false,
   };
+  /** চেকআউট UI extension শপের metafield থেকে পড়ে (product id gid আকারে) */
+  const checkout = {
+    upsells: [] as Array<Record<string, unknown>>,
+  };
   for (const offer of offers) {
     if (!offer.active) continue;
     const type = offer.type as OfferType;
@@ -325,6 +329,16 @@ export function buildOfferConfigs(
         placements: u.placements,
         rules: sfRules,
       });
+      if (u.placements.includes("checkout")) {
+        checkout.upsells.push({
+          id: offer.id,
+          triggerProductIds,
+          productIds: u.products.map((p) => `gid://shopify/Product/${p.id}`),
+          value: discounted ? u.value : null,
+          title: u.title,
+          rules: sfRules,
+        });
+      }
     } else {
       const x = c as BogoConfig;
       const buyProductIds = x.buyProducts.map((p) => p.id);
@@ -355,6 +369,7 @@ export function buildOfferConfigs(
     /** function-এর input query-র variables ($app:offers.input metafield) */
     input: { customerTags: [...tags] },
     storefront,
+    checkout,
   };
 }
 
@@ -448,7 +463,7 @@ async function writeDiscountConfig(
 export async function syncOffers(
   admin: GraphqlClient,
   shop: { id: string },
-  installationId: string,
+  owners: { installationId: string; shopGid: string },
   enabledToolIds: string[],
 ) {
   const [offers, row] = await Promise.all([
@@ -458,7 +473,7 @@ export async function syncOffers(
       select: { offersDiscountId: true, offerSettings: true },
     }),
   ]);
-  const { fn, input, storefront } = buildOfferConfigs(
+  const { fn, input, storefront, checkout } = buildOfferConfigs(
     offers,
     enabledToolIds,
     readOfferSettings(row?.offerSettings),
@@ -477,15 +492,29 @@ export async function syncOffers(
     await db.shop.update({ where: { id: shop.id }, data: { offersDiscountId: discountId } });
   }
 
-  // স্টোরফ্রন্ট উইজেট এটা Liquid থেকে পড়ে (app-owned metafield)
-  return {
-    ownerId: installationId,
-    namespace: "app_config",
-    key: "offers",
-    type: "json",
-    value: JSON.stringify(storefront),
-  };
+  return [
+    // স্টোরফ্রন্ট উইজেট এটা Liquid থেকে পড়ে (app-owned metafield)
+    {
+      ownerId: owners.installationId,
+      namespace: "app_config",
+      key: "offers",
+      type: "json",
+      value: JSON.stringify(storefront),
+    },
+    // চেকআউট UI extension শুধু শপের app-owned metafield পড়তে পারে
+    {
+      ownerId: owners.shopGid,
+      namespace: CHECKOUT_NAMESPACE,
+      key: CHECKOUT_KEY,
+      type: "json",
+      value: JSON.stringify(checkout),
+    },
+  ];
 }
+
+/** extensions/checkout-upsell/shopify.extension.toml-এর সাথে মিল রাখতে হবে */
+export const CHECKOUT_NAMESPACE = "$app:checkout";
+export const CHECKOUT_KEY = "offers";
 
 export async function listOffers(shopId: string) {
   return db.offer.findMany({ where: { shopId }, orderBy: { createdAt: "desc" } });

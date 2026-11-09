@@ -1,0 +1,17 @@
+{
+  "name": "checkout-upsell",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.3",
+    "@shopify/ui-extensions": "2026.10.2",
+    "preact": "^10.27.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

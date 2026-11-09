@@ -27,5 +27,6 @@ export const DEFAULT_LABELS: Record<OfferType, string> = {
 };
 
 /** Upsell কোথায় দেখাবে */
-export const UPSELL_PLACEMENTS = ["popup", "product", "cart"] as const;
+/** checkout = চেকআউটের অর্ডার সারাংশে (শুধু Shopify Plus), post_purchase = পেমেন্টের পর এক ক্লিকে */
+export const UPSELL_PLACEMENTS = ["popup", "product", "cart", "checkout", "post_purchase"] as const;
 export type UpsellPlacement = (typeof UPSELL_PLACEMENTS)[number];

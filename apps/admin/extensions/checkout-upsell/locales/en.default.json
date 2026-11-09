@@ -1,0 +1,8 @@
+{
+  "name": "Checkout upsell",
+  "heading": "You may also like",
+  "add": "Add",
+  "adding": "Adding…",
+  "variant": "Option",
+  "error": "Could not add this item. Please try again."
+}

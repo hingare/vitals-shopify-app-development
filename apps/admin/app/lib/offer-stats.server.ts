@@ -17,7 +17,7 @@ const money = (v: string | undefined) => (/^\d+(\.\d+)?$/.test(v ?? "") ? Number
 
 /**
  * অর্ডারের কোন ছাড় কোন অফারের তা অফারের লেবেল দিয়ে মেলায়
- * (Shopify অর্ডারে automatic discount-এর লেবেলই title হিসেবে রাখে)।
+ * (Shopify অর্ডারে automatic আর post-purchase ছাড়ের লেবেলই title হিসেবে রাখে)।
  * ফলাফল: অফার id → সেই অফারে দেওয়া ছাড়; সাথে অর্ডারের মোট আর A/B গ্রুপ।
  */
 export function parseOfferAttribution(
@@ -31,7 +31,8 @@ export function parseOfferAttribution(
   }
   const apps = payload.discount_applications ?? [];
   const offerByIndex = apps.map((a) => {
-    if (a.type && a.type !== "automatic") return undefined;
+    // কোডের title হলো কোড নিজেই; automatic আর post-purchase-এর ছাড়ে title আমাদের লেবেল
+    if (a.type === "discount_code") return undefined;
     return (
       byLabel.get((a.title ?? "").trim().toLowerCase()) ??
       byLabel.get((a.description ?? "").trim().toLowerCase())

@@ -769,6 +769,9 @@ export default function OfferEditor() {
                     }
                   />
                 ))}
+                {draft.placements.includes("post_purchase") && (
+                  <s-text color="subdued">{t("offers.postPurchaseHelp")}</s-text>
+                )}
               </s-stack>
             </s-stack>
           </s-section>
