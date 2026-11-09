@@ -11,6 +11,12 @@
     },
     "store_reviews": {
       "name": "Store reviews"
+    },
+    "volume_discounts": {
+      "name": "Volume discount table"
+    },
+    "bundles": {
+      "name": "Bundle box"
     }
   }
 }

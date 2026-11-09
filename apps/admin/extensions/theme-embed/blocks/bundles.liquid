@@ -1,0 +1,14 @@
+{% comment %}
+  এই উইজেট কোথায় বসবে তা মার্চেন্ট থিম এডিটরে ঠিক করেন।
+  ব্লক না থাকলে উইজেট প্রোডাক্টের "Add to cart" ফর্মের ঠিক পরে বসে।
+{% endcomment %}
+<div data-app-slot="bundles"></div>
+
+{% schema %}
+{
+  "name": "t:blocks.bundles.name",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "settings": []
+}
+{% endschema %}

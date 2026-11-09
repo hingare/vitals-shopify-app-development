@@ -10,7 +10,9 @@
       assetBase: {{ 'loader.js' | asset_url | split: 'loader.js' | first | json }},
       pageType: {{ request.page_type | json }},
       locale: {{ request.locale.iso_code | json }},
-      tools: {{ app_config.tools | json }}
+      currency: {{ cart.currency.iso_code | json }},
+      tools: {{ app_config.tools | json }},
+      offers: {{ app.metafields.app_config.offers.value | json }}
     };
   </script>
   {%- if request.page_type == 'product' -%}
@@ -21,6 +23,7 @@
         "title": {{ product.title | json }},
         "variantId": {{ variant.id | json }},
         "price": {{ variant.price | money | strip_html | json }},
+        "priceCents": {{ variant.price | json }},
         "available": {{ variant.available | json }}
       }
     </script>
