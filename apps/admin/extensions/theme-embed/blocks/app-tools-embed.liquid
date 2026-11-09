@@ -52,7 +52,17 @@
               {%- assign first = false -%}
             {%- endif -%}
           {%- endfor -%}
-        }
+        },
+        {%- comment -%} Pre-Orders: স্টক শেষ কিন্তু "স্টক না থাকলেও বিক্রি" চালু এমন ভ্যারিয়েন্ট {%- endcomment -%}
+        "preorder": [
+          {%- assign first = true -%}
+          {%- for v in product.variants -%}
+            {%- if v.inventory_management == 'shopify' and v.inventory_policy == 'continue' and v.inventory_quantity <= 0 -%}
+              {%- unless first -%},{%- endunless -%}{{ v.id | json }}
+              {%- assign first = false -%}
+            {%- endif -%}
+          {%- endfor -%}
+        ]
       }
     </script>
     {%- comment -%} রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে) {%- endcomment -%}

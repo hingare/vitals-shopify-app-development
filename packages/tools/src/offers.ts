@@ -131,3 +131,45 @@ export const cartNotice = defineTool({
   }),
   attribution: ["view"],
 });
+
+/**
+ * Accelerated Checkout: প্রোডাক্ট পেজে "এখনই কিনুন" বাটন (ফর্মের সব তথ্যসহ সোজা চেকআউটে),
+ * আর চাইলে Add to cart চাপলেই কার্ট এড়িয়ে চেকআউটে।
+ */
+export const acceleratedCheckout = defineTool({
+  id: "accelerated-checkout",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["product"],
+  delivery: "embed",
+  settings: z.object({
+    buyNowButton: z.boolean().default(true),
+    buttonText: z.string().trim().min(1).max(40).default("Buy it now"),
+    skipCart: z.boolean().default(false),
+    colors: themeColors(),
+  }),
+  attribution: ["click", "add_to_cart"],
+});
+
+/**
+ * Pre-Orders: স্টক শেষ কিন্তু "স্টক না থাকলেও বিক্রি চালু" এমন ভ্যারিয়েন্টে বাটন "Pre-order" হয়,
+ * কবে পাঠানো হবে তা দেখায়, আর অর্ডারের লাইনে "Pre-order" লেখা যায় যাতে মার্চেন্ট চেনেন।
+ */
+export const preOrders = defineTool({
+  id: "pre-orders",
+  category: "conversion",
+  plan: "starter",
+  surfaces: ["product"],
+  delivery: "embed",
+  settings: z.object({
+    buttonText: z.string().trim().min(1).max(40).default("Pre-order"),
+    preorderMessage: z.string().trim().max(160).default("Pre-order now. Ships by {date}."),
+    shipDate: z
+      .string()
+      .regex(/^$|^\d{4}-\d{2}-\d{2}$/)
+      .default(""),
+    onlyTag: z.string().trim().max(60).default(""),
+    colors: themeColors({ background: "#EEF2FF" }),
+  }),
+  attribution: ["view", "add_to_cart"],
+});

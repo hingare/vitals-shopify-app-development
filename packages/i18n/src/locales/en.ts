@@ -103,6 +103,22 @@ export const en = {
   "tool.cart-notice.name": "Cart Notice",
   "tool.cart-notice.description":
     "Show a short message in the cart and cart drawer, like shipping times or return info.",
+  "tool.accelerated-checkout.name": "Accelerated Checkout",
+  "tool.accelerated-checkout.description":
+    "Add a Buy it now button that takes shoppers straight to checkout, or skip the cart after Add to cart.",
+  "tool.pre-orders.name": "Pre-Orders",
+  "tool.pre-orders.description":
+    "Keep selling sold-out products as pre-orders, with the expected ship date shown and marked on the order. Works on products set to continue selling when out of stock.",
+  "field.buyNowButton": "Show a Buy it now button",
+  "field.skipCart": "Go straight to checkout after Add to cart",
+  "field.preorderMessage": "Pre-order message",
+  "field.shipDate": "Expected ship date",
+  "help.buyNowButton":
+    "Works with every payment method and keeps product options such as engraving text.",
+  "help.skipCart": "Shoppers skip the cart page and the cart drawer.",
+  "help.preorderMessage":
+    "{date} becomes the ship date. Also saved on the order line so you can see which items are pre-orders.",
+  "help.shipDate": "Leave empty if you don't know it yet.",
   "field.noticeText": "Message",
   "field.icon": "Icon",
   "option.info": "Info",

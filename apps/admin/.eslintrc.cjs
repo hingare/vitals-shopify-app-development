@@ -19,7 +19,8 @@ module.exports = {
     commonjs: true,
     es6: true,
   },
-  ignorePatterns: ["!**/.server", "!**/.client"],
+  // extensions/*/shopify.d.ts Shopify CLI নিজে বানায় ও বদলায়
+  ignorePatterns: ["!**/.server", "!**/.client", "extensions/*/shopify.d.ts"],
 
   // Base config
   extends: ["eslint:recommended"],

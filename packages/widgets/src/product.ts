@@ -12,6 +12,8 @@ export interface PageProduct {
   compareAtCents?: number;
   /** ভেরিয়েন্ট id → স্টকে কয়টা আছে (শুধু যেগুলোর স্টক Shopify গোনে) */
   inventory?: Record<string, number>;
+  /** স্টক শেষ কিন্তু বিক্রি চালু এমন ভ্যারিয়েন্ট (Pre-Orders) */
+  preorder?: number[];
 }
 
 export function readPageProduct(): PageProduct | null {

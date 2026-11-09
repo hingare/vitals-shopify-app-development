@@ -8,11 +8,13 @@ import {
   stockScarcity,
 } from "./conversion";
 import {
+  acceleratedCheckout,
   bogo,
   bundles,
   cartDrawer,
   cartNotice,
   freeGifts,
+  preOrders,
   upsells,
   volumeDiscounts,
 } from "./offers";
@@ -53,6 +55,8 @@ export const registry = createRegistry([
   upsells,
   cartDrawer,
   cartNotice,
+  acceleratedCheckout,
+  preOrders,
   spendingGoal,
   trustSeals,
   paymentLogos,
@@ -87,12 +91,14 @@ export { buildStoreConfig } from "./config";
 export type { SavedToolState, StoreToolConfig } from "./config";
 export { productReviews } from "./product-reviews";
 export {
+  acceleratedCheckout,
   bogo,
   bundles,
   cartDrawer,
   cartNotice,
   freeGifts,
   OFFER_TOOL_BY_TYPE,
+  preOrders,
   upsells,
   volumeDiscounts,
 } from "./offers";

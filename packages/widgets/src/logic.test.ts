@@ -178,3 +178,25 @@ describe("offers on the storefront", async () => {
     );
   });
 });
+
+describe("pre-orders", async () => {
+  const { preorderText } = await import("./tools/pre-orders");
+  const s = {
+    buttonText: "Pre-order",
+    preorderMessage: "Pre-order now. Ships by {date}.",
+    shipDate: "2026-12-05",
+    onlyTag: "",
+    colors: { background: "#fff", text: "#000", accent: "#000" },
+  };
+  it("fills the ship date in the store's language", () => {
+    expect(preorderText(s, "en")).toBe("Pre-order now. Ships by Dec 5, 2026.");
+  });
+  it("uses a dateless message when no ship date is set", () => {
+    expect(preorderText({ ...s, shipDate: "" }, "en")).toBe(
+      "Pre-order now. We'll ship it as soon as it's back in stock.",
+    );
+    expect(preorderText({ ...s, shipDate: "", preorderMessage: "Back soon" }, "en")).toBe(
+      "Back soon",
+    );
+  });
+});

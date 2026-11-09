@@ -88,7 +88,7 @@ function BundleBox({
       });
       if (!res.ok) throw new Error("cart");
       track(TOOL_ID, "add_to_cart");
-      attribute(TOOL_ID);
+      void attribute(TOOL_ID);
       setState("added");
       document.dispatchEvent(new CustomEvent("cart:refresh", { bubbles: true }));
     } catch {

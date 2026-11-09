@@ -51,7 +51,7 @@ function StickyBar({
     });
     if (res.ok) {
       track(TOOL_ID, "add_to_cart");
-      attribute(TOOL_ID);
+      void attribute(TOOL_ID);
     }
     setState(res.ok ? "added" : "idle");
   }
