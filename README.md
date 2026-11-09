@@ -40,7 +40,7 @@ docker-compose.yml  লোকাল PostgreSQL ও Redis
 pnpm install
 pnpm db:up                                   # PostgreSQL ও Redis চালু
 copy apps\admin\.env.example apps\admin\.env  # (Mac/Linux: cp)
-pnpm --filter @app/admin setup               # ডাটাবেস টেবিল তৈরি
+pnpm --filter @app/admin run setup           # ডাটাবেস টেবিল তৈরি (লোকাল পোর্ট: PostgreSQL 5434, Redis 6380)
 pnpm dev                                     # Shopify-তে লগইন করে অ্যাপ বানাবে ও dev store-এ চালাবে
 ```
 
