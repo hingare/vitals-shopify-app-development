@@ -9,6 +9,7 @@ import {
   syncProductRating,
 } from "../lib/reviews.server";
 import { allowRequest } from "../lib/rate-limit.server";
+import { attachMedia } from "../lib/review-media.server";
 
 /**
  * স্টোরফ্রন্টের রিভিউ উইজেট এখানে কথা বলে (App Proxy: /apps/app-tools/reviews)।
@@ -28,7 +29,7 @@ async function shopFor(domain: string | undefined) {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.public.appProxy(request);
+  const { session, admin } = await authenticate.public.appProxy(request);
   const shop = await shopFor(session?.shop);
   if (!shop) return json({ error: "unavailable" }, 404);
   const settings = await enabledReviewSettings(shop.id);
@@ -39,7 +40,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!/^(\d{1,20}|store)$/.test(product)) return json({ error: "invalid" }, 400);
   const page = Number(url.searchParams.get("page")) || 1;
   const productId = product === "store" ? null : product;
-  return json(await publishedReviews(shop.id, productId, page, settings.perPage));
+  return json(await publishedReviews(shop.id, productId, page, settings.perPage, admin));
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -67,6 +68,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const result = await createReview(shop.id, parsed.input, settings);
   if (result.duplicate) return json({ error: "duplicate" }, 409);
+  if (admin && parsed.input.media.length > 0) {
+    await attachMedia(
+      admin,
+      result.review.id,
+      parsed.input.media,
+      `Review by ${parsed.input.name}`,
+    ).catch((error) => console.warn("[reviews] photo attach failed", error));
+  }
   const productId = parsed.input.productId;
   if (result.review.status === "published" && admin && productId) {
     await syncProductRating(admin, shop.id, productId).catch((error) =>

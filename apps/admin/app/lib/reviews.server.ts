@@ -2,6 +2,7 @@ import { productReviews } from "@app/tools";
 import { z } from "@app/tool-sdk";
 import db from "../db.server";
 import type { GraphqlClient } from "./tools.server";
+import { parseMediaUrls, resolvePendingMedia } from "./review-media.server";
 
 import { REVIEW_STATUSES, type ReviewStatus } from "./reviews";
 
@@ -22,6 +23,8 @@ const reviewInput = z.object({
   email: z.string().trim().max(200).email().optional().or(z.literal("")).default(""),
   /** honeypot: মানুষ এটা দেখে না, বট ভরে ফেলে */
   website: z.string().optional().default(""),
+  /** আপলোড করা ছবির staged URL (সর্বোচ্চ ৩টা, শুধু Shopify-র স্টোরেজ) */
+  media: z.unknown().optional().transform(parseMediaUrls),
 });
 export type ReviewInput = z.output<typeof reviewInput>;
 
@@ -130,6 +133,7 @@ export async function publishedReviews(
   productId: string | null,
   page: number,
   perPage: number,
+  admin?: GraphqlClient,
 ) {
   const safePage = Math.max(1, Math.min(page, 500));
   const [summary, rows] = await Promise.all([
@@ -148,17 +152,22 @@ export async function publishedReviews(
         verified: true,
         reply: true,
         createdAt: true,
+        media: { select: { id: true, fileId: true, url: true }, orderBy: { createdAt: "asc" } },
       },
     }),
   ]);
+  const allMedia = rows.flatMap((r) => r.media);
+  const resolved = admin ? await resolvePendingMedia(admin, allMedia) : allMedia;
+  const urlById = new Map(resolved.map((m) => [m.id, m.url]));
   return {
     summary,
     page: safePage,
     hasMore: safePage * perPage < summary.count,
-    reviews: rows.map((r) => ({
+    reviews: rows.map(({ media, ...r }) => ({
       ...r,
       authorName: shortName(r.authorName),
       createdAt: r.createdAt.toISOString().slice(0, 10),
+      images: media.map((m) => urlById.get(m.id)).filter((u): u is string => Boolean(u)),
     })),
   };
 }
@@ -264,6 +273,7 @@ export async function listReviews(
       orderBy: { createdAt: "desc" },
       skip: (Math.max(1, page) - 1) * perPage,
       take: perPage,
+      include: { media: { select: { id: true, fileId: true, url: true } } },
     }),
   ]);
   return { total, rows };
@@ -295,12 +305,13 @@ export async function moderate(
     | { type: "status"; status: ReviewStatus }
     | { type: "delete" }
     | { type: "reply"; reply: string },
-): Promise<string[]> {
-  if (ids.length === 0) return [];
+): Promise<{ products: string[]; files: string[] }> {
+  if (ids.length === 0) return { products: [], files: [] };
   const rows = await db.review.findMany({
     where: { shopId, id: { in: ids } },
-    select: { id: true, productId: true },
+    select: { id: true, productId: true, media: { select: { fileId: true } } },
   });
+  let files: string[] = [];
   const ownIds = rows.map((r) => r.id);
   if (action.type === "status") {
     await db.review.updateMany({
@@ -308,6 +319,7 @@ export async function moderate(
       data: { status: action.status },
     });
   } else if (action.type === "delete") {
+    files = rows.flatMap((r) => r.media.map((m) => m.fileId));
     await db.review.deleteMany({ where: { shopId, id: { in: ownIds } } });
   } else {
     const reply = action.reply.trim().slice(0, 2000);
@@ -315,9 +327,12 @@ export async function moderate(
       where: { shopId, id: { in: ownIds } },
       data: { reply: reply || null, repliedAt: reply ? new Date() : null },
     });
-    return [];
+    return { products: [], files: [] };
   }
-  return [...new Set(rows.map((r) => r.productId).filter((p): p is string => Boolean(p)))];
+  const products = [
+    ...new Set(rows.map((r) => r.productId).filter((p): p is string => Boolean(p))),
+  ];
+  return { products, files };
 }
 
 /** GDPR customers/redact: ক্রেতার নাম ও ইমেইল মুছে রিভিউ বেনামী করে */

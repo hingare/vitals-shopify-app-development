@@ -15,6 +15,7 @@ import {
   syncProductRating,
 } from "../lib/reviews.server";
 import { REVIEW_STATUSES, type ReviewStatus } from "../lib/reviews";
+import { deleteMediaFiles, resolvePendingMedia } from "../lib/review-media.server";
 import { useT } from "../lib/i18n";
 
 const PER_PAGE = 25;
@@ -36,10 +37,17 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     statusCounts(shop.id),
     enabledReviewSettings(shop.id),
   ]);
-  const titles = await productTitles(
-    admin,
-    rows.map((r) => r.productId).filter((p): p is string => Boolean(p)),
-  );
+  const [titles, media] = await Promise.all([
+    productTitles(
+      admin,
+      rows.map((r) => r.productId).filter((p): p is string => Boolean(p)),
+    ),
+    resolvePendingMedia(
+      admin,
+      rows.flatMap((r) => r.media),
+    ),
+  ]);
+  const mediaUrl = new Map(media.map((m) => [m.id, m.url]));
   return {
     status,
     page,
@@ -55,6 +63,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       authorEmail: r.authorEmail,
       product: r.productId ? (titles[r.productId] ?? `#${r.productId}`) : null,
       reply: r.reply,
+      images: r.media.map((m) => mediaUrl.get(m.id)).filter((u): u is string => Boolean(u)),
       createdAt: r.createdAt.toISOString().slice(0, 10),
     })),
   };
@@ -67,7 +76,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const intent = String(form.get("intent"));
   const ids = form.getAll("id").map(String).slice(0, 100);
 
-  let changed: string[] = [];
+  let changed: { products: string[]; files: string[] } = { products: [], files: [] };
   if (intent === "publish" || intent === "reject" || intent === "pending") {
     const status: ReviewStatus =
       intent === "publish" ? "published" : intent === "reject" ? "rejected" : "pending";
@@ -80,8 +89,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { ok: false as const };
   }
   // রেটিং বদলেছে এমন প্রোডাক্টের metafield আবার হিসাব (থিমের স্টার ঠিক থাকে)
+  if (changed.files.length > 0) await deleteMediaFiles(admin, changed.files);
   await Promise.all(
-    changed.map((productId) =>
+    changed.products.map((productId) =>
       syncProductRating(admin, shop.id, productId).catch((error) =>
         console.warn("[reviews] rating sync failed", error),
       ),
@@ -124,6 +134,15 @@ function ReviewRow({ review, status }: { review: Row; status: ReviewStatus }) {
         <s-text color="subdued">{review.product ?? t("reviews.storeReview")}</s-text>
         {review.title && <s-text type="strong">{review.title}</s-text>}
         <s-paragraph>{review.body}</s-paragraph>
+        {review.images.length > 0 && (
+          <s-stack direction="inline" gap="small">
+            {review.images.map((src) => (
+              <s-link key={src} href={src} target="_blank">
+                <s-thumbnail src={src} alt={t("reviews.photo")} size="small" />
+              </s-link>
+            ))}
+          </s-stack>
+        )}
         {review.reply && !replying && (
           <s-box padding="small" background="subdued" borderRadius="base">
             <s-text type="strong">{t("reviews.yourReply")}</s-text>

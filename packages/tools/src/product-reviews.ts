@@ -19,6 +19,8 @@ export const productReviews = defineTool({
     autoPublish: z.enum(["none", "4plus", "all"]).default("4plus"),
     perPage: z.number().int().min(3).max(20).default(5),
     showForm: z.boolean().default(true),
+    /** ক্রেতা রিভিউর সাথে ৩টা পর্যন্ত ছবি দিতে পারবেন (মার্চেন্টের Shopify Files-এ থাকে) */
+    allowPhotos: z.boolean().default(true),
     starColor: hex.default("#F5A623"),
   }),
   attribution: ["view"],

@@ -28,6 +28,9 @@ const strings = {
     verified: "Verified buyer",
     storeReply: "Store reply",
     showMore: "Show more reviews",
+    photos: "Photos (optional, up to 3)",
+    photo: "Customer photo",
+    photoRules: "Add up to 3 photos (JPG, PNG or WebP), each under 5 MB.",
   },
 } satisfies Record<string, Record<string, string>>;
 

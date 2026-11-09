@@ -10,6 +10,7 @@ const ENDPOINT = "/apps/app-tools/reviews";
 interface Settings {
   perPage: number;
   showForm: boolean;
+  allowPhotos: boolean;
   starColor: string;
 }
 
@@ -22,6 +23,7 @@ interface Review {
   verified: boolean;
   reply: string | null;
   createdAt: string;
+  images: string[];
 }
 
 interface Page {
@@ -67,6 +69,22 @@ function ReviewItem({ review, color, t }: { review: Review; color: string; t: T 
       </div>
       {review.title && <p style={{ margin: "8px 0 0", fontWeight: 600 }}>{review.title}</p>}
       <p style={{ margin: "6px 0 0", whiteSpace: "pre-line" }}>{review.body}</p>
+      {review.images.length > 0 && (
+        <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+          {review.images.map((src) => (
+            <a key={src} href={src} target="_blank" rel="noopener">
+              <img
+                src={`${src}${src.includes("?") ? "&" : "?"}width=160`}
+                alt={t("photo")}
+                width={80}
+                height={80}
+                loading="lazy"
+                style={{ objectFit: "cover", borderRadius: "6px" }}
+              />
+            </a>
+          ))}
+        </div>
+      )}
       {review.reply && (
         <div
           style={{
@@ -95,14 +113,49 @@ const field = {
   borderRadius: "6px",
 } as const;
 
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTOS = 3;
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+interface UploadTarget {
+  url: string;
+  resourceUrl: string;
+  parameters: Array<{ name: string; value: string }>;
+}
+
+/** ছবি সরাসরি Shopify-র স্টোরেজে পাঠায়; ফেরত দেয় staged ঠিকানা */
+async function uploadPhotos(files: File[]): Promise<string[]> {
+  const res = await fetch(`${ENDPOINT}/uploads`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      files: files.map((f) => ({ name: f.name, type: f.type, size: f.size })),
+    }),
+  });
+  if (!res.ok) throw new Error("upload");
+  const { targets } = (await res.json()) as { targets: UploadTarget[] };
+  return Promise.all(
+    targets.map(async (target, i) => {
+      const form = new FormData();
+      for (const p of target.parameters) form.append(p.name, p.value);
+      form.append("file", files[i]!);
+      const up = await fetch(target.url, { method: "POST", body: form });
+      if (!up.ok) throw new Error("upload");
+      return target.resourceUrl;
+    }),
+  );
+}
+
 function ReviewForm({
   productId,
   color,
+  allowPhotos,
   t,
   onDone,
 }: {
   productId: string;
   color: string;
+  allowPhotos: boolean;
   t: T;
   onDone: (status: string) => void;
 }) {
@@ -116,14 +169,24 @@ function ReviewForm({
       setError(t("chooseRating"));
       return;
     }
-    const data = Object.fromEntries(new FormData(e.currentTarget as HTMLFormElement));
+    const formData = new FormData(e.currentTarget as HTMLFormElement);
+    const photos = (formData.getAll("photos") as File[]).filter((f) => f.size > 0);
+    formData.delete("photos");
+    if (
+      photos.length > MAX_PHOTOS ||
+      photos.some((f) => !PHOTO_TYPES.includes(f.type) || f.size > MAX_PHOTO_BYTES)
+    ) {
+      setError(t("photoRules"));
+      return;
+    }
     setSending(true);
     setError("");
     try {
+      const media = photos.length > 0 ? await uploadPhotos(photos) : [];
       const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, productId, rating }),
+        body: JSON.stringify({ ...Object.fromEntries(formData), productId, rating, media }),
       });
       const json = (await res.json()) as { status?: string; error?: string };
       if (res.ok && json.status) onDone(json.status);
@@ -169,6 +232,18 @@ function ReviewForm({
         {t("reviewBody")}
         <textarea name="body" required maxLength={5000} rows={4} style={field} />
       </label>
+      {allowPhotos && (
+        <label>
+          {t("photos")}
+          <input
+            name="photos"
+            type="file"
+            accept={PHOTO_TYPES.join(",")}
+            multiple
+            style={{ ...field, border: 0, padding: "4px 0" }}
+          />
+        </label>
+      )}
       <input
         name="website"
         tabIndex={-1}
@@ -264,6 +339,7 @@ function Reviews({ productId, settings, t }: { productId: string; settings: Sett
         <ReviewForm
           productId={productId}
           color={color}
+          allowPhotos={settings.allowPhotos}
           t={t}
           onDone={(status) => {
             setThanks(t(status === "published" ? "thanksPublished" : "thanksPending"));
