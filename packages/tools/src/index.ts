@@ -9,6 +9,7 @@ import {
 } from "./conversion";
 import { bundles, volumeDiscounts } from "./offers";
 import { productReviews } from "./product-reviews";
+import { cookiesBanner, currencyConverter, geolocationRedirect } from "./shopify-alternatives";
 import {
   animatedAtc,
   autoExternalLinks,
@@ -64,6 +65,9 @@ export const registry = createRegistry([
   quickLinks,
   hideDynamicCheckout,
   agreeToTerms,
+  currencyConverter,
+  cookiesBanner,
+  geolocationRedirect,
 ]);
 
 export { buildStoreConfig } from "./config";
@@ -74,3 +78,4 @@ export { CHAT_CHANNELS } from "./conversion";
 export { TRUST_BADGES } from "./trust";
 export { SHARE_NETWORKS } from "./small";
 export { recentSales } from "./stage3";
+export { CURRENCIES } from "./shopify-alternatives";

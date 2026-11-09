@@ -9,6 +9,14 @@ export interface StoreConfig {
   currency?: string;
   /** স্টোরের টাইমজোন, যেমন "+0600" */
   tzOffset?: string;
+  /** স্টোরের মূল মুদ্রা ও দাম লেখার ধরন (Currency Converter) */
+  shopCurrency?: string;
+  moneyFormat?: string;
+  /** Shopify Markets-এ চালু মুদ্রার সংখ্যা (১-এর বেশি হলে Markets নিজেই রূপান্তর করে) */
+  marketsCurrencies?: number;
+  /** বর্তমান দেশ আর Markets-এ চালু দেশগুলো (Geolocation Redirect) */
+  country?: string;
+  countries?: string[];
   tools: Array<{ id: string; settings: Record<string, unknown> }>;
   /** মার্চেন্ট নিজে উইজেটের জায়গা ঠিক করলে (না করলে উইজেট নিজেই খুঁজে নেয়) */
   placement?: {
@@ -54,6 +62,15 @@ declare global {
     Shopify?: {
       currency?: { active?: string; rate?: string };
       routes?: { root?: string };
+      loadFeatures?: (
+        features: Array<{ name: string; version: string }>,
+        callback: (error?: unknown) => void,
+      ) => void;
+      customerPrivacy?: {
+        shouldShowBanner?: () => boolean;
+        currentVisitorConsent?: () => Record<string, string>;
+        setTrackingConsent: (consent: Record<string, boolean>, callback: () => void) => void;
+      };
     };
   }
 }
