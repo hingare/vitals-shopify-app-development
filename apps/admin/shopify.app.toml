@@ -41,3 +41,8 @@ api_version = "2026-10"
 url = "/proxy"
 prefix = "apps"
 subpath = "app-tools"
+
+# pnpm dev সবসময় এই ডেভেলপমেন্ট স্টোরে চলবে (আসল স্টোরে নয়)
+[build]
+dev_store_url = "authentic-store-bd.myshopify.com"
+automatically_update_urls_on_dev = true
