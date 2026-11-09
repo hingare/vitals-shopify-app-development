@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
-    "dev": "shopify app dev --path .",
+    "dev": "shopify app dev --path . --skip-dependencies-installation",
     "config:link": "shopify app config link --path .",
     "generate": "shopify app generate --path .",
     "deploy": "shopify app deploy --path .",
