@@ -1,0 +1,15 @@
+{
+  "name": "web-pixel",
+  "private": true,
+  "version": "0.0.0",
+  "main": "dist/main.js",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@shopify/web-pixels-extension": "2.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

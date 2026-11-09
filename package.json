@@ -6,7 +6,7 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "dev": "pnpm --filter @app/admin dev",
+    "dev": "pnpm --filter @app/widgets build && pnpm --filter @app/admin dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
@@ -14,7 +14,8 @@
     "size": "pnpm --filter @app/widgets size",
     "format": "prettier --write .",
     "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:down": "docker compose down",
+    "deploy": "pnpm --filter @app/widgets build && pnpm --filter @app/admin deploy"
   },
   "devDependencies": {
     "prettier": "^3.6.2",

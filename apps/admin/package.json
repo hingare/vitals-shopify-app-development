@@ -3,12 +3,12 @@
   "private": true,
   "scripts": {
     "build": "react-router build",
-    "dev": "shopify app dev",
-    "config:link": "shopify app config link",
-    "generate": "shopify app generate",
-    "deploy": "shopify app deploy",
-    "config:use": "shopify app config use",
-    "env": "shopify app env",
+    "dev": "shopify app dev --path . --skip-dependencies-installation",
+    "config:link": "shopify app config link --path .",
+    "generate": "shopify app generate --path .",
+    "deploy": "shopify app deploy --path .",
+    "config:use": "shopify app config use --path .",
+    "env": "shopify app env --path .",
     "start": "react-router-serve ./build/server/index.js",
     "docker-start": "npm run setup && npm run start",
     "setup": "prisma generate && prisma migrate deploy",
@@ -17,7 +17,9 @@
     "prisma": "prisma",
     "graphql-codegen": "graphql-codegen",
     "vite": "vite",
-    "typecheck": "react-router typegen && tsc --noEmit"
+    "typecheck": "react-router typegen && tsc --noEmit",
+    "test": "vitest run",
+    "postinstall": "prisma generate"
   },
   "type": "module",
   "engines": {
@@ -39,7 +41,9 @@
     "react-router": "7.18.2",
     "vite-tsconfig-paths": "^6.0.4",
     "@app/brand": "workspace:*",
-    "@app/tool-sdk": "workspace:*"
+    "@app/tool-sdk": "workspace:*",
+    "@app/i18n": "workspace:*",
+    "@app/tools": "workspace:*"
   },
   "devDependencies": {
     "@shopify/api-codegen-preset": "^2.0.0",
@@ -59,6 +63,7 @@
     "graphql-config": "^5.1.1",
     "prettier": "^3.6.2",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^7.3.1",
+    "vitest": "^3.2.4"
   }
 }

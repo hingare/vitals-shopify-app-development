@@ -26,9 +26,15 @@ importers:
       '@app/brand':
         specifier: workspace:*
         version: link:../../packages/brand
+      '@app/i18n':
+        specifier: workspace:*
+        version: link:../../packages/i18n
       '@app/tool-sdk':
         specifier: workspace:*
         version: link:../../packages/tool-sdk
+      '@app/tools':
+        specifier: workspace:*
+        version: link:../../packages/tools
       '@prisma/client':
         specifier: ^6.19.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
@@ -126,6 +132,21 @@ importers:
       vite:
         specifier: ^7.3.1
         version: 7.3.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
+  apps/admin/extensions/theme-embed: {}
+
+  apps/admin/extensions/web-pixel:
+    dependencies:
+      '@shopify/web-pixels-extension':
+        specifier: 2.18.0
+        version: 2.18.0
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/brand:
     devDependencies:
@@ -133,11 +154,33 @@ importers:
         specifier: ^5.9.3
         version: 5.9.3
 
+  packages/i18n:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
   packages/tool-sdk:
     dependencies:
       zod:
         specifier: ^4.1.12
         version: 4.6.7
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@25.9.9)(jiti@2.7.0)(yaml@2.9.1)
+
+  packages/tools:
+    dependencies:
+      '@app/tool-sdk':
+        specifier: workspace:*
+        version: link:../tool-sdk
     devDependencies:
       typescript:
         specifier: ^5.9.3
@@ -1315,6 +1358,9 @@ packages:
 
   '@shopify/storefront-api-client@2.0.1':
     resolution: {integrity: sha512-GsEb5L3y8ffqWHr7LPyrs8tFtfZJPlyC1kS3YClGQXX1eWS3HqWysvMwnEiXbYwCA0pUkthvAcqLZj/xXx3wCQ==}
+
+  '@shopify/web-pixels-extension@2.18.0':
+    resolution: {integrity: sha512-qHp93QKdxJ8UREzkYOje6343An2wvXLUF71uduahiTjBfYXQ7VqIAXoHCwzCnP3Kss1AXLpz7XPaKCRC0ONOTw==}
 
   '@standard-schema/spec@1.1.0':
     resolution: {integrity: sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==}
@@ -5202,6 +5248,8 @@ snapshots:
   '@shopify/storefront-api-client@2.0.1':
     dependencies:
       '@shopify/graphql-client': 2.0.1
+
+  '@shopify/web-pixels-extension@2.18.0': {}
 
   '@standard-schema/spec@1.1.0': {}
 
