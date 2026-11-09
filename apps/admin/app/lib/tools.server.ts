@@ -2,6 +2,7 @@ import { buildStoreConfig, registry } from "@app/tools";
 import { canUseTool, type Plan } from "@app/tool-sdk";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
+import { syncOffers } from "./offers.server";
 
 export const CONFIG_NAMESPACE = "app_config";
 export const CONFIG_KEY = "tools";
@@ -84,6 +85,14 @@ export async function syncStoreConfig(
   const ownerId = idJson.data?.currentAppInstallation?.id;
   if (!ownerId) throw new Error("Could not read app installation id");
 
+  // চেকআউটের অফার discount আর স্টোরফ্রন্টের অফার তালিকাও একই সাথে
+  const offersMetafield = await syncOffers(
+    admin,
+    shop,
+    ownerId,
+    config.tools.map((t) => t.id),
+  );
+
   const res = await admin.graphql(
     `#graphql
     mutation SetStoreConfig($metafields: [MetafieldsSetInput!]!) {
@@ -99,6 +108,7 @@ export async function syncStoreConfig(
             type: "json",
             value: JSON.stringify(config),
           },
+          offersMetafield,
         ],
       },
     },

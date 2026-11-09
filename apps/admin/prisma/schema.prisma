@@ -35,30 +35,33 @@ model Session {
 
 /// একটি ইনস্টল করা স্টোর
 model Shop {
-  id             String             @id @default(cuid())
-  domain         String             @unique
+  id               String             @id @default(cuid())
+  domain           String             @unique
   /// "starter" | "professional" | null (কোনো প্ল্যান নেই)
-  plan           String?
+  plan             String?
   /// Shopify-র subscription id, যাতে প্ল্যান বদলালে মেলানো যায়
-  subscriptionId String?
-  installedAt    DateTime           @default(now())
-  uninstalledAt  DateTime?
+  subscriptionId   String?
+  installedAt      DateTime           @default(now())
+  uninstalledAt    DateTime?
   /// Web Pixel ইভেন্ট পাঠানোর গোপন নয় এমন চাবি (কোন স্টোরের ইভেন্ট তা চেনার জন্য)
-  ingestKey      String?            @unique
+  ingestKey        String?            @unique
   /// Shopify-তে তৈরি web pixel-এর id ও যে URL-এ সে ইভেন্ট পাঠায়
-  pixelId        String?
-  pixelEndpoint  String?
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  tools          ToolSetting[]
-  speedSnapshots SpeedSnapshot[]
-  speedJobs      SpeedJob[]
-  dailyStats     DailyToolStat[]
-  storeStats     DailyStoreStat[]
-  trafficStats   DailyTrafficStat[]
-  pageStats      DailyPageStat[]
-  visitorDays    VisitorDay[]
-  reviews        Review[]
+  pixelId          String?
+  pixelEndpoint    String?
+  /// সব অফারের জন্য আমাদের একটাই automatic app discount (Shopify gid)
+  offersDiscountId String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  tools            ToolSetting[]
+  speedSnapshots   SpeedSnapshot[]
+  speedJobs        SpeedJob[]
+  dailyStats       DailyToolStat[]
+  storeStats       DailyStoreStat[]
+  trafficStats     DailyTrafficStat[]
+  pageStats        DailyPageStat[]
+  visitorDays      VisitorDay[]
+  reviews          Review[]
+  offers           Offer[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -228,4 +231,22 @@ model ReviewMedia {
   review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
 
   @@index([reviewId])
+}
+
+/// Volume Discount বা Bundle অফার। চেকআউটে একটাই Shopify discount function সব অফার চালায়
+model Offer {
+  id        String   @id @default(cuid())
+  shopId    String
+  /// volume | bundle
+  type      String
+  /// শুধু মার্চেন্টের জন্য নাম
+  name      String
+  active    Boolean  @default(true)
+  /// টাইপ অনুযায়ী সেটিংস (offers.server.ts-এর zod schema দিয়ে যাচাই করা)
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, type])
 }
