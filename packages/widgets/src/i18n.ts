@@ -61,6 +61,10 @@ const strings = {
     share: "Share on",
     copyLink: "Copy link",
     linkCopied: "Link copied",
+    giftProgress: "Spend {amount} more to get a free {gift}",
+    giftUnlocked: "You unlocked a free {gift}!",
+    bogoFree: "Buy {buy}, get {get} free",
+    bogoOff: "Buy {buy}, get {get} at {value} off",
   },
 } satisfies Record<string, Record<string, string>>;
 

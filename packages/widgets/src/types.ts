@@ -34,19 +34,54 @@ export interface OfferValue {
   amountEach?: number;
 }
 
+/** স্টোরফ্রন্টে যতটুকু যাচাই করা যায়; ক্রেতা বা দেশের শর্ত চেকআউটে যাচাই হয় */
+export interface OfferRules {
+  startsOn?: string;
+  endsOn?: string;
+  abGroup?: "" | "A" | "B";
+  /** স্টোরের মূল মুদ্রায় */
+  minSubtotal?: number;
+  restricted?: boolean;
+}
+
 export interface StoreOffers {
   volume: Array<{
     id: string;
     /** খালি মানে সব প্রোডাক্ট */
     productIds: string[];
     tiers: Array<{ minQty: number; value: OfferValue }>;
+    rules?: OfferRules;
   }>;
   bundles: Array<{
     id: string;
     title: string;
     value: OfferValue;
     items: Array<{ productId: string; handle: string; qty: number }>;
+    rules?: OfferRules;
   }>;
+  gifts?: Array<{
+    id: string;
+    /** খালি = যেকোনো প্রোডাক্ট */
+    triggerProductIds: string[];
+    minQty: number;
+    variantId: string;
+    handle: string;
+    title: string;
+    qty: number;
+    progressText: string;
+    rules?: OfferRules;
+  }>;
+  bogo?: Array<{
+    id: string;
+    buyProductIds: string[];
+    buyQty: number;
+    getProductIds: string[];
+    getQty: number;
+    value: OfferValue;
+    rules?: OfferRules;
+  }>;
+  /** কোনো অফার A/B টেস্টে আছে কিনা */
+  ab?: boolean;
 }
 
 export interface ToolContext {

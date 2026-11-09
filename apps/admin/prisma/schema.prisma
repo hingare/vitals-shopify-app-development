@@ -50,6 +50,8 @@ model Shop {
   pixelEndpoint    String?
   /// সব অফারের জন্য আমাদের একটাই automatic app discount (Shopify gid)
   offersDiscountId String?
+  /// অফারের স্টোর-জুড়ে সেটিংস, যেমন কনফ্লিক্ট নিয়ম (app/lib/offers.server.ts)
+  offerSettings    Json?
   /// থিমে উইজেট কোথায় বসবে, মার্চেন্ট নিজে ঠিক করলে (app/lib/placement.ts)
   placement        Json?
   createdAt        DateTime           @default(now())
@@ -65,6 +67,8 @@ model Shop {
   reviews          Review[]
   offers           Offer[]
   recentSales      RecentSale[]
+  offerStats       OfferDailyStat[]
+  abStats          DailyAbStat[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -266,4 +270,35 @@ model RecentSale {
   shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@index([shopId, soldAt])
+}
+
+/// প্রতিদিন প্রতিটি অফারের অর্ডার, সেই অর্ডারগুলোর মোট বিক্রি আর দেওয়া ছাড় (orders/paid webhook থেকে)
+model OfferDailyStat {
+  id       String   @id @default(cuid())
+  shopId   String
+  offerId  String
+  /// UTC দিন
+  date     DateTime @db.Date
+  orders   Int      @default(0)
+  /// অর্ডারের মোট দাম, স্টোরের মুদ্রায়
+  revenue  Decimal  @default(0) @db.Decimal(14, 2)
+  /// এই অফারে দেওয়া মোট ছাড়
+  discount Decimal  @default(0) @db.Decimal(14, 2)
+  shop     Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, offerId, date])
+}
+
+/// A/B টেস্ট: প্রতিদিন প্রতিটি গ্রুপের অর্ডার ও বিক্রি (AOV তুলনার জন্য)
+model DailyAbStat {
+  id      String   @id @default(cuid())
+  shopId  String
+  /// "A" বা "B"
+  group   String
+  date    DateTime @db.Date
+  orders  Int      @default(0)
+  revenue Decimal  @default(0) @db.Decimal(14, 2)
+  shop    Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, group, date])
 }

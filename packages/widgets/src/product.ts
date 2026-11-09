@@ -49,6 +49,7 @@ const AFTER_FORM_ORDER = [
   "countdown-timer",
   "stock-scarcity",
   "volume-discounts",
+  "bogo",
   "bundles",
   "trust-seals",
   "payment-logos",

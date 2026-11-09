@@ -122,3 +122,59 @@ describe("small parsers", () => {
     ).toEqual([{ label: "Track", url: "/account" }]);
   });
 });
+
+describe("offers on the storefront", async () => {
+  const { offerShown, storeToday } = await import("./offers");
+  const { giftStatus } = await import("./tools/free-gifts");
+  const { bogoText } = await import("./tools/bogo");
+  const config = { tzOffset: "+0600" } as Parameters<typeof offerShown>[1];
+  // 2026-11-09 20:00 UTC = 10 Nov 02:00 in the store
+  const now = Date.UTC(2026, 10, 9, 20, 0);
+
+  it("checks dates in the store's time zone", () => {
+    expect(storeToday(config, now)).toBe("2026-11-10");
+    expect(offerShown({ startsOn: "2026-11-10" }, config, now)).toBe(true);
+    expect(offerShown({ endsOn: "2026-11-09" }, config, now)).toBe(false);
+    expect(offerShown(undefined, config, now)).toBe(true);
+  });
+
+  it("unlocks a gift without counting the gift's own price", () => {
+    const gift = {
+      id: "g",
+      triggerProductIds: [],
+      minQty: 1,
+      variantId: "9",
+      handle: "socks",
+      title: "Socks",
+      qty: 1,
+      progressText: "",
+      rules: { minSubtotal: 50 },
+    };
+    const item = (variant: number, cents: number) => ({
+      key: String(variant),
+      variant_id: variant,
+      product_id: variant,
+      quantity: 1,
+      original_line_price: cents,
+      final_line_price: cents,
+    });
+    expect(giftStatus(gift, [item(1, 3000), item(9, 4000)], 1)).toEqual({
+      qualifies: false,
+      remaining: 2000,
+    });
+    expect(giftStatus(gift, [item(1, 5000)], 1).qualifies).toBe(true);
+    // ক্রেতার মুদ্রা দ্বিগুণ হলে ১০০ লাগবে
+    expect(giftStatus(gift, [item(1, 5000)], 2).remaining).toBe(5000);
+  });
+
+  it("writes the BOGO offer", () => {
+    const t = (k: "bogoFree" | "bogoOff") =>
+      k === "bogoFree" ? "Buy {buy}, get {get} free" : "Buy {buy}, get {get} at {value} off";
+    expect(bogoText({ buyQty: 2, getQty: 1, value: { percent: 100 } }, t, String)).toBe(
+      "Buy 2, get 1 free",
+    );
+    expect(bogoText({ buyQty: 1, getQty: 1, value: { percent: 50 } }, t, String)).toBe(
+      "Buy 1, get 1 at 50% off",
+    );
+  });
+});
