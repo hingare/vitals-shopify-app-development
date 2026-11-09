@@ -47,7 +47,7 @@ subpath = "app-tools"
 
 # pnpm dev সবসময় এই ডেভেলপমেন্ট স্টোরে চলবে (আসল স্টোরে নয়)
 [build]
-dev_store_url = "authentic-store-bd.myshopify.com"
+dev_store_url = "authentic-store-bd-1nil1rrz.myshopify.com"
 automatically_update_urls_on_dev = true
 include_config_on_deploy = true
 
