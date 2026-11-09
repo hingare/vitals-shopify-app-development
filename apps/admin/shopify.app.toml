@@ -10,6 +10,7 @@ embedded = true
 # write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট)
 # write_app_proxy: স্টোরফ্রন্ট থেকে /apps/app-tools-এ ইভেন্ট পাঠানোর app proxy-র জন্য Shopify-র বাধ্যতামূলক scope
 # write_products: রিভিউর রেটিং প্রোডাক্টের reviews.rating metafield-এ লেখার জন্য (থিম স্টার দেখায়)
+# write_discounts: অফারের automatic app discount বানানো ও তার কনফিগ metafield লেখা
 # write_files: রিভিউর ছবি মার্চেন্টের Shopify Files-এ রাখার জন্য (আমাদের স্টোরেজ খরচ নেই)
 scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts"
 
