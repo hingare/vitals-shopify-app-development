@@ -42,6 +42,8 @@ interface OrderNode {
   currentTotalPriceSet: { presentmentMoney: { amount: string; currencyCode: string } };
   lineItems: { nodes: Array<{ title: string; quantity: number }> };
   fulfillments: Array<{
+    /** SUCCESS, CANCELLED, ERROR বা FAILURE */
+    status: string;
     displayStatus: string | null;
     estimatedDeliveryAt: string | null;
     deliveredAt: string | null;
@@ -100,6 +102,7 @@ export async function trackOrder(
           currentTotalPriceSet { presentmentMoney { amount currencyCode } }
           lineItems(first: 20) { nodes { title quantity } }
           fulfillments(first: 10) {
+            status
             displayStatus
             estimatedDeliveryAt
             deliveredAt
@@ -124,13 +127,16 @@ export async function trackOrder(
     total: order.currentTotalPriceSet.presentmentMoney.amount,
     currency: order.currentTotalPriceSet.presentmentMoney.currencyCode,
     items: order.lineItems.nodes.map((item) => ({ title: item.title, quantity: item.quantity })),
-    shipments: order.fulfillments.map((f) => ({
-      status: f.displayStatus,
-      company: f.trackingInfo[0]?.company ?? null,
-      number: f.trackingInfo[0]?.number ?? null,
-      url: safeUrl(f.trackingInfo[0]?.url ?? null),
-      estimatedDeliveryAt: f.estimatedDeliveryAt,
-      deliveredAt: f.deliveredAt,
-    })),
+    // বাতিল বা ব্যর্থ হওয়া পার্সেল ক্রেতাকে দেখানো হয় না
+    shipments: order.fulfillments
+      .filter((f) => f.status === "SUCCESS")
+      .map((f) => ({
+        status: f.displayStatus,
+        company: f.trackingInfo[0]?.company ?? null,
+        number: f.trackingInfo[0]?.number ?? null,
+        url: safeUrl(f.trackingInfo[0]?.url ?? null),
+        estimatedDeliveryAt: f.estimatedDeliveryAt,
+        deliveredAt: f.deliveredAt,
+      })),
   };
 }

@@ -15,6 +15,7 @@
       shopCurrency: {{ shop.currency | json }},
       moneyFormat: {{ shop.money_format | strip_html | json }},
       marketsCurrencies: {{ shop.enabled_currencies.size | json }},
+      customerId: {{ customer.id | json }},
       country: {{ localization.country.iso_code | json }},
       countries: [
         {%- for tool in app_config.tools -%}

@@ -17,7 +17,12 @@ import {
  * POST: অর্ডার নম্বর আর ইমেইল/ফোন মিলিয়ে অবস্থা দেয়।
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await authenticate.public.appProxy(request);
+  const { session } = await authenticate.public.appProxy(request);
+  const shop = await activeShop(session?.shop);
+  // টুল বন্ধ থাকলে ফাঁকা পেজ নয়: পুরোনো লিংকে এলে ক্রেতা স্পষ্ট "নেই" দেখে
+  if (!shop || !(await enabledSettings(shop, orderTracker))) {
+    return new Response("Not found", { status: 404 });
+  }
   // application/liquid দিলে Shopify এটা স্টোরের থিমের layout-এর ভেতরে দেখায়
   return new Response('<div id="app-order-tracker-page" style="min-height:40vh"></div>', {
     headers: { "Content-Type": "application/liquid" },

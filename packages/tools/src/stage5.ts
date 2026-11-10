@@ -119,7 +119,7 @@ export const wishlist = defineTool({
     title: text(60, "Your wishlist"),
     emptyText: text(160, "Nothing saved yet. Tap the heart on a product to save it."),
     showLauncher: z.boolean().default(true),
-    corner: z.enum(["bottom-right", "bottom-left"]).default("bottom-left"),
+    launcherSide: z.enum(["left", "right"]).default("right"),
     colors: themeColors({ accent: "#E11D48" }),
   }),
   attribution: ["click", "add_to_cart"],

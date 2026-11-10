@@ -14,6 +14,8 @@ export interface StoreConfig {
   moneyFormat?: string;
   /** Shopify Markets-এ চালু মুদ্রার সংখ্যা (১-এর বেশি হলে Markets নিজেই রূপান্তর করে) */
   marketsCurrencies?: number;
+  /** লগইন করা ক্রেতার id (না থাকলে null); Wishlist সব ডিভাইসে একই তালিকা দেখাতে ব্যবহার করে */
+  customerId?: number | null;
   /** বর্তমান দেশ আর Markets-এ চালু দেশগুলো (Geolocation Redirect) */
   country?: string;
   countries?: string[];

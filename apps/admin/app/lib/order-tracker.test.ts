@@ -15,6 +15,7 @@ const node = (extra: Record<string, unknown> = {}) => ({
   lineItems: { nodes: [{ title: "Blue Shirt", quantity: 2 }] },
   fulfillments: [
     {
+      status: "SUCCESS",
       displayStatus: "IN_TRANSIT",
       estimatedDeliveryAt: null,
       deliveredAt: null,
@@ -99,10 +100,26 @@ describe("trackOrder", () => {
     expect(client.graphql).not.toHaveBeenCalled();
   });
 
+  it("leaves out shipments that were cancelled", async () => {
+    const cancelled = {
+      status: "CANCELLED",
+      displayStatus: "CANCELED",
+      estimatedDeliveryAt: null,
+      deliveredAt: null,
+      trackingInfo: [{ company: "Pathao", number: "OLD1", url: null }],
+    };
+    const order = await trackOrder(
+      admin([node({ fulfillments: [cancelled, ...node().fulfillments] })]),
+      { order: "1001", contact: "rahim@example.com" },
+    );
+    expect(order?.shipments.map((shipment) => shipment.number)).toEqual(["PT123"]);
+  });
+
   it("drops a tracking link that is not a web address", async () => {
     const bad = node({
       fulfillments: [
         {
+          status: "SUCCESS",
           displayStatus: null,
           estimatedDeliveryAt: null,
           deliveredAt: null,

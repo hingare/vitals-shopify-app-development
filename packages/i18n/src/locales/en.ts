@@ -702,6 +702,11 @@ export const en = {
   "field.addedText": "Button text after saving",
   "field.emptyText": "Text when the list is empty",
   "field.showLauncher": "Show a floating wishlist button",
+  "help.showLauncher":
+    "A small heart button on the edge of the screen that opens the list. You can also add a menu link to #wishlist to open it.",
+  "field.launcherSide": "Side of the screen for the floating button",
+  "option.left": "Left",
+  "option.right": "Right",
   "tool.order-tracker.name": "Order Tracker",
   "tool.order-tracker.description":
     "A page where customers check their order status and tracking number with their order number and email or phone. Covers orders from the last 60 days.",
