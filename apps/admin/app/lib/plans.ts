@@ -33,3 +33,9 @@ export function isPlanKey(value: unknown): value is PlanKey {
 export function tierFromSubscriptionName(name: string | null | undefined): Plan | null {
   return isPlanKey(name) ? PRICES[name].tier : null;
 }
+
+/**
+ * মাসে সর্বোচ্চ কত ইমেইল (ইমেইল পাঠাতে আমাদের খরচ হয়, তাই সীমা; কোনো বাড়তি বিল নেই)।
+ * ইমেইলের টুলগুলো শুধু Professional-এ, তাই Starter-এ ০। সংখ্যা বদলাতে হলে শুধু এখানে।
+ */
+export const EMAIL_MONTHLY_CAP: Record<Plan, number> = { starter: 0, professional: 10_000 };

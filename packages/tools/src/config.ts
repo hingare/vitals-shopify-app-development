@@ -26,6 +26,8 @@ export function buildStoreConfig(
     if (!state.enabled) continue;
     const tool = registry.get(state.toolId);
     if (!tool || !canUseTool(tool, plan)) continue;
+    // সার্ভারে বা web pixel-এ চলা টুলের (ইমেইল, SMS, Facebook Pixels) স্টোরফ্রন্ট ফাইল নেই, তাই স্টোরে পাঠানো হয় না
+    if (tool.delivery === "admin" || tool.delivery === "pixel") continue;
     const parsed = tool.settings.safeParse(state.settings ?? {});
     tools.push({
       id: tool.id,

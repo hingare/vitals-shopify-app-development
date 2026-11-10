@@ -42,6 +42,21 @@ import {
   shippingInfo,
   sizeChart,
 } from "./stage3";
+import {
+  backInStock,
+  bestSellersProtection,
+  codForm,
+  emailMarketing,
+  euWithdrawal,
+  facebookPixels,
+  orderSms,
+  orderTracker,
+  pushNotifications,
+  seoAltTags,
+  spinWheel,
+  whatsappOrder,
+  wishlist,
+} from "./stage5";
 import { paymentLogos, trustSeals } from "./trust";
 
 /** সব টুলের তালিকা। নতুন টুল বানালে এখানে যোগ করুন। */
@@ -85,6 +100,19 @@ export const registry = createRegistry([
   currencyConverter,
   cookiesBanner,
   geolocationRedirect,
+  emailMarketing,
+  pushNotifications,
+  backInStock,
+  spinWheel,
+  wishlist,
+  orderTracker,
+  seoAltTags,
+  facebookPixels,
+  euWithdrawal,
+  bestSellersProtection,
+  codForm,
+  whatsappOrder,
+  orderSms,
 ]);
 
 export { buildStoreConfig } from "./config";
@@ -107,3 +135,20 @@ export { TRUST_BADGES } from "./trust";
 export { SHARE_NETWORKS } from "./small";
 export { recentSales } from "./stage3";
 export { CURRENCIES } from "./shopify-alternatives";
+export {
+  backInStock,
+  bestSellersProtection,
+  codForm,
+  emailMarketing,
+  euWithdrawal,
+  facebookPixels,
+  orderSms,
+  orderTracker,
+  pushNotifications,
+  seoAltTags,
+  spinWheel,
+  wheelSlices,
+  whatsappOrder,
+  wishlist,
+} from "./stage5";
+export type { WheelSlice } from "./stage5";

@@ -43,6 +43,7 @@
     "@app/brand": "workspace:*",
     "@app/tool-sdk": "workspace:*",
     "@app/i18n": "workspace:*",
+    "@app/integrations": "workspace:*",
     "@app/tools": "workspace:*"
   },
   "devDependencies": {

@@ -16,7 +16,9 @@ describe("tool catalog", () => {
     const widgets = fileURLToPath(new URL("../../widgets/src/tools/", import.meta.url));
     const missing = registry.all
       .filter((tool) => tool.delivery === "embed" || tool.delivery === "block")
-      .filter((tool) => !["ts", "tsx"].some((ext) => existsSync(join(widgets, `${tool.id}.${ext}`))))
+      .filter(
+        (tool) => !["ts", "tsx"].some((ext) => existsSync(join(widgets, `${tool.id}.${ext}`))),
+      )
       .map((tool) => tool.id);
     expect(missing).toEqual([]);
   });
