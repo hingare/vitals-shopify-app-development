@@ -881,6 +881,31 @@ export const en = {
   "marketing.email.invalid":
     "Check the subject and links: the subject is required and links must start with https://",
   "marketing.back": "Marketing",
+  "marketing.push": "Push notifications",
+  "marketing.push.help":
+    "Send a short notification to everyone who allowed notifications from your store. It arrives even when your store is not open in their browser.",
+  "marketing.push.toolOff": "Push Notifications is turned off, so nothing can be sent.",
+  "marketing.push.subscribers": "People who allowed notifications",
+  "marketing.push.new": "New notification",
+  "marketing.push.titleField": "Title",
+  "marketing.push.bodyField": "Message",
+  "marketing.push.urlField": "Link to open",
+  "marketing.push.urlHelp":
+    "A page of your store such as /collections/sale, or a full https:// link. Leave empty for your home page.",
+  "marketing.push.send": "Send notification",
+  "marketing.push.confirm": "Send this notification to {n} people now?",
+  "marketing.push.none": "Nobody has allowed notifications yet, so there is nobody to send to.",
+  "marketing.push.started": "Sending started",
+  "marketing.push.invalid":
+    "Add a title (up to 80 characters). The link must be a store path or start with https://.",
+  "marketing.push.history": "Sent notifications",
+  "marketing.push.empty": "No notifications sent yet.",
+  "marketing.push.sent": "Delivered to push service",
+  "marketing.push.failed": "Failed",
+  "marketing.push.clicks": "Clicks",
+  "marketing.push.status.queued": "Waiting",
+  "marketing.push.status.sending": "Sending",
+  "marketing.push.status.sent": "Sent",
 
   // ---- Subscribers ----
   "subscribers.title": "Subscribers",

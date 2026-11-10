@@ -89,6 +89,9 @@ export default function MarketingPage() {
       <s-button slot="secondary-actions" href="/app/marketing/subscribers">
         {t("marketing.viewSubscribers")}
       </s-button>
+      <s-button slot="secondary-actions" href="/app/marketing/push">
+        {t("marketing.push")}
+      </s-button>
 
       {!data.allowed && (
         <s-banner tone="info">

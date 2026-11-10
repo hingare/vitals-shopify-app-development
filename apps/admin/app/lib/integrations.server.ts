@@ -124,7 +124,8 @@ type SyncPayload =
   | { provider: string; action: "unsubscribe"; email: string; source: string }
   | { provider: string; action: "event"; event: ContactEvent; source: string };
 
-async function connectedProviders(shopId: string): Promise<string[]> {
+/** স্টোরের সংযুক্ত ইমেইল টুলগুলো (কোনোটা না থাকলে ইভেন্টের জন্য বাড়তি কাজ করার দরকার নেই) */
+export async function connectedProviders(shopId: string): Promise<string[]> {
   const rows = await db.integration.findMany({
     where: { shopId, provider: { in: Object.keys(EMAIL_TOOLS) } },
     select: { provider: true },

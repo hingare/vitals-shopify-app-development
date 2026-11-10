@@ -8,6 +8,7 @@ import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
 // এই ফাইলগুলো নিজেদের ব্যাকগ্রাউন্ড কাজ (registerJob) নথিভুক্ত করে, তাই সার্ভার চালুর সময়ই আনতে হয়
 import "./integrations.server";
+import "./push.server";
 import "./subscribers.server";
 
 /**
