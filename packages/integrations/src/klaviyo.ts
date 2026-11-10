@@ -1,4 +1,10 @@
-import { expectOk, type EmailToolAdapter, type FetchFn, type ProviderList } from "./types";
+import {
+  expectOk,
+  type EmailToolAdapter,
+  type FetchFn,
+  type ProviderList,
+  timedFetch,
+} from "./types";
 
 /**
  * Klaviyo (private API key, "pk_..." দিয়ে শুরু)।
@@ -31,13 +37,13 @@ export const klaviyo: EmailToolAdapter = {
   id: "klaviyo",
   hasLists: true,
 
-  async validate(apiKey, fetchFn = fetch) {
+  async validate(apiKey, fetchFn = timedFetch) {
     await expectOk(
       await fetchFn(`${BASE}/lists?page[size]=1&fields[list]=name`, { headers: headers(apiKey) }),
     );
   },
 
-  async lists(apiKey, fetchFn = fetch) {
+  async lists(apiKey, fetchFn = timedFetch) {
     const out: ProviderList[] = [];
     let url: string | null = `${BASE}/lists?page[size]=10&fields[list]=name&sort=name`;
     // প্রতি পাতায় সর্বোচ্চ ১০টা; ২০ পাতা (২০০ লিস্ট) পর্যন্ত আনি
@@ -56,7 +62,7 @@ export const klaviyo: EmailToolAdapter = {
     return out;
   },
 
-  async subscribe(apiKey, listId, contact, fetchFn = fetch) {
+  async subscribe(apiKey, listId, contact, fetchFn = timedFetch) {
     await expectOk(
       await post(fetchFn, apiKey, "/profile-subscription-bulk-create-jobs", {
         type: "profile-subscription-bulk-create-job",
@@ -80,7 +86,7 @@ export const klaviyo: EmailToolAdapter = {
   },
 
   /** লিস্ট না দিলে Klaviyo ক্রেতাকে সব মার্কেটিং ইমেইল থেকে বাদ দেয়: আনসাবস্ক্রাইবের ঠিক মানে এটাই */
-  async unsubscribe(apiKey, _listId, email, fetchFn = fetch) {
+  async unsubscribe(apiKey, _listId, email, fetchFn = timedFetch) {
     await expectOk(
       await post(fetchFn, apiKey, "/profile-subscription-bulk-delete-jobs", {
         type: "profile-subscription-bulk-delete-job",
@@ -101,7 +107,7 @@ export const klaviyo: EmailToolAdapter = {
     );
   },
 
-  async event(apiKey, _listId, event, fetchFn = fetch) {
+  async event(apiKey, _listId, event, fetchFn = timedFetch) {
     await expectOk(
       await post(fetchFn, apiKey, "/events", {
         type: "event",

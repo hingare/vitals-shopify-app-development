@@ -58,10 +58,11 @@ export async function saveFlow(
   if (!isFlowKey(key)) throw new Error("Unknown flow");
   const content = flowContentSchema.parse(input.content);
   const def = FLOWS[key];
-  const delayMinutes = Math.min(
-    def.maxDelay,
-    Math.max(def.minDelay, Math.round(input.delayMinutes) || def.delayMinutes),
-  );
+  // ০ একটা বৈধ মান (welcome ইমেইল সাথে সাথে), তাই শুধু সংখ্যা না হলে তবেই ডিফল্ট
+  const asked = Number.isFinite(input.delayMinutes)
+    ? Math.round(input.delayMinutes)
+    : def.delayMinutes;
+  const delayMinutes = Math.min(def.maxDelay, Math.max(def.minDelay, asked));
   const data = { enabled: input.enabled, delayMinutes, content: content as Prisma.InputJsonValue };
   await db.emailFlow.upsert({
     where: { shopId_key: { shopId, key } },

@@ -12,27 +12,16 @@ import {
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
 import { encryptSecret, maskSecret, readSecretJson } from "./crypto.server";
+import { SKIP_LIST, SYNC_SOURCES, type SyncSource } from "./integration-options";
 import { enqueueJob, registerJob } from "./queue.server";
+
+export { SKIP_LIST, SYNC_SOURCES, type SyncSource };
 
 /**
  * বাইরের সার্ভিসের সংযোগ: ইমেইল টুল (Klaviyo, Mailchimp, Omnisend) আর SMS gateway।
  * চাবি এনক্রিপ্ট হয়ে ডাটাবেসে থাকে আর কখনো ব্রাউজারে ফেরত যায় না (শুধু শেষ ৪ অক্ষর দেখানো হয়)।
  * সিঙ্ক ব্যাকগ্রাউন্ড কাজ হিসেবে চলে: ব্যর্থ হলে আবার চেষ্টা হয়, আর ত্রুটি Integrations পেজে দেখায়।
  */
-
-/** কোন কোন জায়গা থেকে গ্রাহক আসে; প্রতিটার জন্য মার্চেন্ট আলাদা লিস্ট বাছতে পারেন */
-export const SYNC_SOURCES = [
-  "shopify",
-  "popup",
-  "spin-wheel",
-  "back-in-stock",
-  "cod-form",
-  "review",
-] as const;
-export type SyncSource = (typeof SYNC_SOURCES)[number];
-
-/** লিস্টের মান: "" = ডিফল্ট লিস্ট, "-" = এই উৎস থেকে পাঠানো হবে না, নইলে লিস্টের id */
-export const SKIP_LIST = "-";
 
 export interface EspConfig {
   defaultList: string;
@@ -268,6 +257,8 @@ export async function saveSmsGateway(shopId: string, input: SmsGatewayInput) {
     gateway: input.gateway,
     senderId: input.senderId.trim().slice(0, 30),
     customSuccess: input.customSuccess.trim().slice(0, 60),
+    // মার্চেন্ট শেষ কবে সেভ করেছেন (পেজ এটা দেখে ফর্ম নতুন করে শুরু করে)
+    savedAt: new Date().toISOString(),
   };
   await db.integration.upsert({
     where: { shopId_provider: { shopId, provider: SMS_PROVIDER } },

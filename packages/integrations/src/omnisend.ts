@@ -1,4 +1,4 @@
-import { expectOk, type EmailToolAdapter, type FetchFn } from "./types";
+import { expectOk, type EmailToolAdapter, type FetchFn, timedFetch } from "./types";
 
 /**
  * Omnisend (API key)। সংস্করণ header দিয়ে নির্দিষ্ট করা।
@@ -29,7 +29,7 @@ export const omnisend: EmailToolAdapter = {
   id: "omnisend",
   hasLists: false,
 
-  async validate(apiKey, fetchFn = fetch) {
+  async validate(apiKey, fetchFn = timedFetch) {
     await expectOk(await fetchFn(`${BASE}/brands/current`, { headers: headers(apiKey) }));
   },
 
@@ -37,7 +37,7 @@ export const omnisend: EmailToolAdapter = {
     return [];
   },
 
-  async subscribe(apiKey, _listId, contact, fetchFn = fetch) {
+  async subscribe(apiKey, _listId, contact, fetchFn = timedFetch) {
     await expectOk(
       await send(fetchFn, apiKey, "POST", "/contacts", {
         identifiers: [identifier(contact.email, "subscribed")],
@@ -47,7 +47,7 @@ export const omnisend: EmailToolAdapter = {
     );
   },
 
-  async unsubscribe(apiKey, _listId, email, fetchFn = fetch) {
+  async unsubscribe(apiKey, _listId, email, fetchFn = timedFetch) {
     // 404: এই ঠিকানা Omnisend-এ নেই
     await expectOk(
       await send(fetchFn, apiKey, "PATCH", `/contacts?email=${encodeURIComponent(email)}`, {
@@ -57,7 +57,7 @@ export const omnisend: EmailToolAdapter = {
     );
   },
 
-  async event(apiKey, _listId, event, fetchFn = fetch) {
+  async event(apiKey, _listId, event, fetchFn = timedFetch) {
     await expectOk(
       await send(fetchFn, apiKey, "POST", "/events", {
         eventName: event.name,

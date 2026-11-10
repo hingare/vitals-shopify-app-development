@@ -1,14 +1,14 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
-import type { FetchFn } from "./types";
+import type { SmsGatewayId } from "./constants";
+import { timedFetch, type FetchFn } from "./types";
 
 /**
  * SMS gateway। মার্চেন্ট নিজের gateway অ্যাকাউন্টের চাবি দেন, তাই SMS-এর খরচ সরাসরি তার অ্যাকাউন্ট থেকে যায়।
  * তিনটা বাংলাদেশি gateway আগে থেকে সাজানো, আর অন্য যেকোনোটার জন্য "custom" (নিজের HTTPS লিংক)।
  */
-export const SMS_GATEWAYS = ["alpha-sms", "ssl-wireless", "bulksmsbd", "custom"] as const;
-export type SmsGatewayId = (typeof SMS_GATEWAYS)[number];
+export { SMS_GATEWAYS, type SmsGatewayId } from "./constants";
 
 export interface SmsConfig {
   gateway: SmsGatewayId;
@@ -269,7 +269,7 @@ export async function sendSms(
   text: string,
   deps: SmsDeps = {},
 ): Promise<SmsResult> {
-  const fetchFn = deps.fetchFn ?? fetch;
+  const fetchFn = deps.fetchFn ?? timedFetch;
   try {
     switch (config.gateway) {
       case "alpha-sms":

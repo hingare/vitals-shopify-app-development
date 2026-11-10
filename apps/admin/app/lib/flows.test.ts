@@ -71,6 +71,14 @@ describe("flow settings", () => {
       saveFlow(shop.id, "welcome", { enabled: true, delayMinutes: 5, content: { subject: "" } }),
     ).rejects.toThrow();
   });
+
+  it("accepts a zero delay where the flow allows it, and falls back when the delay is not a number", async () => {
+    const content = FLOWS.welcome.content;
+    await saveFlow(shop.id, "welcome", { enabled: true, delayMinutes: 0, content });
+    expect(db.emailFlow.rows[0]?.delayMinutes).toBe(0);
+    await saveFlow(shop.id, "welcome", { enabled: true, delayMinutes: Number.NaN, content });
+    expect(db.emailFlow.rows[0]?.delayMinutes).toBe(FLOWS.welcome.delayMinutes);
+  });
 });
 
 describe("triggerFlow", () => {

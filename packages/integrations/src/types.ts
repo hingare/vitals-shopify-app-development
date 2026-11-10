@@ -5,6 +5,13 @@
  */
 export type FetchFn = typeof fetch;
 
+/**
+ * সময়সীমাসহ fetch (ডিফল্ট ১৫ সেকেন্ড)। বাইরের সার্ভিস ঝুলে থাকলে আমাদের ব্যাকগ্রাউন্ড কাজ বা
+ * অ্যাডমিন পেজ যেন অনির্দিষ্টকাল আটকে না থাকে; সময় পেরোলে error ছোড়ে আর কাজটা পরে আবার চেষ্টা হয়।
+ */
+export const timedFetch: FetchFn = (input, init) =>
+  fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(15_000) });
+
 export interface Contact {
   email: string;
   phone?: string;

@@ -1,4 +1,5 @@
 import { createHmac, createVerify, timingSafeEqual } from "node:crypto";
+import { timedFetch } from "@app/integrations";
 import { signV4 } from "./sigv4";
 
 /**
@@ -128,7 +129,7 @@ async function sendSes(mail: OutgoingEmail, env: NodeJS.ProcessEnv, fetchFn: Fet
 export async function sendEmail(
   mail: OutgoingEmail,
   env: NodeJS.ProcessEnv = process.env,
-  fetchFn: FetchFn = fetch,
+  fetchFn: FetchFn = timedFetch,
 ): Promise<SendResult> {
   const provider = emailProvider(env);
   try {
@@ -233,7 +234,7 @@ export function snsStringToSign(msg: SnsMessage): string {
 }
 
 /** Amazon SNS-এর সই যাচাই (সার্টিফিকেট Amazon-এর সার্ভার থেকে আনা হয়) */
-export async function verifySns(msg: SnsMessage, fetchFn: FetchFn = fetch): Promise<boolean> {
+export async function verifySns(msg: SnsMessage, fetchFn: FetchFn = timedFetch): Promise<boolean> {
   if (!msg.Signature || !isSnsUrl(msg.SigningCertURL)) return false;
   try {
     const res = await fetchFn(msg.SigningCertURL as string);

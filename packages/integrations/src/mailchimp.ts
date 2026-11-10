@@ -5,6 +5,7 @@ import {
   type EmailToolAdapter,
   type FetchFn,
   type ProviderList,
+  timedFetch,
 } from "./types";
 
 /**
@@ -65,11 +66,11 @@ export const mailchimp: EmailToolAdapter = {
   id: "mailchimp",
   hasLists: true,
 
-  async validate(apiKey, fetchFn = fetch) {
+  async validate(apiKey, fetchFn = timedFetch) {
     await call(fetchFn, apiKey, "GET", "/ping");
   },
 
-  async lists(apiKey, fetchFn = fetch) {
+  async lists(apiKey, fetchFn = timedFetch) {
     const res = await call(fetchFn, apiKey, "GET", "/lists?fields=lists.id,lists.name&count=200");
     const json = (await res.json()) as { lists?: ProviderList[] };
     return (json.lists ?? []).map((l) => ({ id: l.id, name: l.name }));
@@ -79,7 +80,7 @@ export const mailchimp: EmailToolAdapter = {
    * status_if_new: নতুন হলে subscribed; আগে থেকে থাকলে তার অবস্থা বদলায় না,
    * তাই Mailchimp-এ আনসাবস্ক্রাইব করা কাউকে আমরা ভুল করে আবার চালু করি না।
    */
-  async subscribe(apiKey, listId, contact, fetchFn = fetch) {
+  async subscribe(apiKey, listId, contact, fetchFn = timedFetch) {
     const list = needList(listId);
     const hash = memberHash(contact.email);
     await call(fetchFn, apiKey, "PUT", `/lists/${list}/members/${hash}`, {
@@ -92,7 +93,7 @@ export const mailchimp: EmailToolAdapter = {
     });
   },
 
-  async unsubscribe(apiKey, listId, email, fetchFn = fetch) {
+  async unsubscribe(apiKey, listId, email, fetchFn = timedFetch) {
     const list = needList(listId);
     // 404: এই ঠিকানা Mailchimp-এ নেই, তাই করার কিছু নেই
     await call(
@@ -105,7 +106,7 @@ export const mailchimp: EmailToolAdapter = {
     );
   },
 
-  async event(apiKey, listId, event, fetchFn = fetch) {
+  async event(apiKey, listId, event, fetchFn = timedFetch) {
     const list = needList(listId);
     const properties: Record<string, string> = {};
     for (const [key, value] of Object.entries(event.properties ?? {})) {

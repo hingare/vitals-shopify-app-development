@@ -15,7 +15,7 @@ export function isEmailToolId(value: unknown): value is EmailToolId {
   return typeof value === "string" && value in EMAIL_TOOLS;
 }
 
-export { IntegrationError } from "./types";
+export { IntegrationError, timedFetch } from "./types";
 export type { Contact, ContactEvent, EmailToolAdapter, FetchFn, ProviderList } from "./types";
 export { KLAVIYO_REVISION } from "./klaviyo";
 export { mailchimpBase, mailchimpEventName, memberHash } from "./mailchimp";
