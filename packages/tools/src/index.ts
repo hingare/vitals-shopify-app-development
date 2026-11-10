@@ -45,16 +45,13 @@ import {
 import {
   backInStock,
   bestSellersProtection,
-  codForm,
   emailMarketing,
   euWithdrawal,
   facebookPixels,
-  orderSms,
   orderTracker,
   pushNotifications,
   seoAltTags,
   spinWheel,
-  whatsappOrder,
   wishlist,
 } from "./stage5";
 import { paymentLogos, trustSeals } from "./trust";
@@ -110,9 +107,6 @@ export const registry = createRegistry([
   facebookPixels,
   euWithdrawal,
   bestSellersProtection,
-  codForm,
-  whatsappOrder,
-  orderSms,
 ]);
 
 export { buildStoreConfig } from "./config";
@@ -138,17 +132,14 @@ export { CURRENCIES } from "./shopify-alternatives";
 export {
   backInStock,
   bestSellersProtection,
-  codForm,
   emailMarketing,
   euWithdrawal,
   facebookPixels,
-  orderSms,
   orderTracker,
   pushNotifications,
   seoAltTags,
   spinWheel,
   wheelSlices,
-  whatsappOrder,
   wishlist,
 } from "./stage5";
 export type { WheelSlice } from "./stage5";

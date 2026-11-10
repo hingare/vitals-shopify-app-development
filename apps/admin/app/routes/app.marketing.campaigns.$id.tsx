@@ -90,7 +90,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
   if (!emailContentSchema.safeParse(body.content).success) return fail("invalid");
   if (intent === "test") {
-    if (!allowTestSend(shop.id, "email")) return fail("rate_limited");
+    if (!allowTestSend(shop.id)) return fail("rate_limited");
     const result = await sendTestEmail(shop, body.content, body.to);
     return result.ok
       ? ({ ok: true, intent } satisfies Result)

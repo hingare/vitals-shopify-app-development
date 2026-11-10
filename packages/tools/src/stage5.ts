@@ -2,8 +2,8 @@ import { defineTool, themeColors, z } from "@app/tool-sdk";
 import { text } from "./fields";
 
 /**
- * Stage 5: Marketing, Protect আর বাংলাদেশি মার্চেন্টদের স্থানীয় টুল।
- * গোপন চাবি (SMS gateway, ইমেইল টুলের API key) কখনো টুলের সেটিংসে থাকে না:
+ * Stage 5: Marketing আর Protect টুল।
+ * গোপন চাবি (ইমেইল টুলের API key) কখনো টুলের সেটিংসে থাকে না:
  * সেগুলো Integrations পেজ থেকে এনক্রিপ্ট হয়ে আলাদা টেবিলে যায়।
  */
 
@@ -213,86 +213,6 @@ export const bestSellersProtection = defineTool({
   settings: z.object({
     hideSortOption: z.boolean().default(true),
     redirectVisits: z.boolean().default(true),
-  }),
-});
-
-/**
- * ক্যাশ অন ডেলিভারির অর্ডার ফর্ম: চেকআউটে না গিয়ে নাম, ফোন আর ঠিকানা দিলেই Shopify-তে আসল অর্ডার তৈরি হয়।
- * ডেলিভারি চার্জ সার্ভারে এই সেটিংস থেকে হিসাব হয়; ব্রাউজার থেকে আসা দাম বা চার্জ কখনো ধরা হয় না।
- */
-export const codForm = defineTool({
-  id: "cod-form",
-  category: "local",
-  plan: "professional",
-  surfaces: ["product", "cart"],
-  delivery: "embed",
-  settings: z.object({
-    codButtonText: text(60, "Order with Cash on Delivery"),
-    showOnProduct: z.boolean().default(true),
-    showOnCart: z.boolean().default(true),
-    hideBuyButtons: z.boolean().default(false),
-    title: text(80, "Cash on Delivery order"),
-    nameLabel: text(40, "Full name"),
-    phoneLabel: text(40, "Phone number"),
-    addressLabel: text(40, "Full address"),
-    cityLabel: text(40, "City / District"),
-    askEmail: z.boolean().default(false),
-    showNote: z.boolean().default(true),
-    countryCode: z
-      .string()
-      .trim()
-      .regex(/^[A-Za-z]{2}$/)
-      .default("BD"),
-    zone1Label: text(40, "Inside Dhaka"),
-    zone1Fee: z.number().min(0).max(100_000).default(60),
-    zone2Label: text(40, "Outside Dhaka"),
-    zone2Fee: z.number().min(0).max(100_000).default(120),
-    freeShippingOver: z.number().min(0).max(10_000_000).default(0),
-    submitText: text(40, "Confirm order"),
-    thanksText: text(200, "Thank you! Your order {order} is confirmed."),
-    verifyPhone: z.boolean().default(false),
-    maxPerDay: z.number().int().min(1).max(20).default(3),
-    orderTag: text(40, "COD form"),
-    colors: themeColors({ accent: "#16A34A" }),
-  }),
-  attribution: ["view", "click", "purchase"],
-});
-
-/** প্রোডাক্ট বা কার্টের তথ্যসহ WhatsApp-এ অর্ডারের মেসেজ খোলে */
-export const whatsappOrder = defineTool({
-  id: "whatsapp-order",
-  category: "local",
-  plan: "professional",
-  surfaces: ["product", "cart"],
-  delivery: "embed",
-  settings: z.object({
-    whatsappNumber: z
-      .string()
-      .trim()
-      .regex(/^$|^\+?\d{8,15}$/)
-      .default(""),
-    whatsappText: text(60, "Order on WhatsApp"),
-    orderMessage: text(400, "Hello! I want to order:\n{items}\nTotal: {total}\n{url}"),
-    showOnProduct: z.boolean().default(true),
-    showOnCart: z.boolean().default(true),
-    colors: themeColors({ accent: "#16A34A" }),
-  }),
-  attribution: ["view", "click"],
-});
-
-/** অর্ডার হলে ক্রেতার ফোনে কনফার্মেশন SMS (মার্চেন্টের নিজের SMS gateway দিয়ে) */
-export const orderSms = defineTool({
-  id: "order-sms",
-  category: "local",
-  plan: "professional",
-  surfaces: ["all"],
-  delivery: "admin",
-  settings: z.object({
-    sendFor: z.enum(["all-orders", "cod-only"]).default("all-orders"),
-    smsTemplate: text(
-      300,
-      "Dear {name}, your order {order} of {total} is confirmed. Thank you for shopping with {shop}.",
-    ),
   }),
 });
 

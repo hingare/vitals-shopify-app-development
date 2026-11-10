@@ -1,13 +1,10 @@
 import {
   EMAIL_TOOLS,
   IntegrationError,
-  SMS_GATEWAYS,
   isEmailToolId,
   type Contact,
   type ContactEvent,
   type EmailToolId,
-  type SmsConfig,
-  type SmsGatewayId,
 } from "@app/integrations";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
@@ -18,7 +15,7 @@ import { enqueueJob, registerJob } from "./queue.server";
 export { SKIP_LIST, SYNC_SOURCES, type SyncSource };
 
 /**
- * বাইরের সার্ভিসের সংযোগ: ইমেইল টুল (Klaviyo, Mailchimp, Omnisend) আর SMS gateway।
+ * বাইরের সার্ভিসের সংযোগ: ইমেইল টুল (Klaviyo, Mailchimp, Omnisend)।
  * চাবি এনক্রিপ্ট হয়ে ডাটাবেসে থাকে আর কখনো ব্রাউজারে ফেরত যায় না (শুধু শেষ ৪ অক্ষর দেখানো হয়)।
  * সিঙ্ক ব্যাকগ্রাউন্ড কাজ হিসেবে চলে: ব্যর্থ হলে আবার চেষ্টা হয়, আর ত্রুটি Integrations পেজে দেখায়।
  */
@@ -55,7 +52,6 @@ export function listFor(
 
 interface KeySecret {
   apiKey: string;
-  customUrl?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -220,68 +216,5 @@ registerJob("esp-backfill", async (job) => {
     progress: { done: total },
   };
 });
-
-/* ------------------------------------------------------------------ */
-/* SMS gateway                                                         */
-/* ------------------------------------------------------------------ */
-
-export const SMS_PROVIDER = "sms";
-
-export interface SmsGatewayInput {
-  gateway: string;
-  apiKey: string;
-  senderId: string;
-  customUrl: string;
-  customSuccess: string;
-}
-
-/** চাবি বা লিংক ফাঁকা রাখলে আগেরটাই থাকে (মার্চেন্টকে প্রতিবার চাবি আবার লিখতে হয় না) */
-export async function saveSmsGateway(shopId: string, input: SmsGatewayInput) {
-  if (!(SMS_GATEWAYS as readonly string[]).includes(input.gateway)) {
-    throw new IntegrationError("Choose an SMS gateway", 400, false);
-  }
-  const existing = await db.integration.findUnique({
-    where: { shopId_provider: { shopId, provider: SMS_PROVIDER } },
-  });
-  const old = readSecretJson<KeySecret>(existing?.secret);
-  const apiKey = input.apiKey.trim() || old?.apiKey || "";
-  const customUrl = input.customUrl.trim() || old?.customUrl || "";
-  if (!apiKey) throw new IntegrationError("Enter the gateway's API key", 400, false);
-  if (input.gateway === "custom" && !/^https:\/\/\S+$/.test(customUrl)) {
-    throw new IntegrationError("The gateway link must start with https://", 400, false);
-  }
-  if (input.gateway === "custom" && !customUrl.includes("{to}")) {
-    throw new IntegrationError("The gateway link needs {to} and {message}", 400, false);
-  }
-  const secret = encryptSecret(JSON.stringify({ apiKey, customUrl } satisfies KeySecret));
-  const config = {
-    gateway: input.gateway,
-    senderId: input.senderId.trim().slice(0, 30),
-    customSuccess: input.customSuccess.trim().slice(0, 60),
-    // মার্চেন্ট শেষ কবে সেভ করেছেন (পেজ এটা দেখে ফর্ম নতুন করে শুরু করে)
-    savedAt: new Date().toISOString(),
-  };
-  await db.integration.upsert({
-    where: { shopId_provider: { shopId, provider: SMS_PROVIDER } },
-    create: { shopId, provider: SMS_PROVIDER, secret, config },
-    update: { secret, config, status: "connected", lastError: null },
-  });
-}
-
-export async function smsGateway(shopId: string): Promise<SmsConfig | null> {
-  const row = await db.integration.findUnique({
-    where: { shopId_provider: { shopId, provider: SMS_PROVIDER } },
-  });
-  const secret = readSecretJson<KeySecret>(row?.secret);
-  if (!row || !secret?.apiKey) return null;
-  const config = row.config as { gateway?: string; senderId?: string; customSuccess?: string };
-  return {
-    gateway: (config.gateway ?? "custom") as SmsGatewayId,
-    apiKey: secret.apiKey,
-    senderId: config.senderId,
-    customUrl: secret.customUrl,
-    customSuccess: config.customSuccess,
-  };
-}
 
 export { markResult as markIntegrationResult };

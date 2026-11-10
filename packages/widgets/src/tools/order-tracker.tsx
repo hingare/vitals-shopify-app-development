@@ -172,7 +172,7 @@ function Tracker({ s, locale }: { s: Settings; locale: string }) {
   const [state, setState] = useState<"form" | "sending">("form");
   const [order, setOrder] = useState<TrackedOrder | null>(null);
   const [error, setError] = useState("");
-  // SMS বা ইমেইলের লিংকে অর্ডার নম্বর থাকলে সেটা আগে থেকেই বসে (ইমেইল/ফোন কখনো লিংকে থাকে না)
+  // ইমেইলের লিংকে অর্ডার নম্বর থাকলে সেটা আগে থেকেই বসে (ইমেইল/ফোন কখনো লিংকে থাকে না)
   const preset = new URLSearchParams(location.search).get("order") ?? "";
 
   async function submit(event: Event) {

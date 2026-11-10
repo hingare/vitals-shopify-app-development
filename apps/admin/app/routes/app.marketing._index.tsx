@@ -25,7 +25,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     marketingContext(shop),
     getFlows(shop.id),
     listCampaigns(shop.id),
-    messageStats(shop.id, "email", { days: 30 }),
+    messageStats(shop.id, { days: 30 }),
     subscriberCounts(shop.id),
     db.message.groupBy({
       by: ["refId"],

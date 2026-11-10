@@ -92,7 +92,6 @@ async function recoverStuck() {
 export async function pruneMarketingData(now = new Date()) {
   const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
   await db.abandonedCheckout.deleteMany({ where: { createdAt: { lt: daysAgo(30) } } });
-  await db.codOtp.deleteMany({ where: { expiresAt: { lt: daysAgo(1) } } });
   await db.job.deleteMany({
     where: { status: { in: ["done", "failed"] }, finishedAt: { lt: daysAgo(14) } },
   });
@@ -159,7 +158,7 @@ async function tick() {
     }
   });
 
-  // ইমেইল ও SMS: আগের ব্যাচ শেষ না হলে নতুন ব্যাচ ধরা হয় না
+  // ইমেইল: আগের ব্যাচ শেষ না হলে নতুন ব্যাচ ধরা হয় না
   if (!sending) {
     sending = true;
     void step("messages", () => processMessages()).finally(() => {

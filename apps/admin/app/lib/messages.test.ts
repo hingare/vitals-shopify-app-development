@@ -5,13 +5,11 @@ process.env.SHOPIFY_APP_URL = "https://app.test";
 
 vi.mock("../db.server", async () => ({ default: (await import("./test-db")).fakeDb }));
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
-const { encryptSecret } = await import("./crypto.server");
 const { EMAIL_MONTHLY_CAP } = await import("./plans");
 const {
   applyDeliveryEvent,
   deliveryRate,
   enqueueEmail,
-  enqueueSms,
   messageStats,
   processMessages,
   recoverStuckMessages,
@@ -29,8 +27,7 @@ const content = {
 };
 
 const send = vi.fn();
-const sms = vi.fn();
-const deps = { send, sms, now: () => now };
+const deps = { send, now: () => now };
 
 /** আসল SQL-এর (FOR UPDATE SKIP LOCKED) জায়গায়: সময় হওয়া বার্তাগুলো তুলে নেয় */
 const claim = async (limit: number) => {
@@ -59,7 +56,6 @@ const marketing = (extra: Record<string, unknown> = {}) =>
 beforeEach(() => {
   resetFakeDb();
   send.mockReset().mockResolvedValue({ ok: true, providerId: "prov-1" });
-  sms.mockReset().mockResolvedValue({ ok: true, id: "sms-1" });
   shopId = db.shop.seed({ domain: "tom.myshopify.com" }).id as string;
 });
 
@@ -247,52 +243,6 @@ describe("failures", () => {
   });
 });
 
-describe("SMS", () => {
-  const queueSms = () =>
-    enqueueSms(shopId, {
-      kind: "order-sms",
-      to: "8801712345678",
-      text: "Thanks",
-      sendAt: new Date(now.getTime() - 1000),
-    });
-
-  it("is skipped until the merchant connects a gateway", async () => {
-    await queueSms();
-    await run();
-    expect(only()).toMatchObject({ status: "skipped", error: "sms_not_configured" });
-  });
-
-  it("goes through the merchant's own gateway", async () => {
-    db.integration.seed({
-      shopId,
-      provider: "sms",
-      secret: encryptSecret(JSON.stringify({ apiKey: "gw-key" })),
-      config: { gateway: "alpha-sms", senderId: "TOM" },
-    });
-    await queueSms();
-    await run();
-    expect(sms).toHaveBeenCalledWith(
-      expect.objectContaining({ gateway: "alpha-sms", apiKey: "gw-key", senderId: "TOM" }),
-      "8801712345678",
-      "Thanks",
-    );
-    expect(only()).toMatchObject({ status: "sent", providerId: "sms-1" });
-  });
-
-  it("does not retry when the gateway says the number or balance is wrong", async () => {
-    db.integration.seed({
-      shopId,
-      provider: "sms",
-      secret: encryptSecret(JSON.stringify({ apiKey: "gw-key" })),
-      config: { gateway: "alpha-sms" },
-    });
-    sms.mockResolvedValue({ ok: false, error: "417 Insufficient balance", permanent: true });
-    await queueSms();
-    await run();
-    expect(only()).toMatchObject({ status: "failed", error: "417 Insufficient balance" });
-  });
-});
-
 describe("queueing and reports", () => {
   it("queues the same message only once", async () => {
     const input = {
@@ -332,7 +282,7 @@ describe("queueing and reports", () => {
     expect(deliveryRate({ skipped: 5 }).rate).toBeNull();
   });
 
-  it("reports per channel and per campaign", async () => {
+  it("reports per campaign", async () => {
     db.message.seed({
       shopId,
       channel: "email",
@@ -343,14 +293,13 @@ describe("queueing and reports", () => {
     });
     db.message.seed({ shopId, channel: "email", kind: "campaign", refId: "c1", status: "bounced" });
     db.message.seed({ shopId, channel: "email", kind: "campaign", refId: "c2", status: "sent" });
-    db.message.seed({ shopId, channel: "sms", kind: "order-sms", status: "sent" });
-    expect(await messageStats(shopId, "email", { kind: "campaign", refId: "c1" })).toMatchObject({
+    expect(await messageStats(shopId, { kind: "campaign", refId: "c1" })).toMatchObject({
       accepted: 1,
       bounced: 1,
       opened: 1,
       rate: 50,
     });
-    expect((await messageStats(shopId, "sms")).rate).toBe(100);
+    expect(await messageStats(shopId)).toMatchObject({ accepted: 2, bounced: 1 });
   });
 });
 

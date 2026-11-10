@@ -172,7 +172,7 @@ registerJob("campaign-send", async (job) => {
 });
 
 export const campaignStats = (shopId: string, campaignId: string) =>
-  messageStats(shopId, "email", { kind: "campaign", refId: campaignId });
+  messageStats(shopId, { kind: "campaign", refId: campaignId });
 
 /**
  * পরীক্ষার ইমেইল: লাইনে না দিয়ে সরাসরি পাঠায়, যাতে মার্চেন্ট সাথে সাথে ফল (বা ত্রুটি) দেখেন।

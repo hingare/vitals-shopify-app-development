@@ -34,8 +34,6 @@ const {
   readEspConfig,
   runEspSync,
   saveEspConfig,
-  saveSmsGateway,
-  smsGateway,
 } = await import("./integrations.server");
 
 const shopId = "shop1";
@@ -59,7 +57,7 @@ describe("list mapping", () => {
     expect(config.lists).toEqual({ "spin-wheel": "WHEEL", popup: SKIP_LIST, review: "" });
     expect(listFor(config, "spin-wheel")).toEqual({ skip: false, listId: "WHEEL" });
     expect(listFor(config, "review")).toEqual({ skip: false, listId: "MAIN" });
-    expect(listFor(config, "cod-form")).toEqual({ skip: false, listId: "MAIN" });
+    expect(listFor(config, "back-in-stock")).toEqual({ skip: false, listId: "MAIN" });
     expect(listFor(config, "popup")).toEqual({ skip: true, listId: null });
     expect(listFor(readEspConfig(null), "popup")).toEqual({ skip: false, listId: null });
   });
@@ -96,8 +94,8 @@ describe("sync jobs", () => {
     await connectEmailTool(shopId, "klaviyo", "pk_live_123456");
   });
 
-  it("queues one job per connected email tool, and none for the SMS gateway", async () => {
-    db.integration.seed({ shopId, provider: "sms", secret: "x" });
+  it("queues one job per connected email tool, and none for any other saved connection", async () => {
+    db.integration.seed({ shopId, provider: "something-else", secret: "x" });
     await queueContactSync(shopId, contact);
     await queueEvent(shopId, "spin-wheel", { email: "a@b.com", name: "Spin won" });
     expect(
@@ -151,44 +149,5 @@ describe("sync jobs", () => {
     await runEspSync(shopId, { provider: "klaviyo", action: "subscribe", contact });
     await runEspSync(shopId, { provider: "not-a-tool", action: "subscribe", contact });
     expect(klaviyo.subscribe).not.toHaveBeenCalled();
-  });
-});
-
-describe("SMS gateway settings", () => {
-  const input = {
-    gateway: "alpha-sms",
-    apiKey: "gw-key-1",
-    senderId: " TOM ",
-    customUrl: "",
-    customSuccess: "",
-  };
-
-  it("stores the key encrypted and keeps it when the form is saved with an empty key", async () => {
-    await saveSmsGateway(shopId, input);
-    expect((db.integration.rows[0] as { secret: string }).secret).not.toContain("gw-key-1");
-    await saveSmsGateway(shopId, { ...input, apiKey: "", senderId: "NEW" });
-    expect(await smsGateway(shopId)).toMatchObject({
-      gateway: "alpha-sms",
-      apiKey: "gw-key-1",
-      senderId: "NEW",
-    });
-  });
-
-  it("needs a key, a known gateway, and for a custom gateway an https link with {to}", async () => {
-    await expect(saveSmsGateway(shopId, { ...input, apiKey: "" })).rejects.toThrow("API key");
-    await expect(saveSmsGateway(shopId, { ...input, gateway: "nope" })).rejects.toThrow("Choose");
-    const custom = { ...input, gateway: "custom" };
-    await expect(
-      saveSmsGateway(shopId, { ...custom, customUrl: "http://gw.test/send?to={to}" }),
-    ).rejects.toThrow("https://");
-    await expect(
-      saveSmsGateway(shopId, { ...custom, customUrl: "https://gw.test/send" }),
-    ).rejects.toThrow("{to}");
-    await saveSmsGateway(shopId, {
-      ...custom,
-      customUrl: "https://gw.test/send?to={to}&text={message}&key={api_key}",
-    });
-    expect((await smsGateway(shopId))?.customUrl).toContain("https://gw.test/send");
-    expect(await smsGateway("other-shop")).toBeNull();
   });
 });

@@ -1,4 +1,3 @@
-import { sendSms, type SmsConfig, type SmsResult } from "@app/integrations";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
 import {
@@ -9,13 +8,13 @@ import {
   type EmailContent,
 } from "./email-template";
 import { sendEmail, type OutgoingEmail, type SendResult } from "./email-transport.server";
-import { queueUnsubscribeSync, smsGateway } from "./integrations.server";
+import { queueUnsubscribeSync } from "./integrations.server";
 import { clickUrl, openPixelUrl, unsubscribeUrl } from "./links.server";
 import { EMAIL_MONTHLY_CAP } from "./plans";
 import { enqueueJob } from "./queue.server";
 
 /**
- * সব ইমেইল আর SMS আগে `Message` টেবিলে লাইনে পড়ে, তারপর ব্যাকগ্রাউন্ডে যায়।
+ * সব ইমেইল আগে `Message` টেবিলে লাইনে পড়ে, তারপর ব্যাকগ্রাউন্ডে যায়।
  * পাঠানোর ঠিক আগে প্রতিবার দেখা হয়: মাসের সীমা, গ্রাহক এখনো রাজি কিনা, ঠিকানা থেকে আগে bounce এসেছে কিনা।
  * তাই লাইনে দেওয়ার পরে কেউ আনসাবস্ক্রাইব করলেও তার কাছে আর যায় না।
  */
@@ -29,12 +28,7 @@ export type EmailPayload = {
   vars?: Record<string, string>;
 } & ({ content: EmailContent } | { campaignId: string });
 
-export interface SmsPayload {
-  text: string;
-}
-
-export type MessageKind =
-  "campaign" | "flow" | "back-in-stock" | "withdrawal" | "order-sms" | "otp" | "test";
+export type MessageKind = "campaign" | "flow" | "back-in-stock" | "withdrawal" | "test";
 
 /** আইনে বাধ্যতামূলক বা ক্রেতার নিজের চাওয়া বার্তা মাসের সীমায় আটকায় না */
 const CAP_EXEMPT: MessageKind[] = ["withdrawal", "test"];
@@ -51,22 +45,21 @@ interface QueueInput {
   sendAt?: Date;
 }
 
-async function enqueue(
+/** false ফেরত দিলে একই বার্তা আগেই লাইনে আছে (dedupeKey মিলে গেছে) */
+export async function enqueueEmail(
   shopId: string,
-  channel: "email" | "sms",
-  input: QueueInput,
-  payload: unknown,
+  input: QueueInput & { payload: EmailPayload },
 ): Promise<boolean> {
   const { count } = await db.message.createMany({
     data: [
       {
         shopId,
-        channel,
+        channel: "email",
         kind: input.kind,
         refId: input.refId ?? null,
         recipient: input.to,
         dedupeKey: input.dedupeKey ?? null,
-        payload: payload as Prisma.InputJsonValue,
+        payload: input.payload as Prisma.InputJsonValue,
         sendAt: input.sendAt ?? new Date(),
       },
     ],
@@ -74,13 +67,6 @@ async function enqueue(
   });
   return count > 0;
 }
-
-/** false ফেরত দিলে একই বার্তা আগেই লাইনে আছে (dedupeKey মিলে গেছে) */
-export const enqueueEmail = (shopId: string, input: QueueInput & { payload: EmailPayload }) =>
-  enqueue(shopId, "email", input, input.payload);
-
-export const enqueueSms = (shopId: string, input: QueueInput & { text: string }) =>
-  enqueue(shopId, "sms", input, { text: input.text } satisfies SmsPayload);
 
 /** এ মাসে পাঠানো ইমেইল (সীমার হিসাবের জন্য) */
 export function emailsSentThisMonth(shopId: string, now = new Date()) {
@@ -116,18 +102,15 @@ interface ShopState {
   uninstalledAt: Date | null;
   emailSettings: unknown;
   sentThisMonth: number;
-  sms?: SmsConfig | null;
 }
 
 export interface Deps {
   send: (mail: OutgoingEmail) => Promise<SendResult>;
-  sms: (config: SmsConfig, to: string, text: string) => Promise<SmsResult>;
   now: () => Date;
 }
 
 const defaultDeps: Deps = {
   send: (mail) => sendEmail(mail),
-  sms: (config, to, text) => sendSms(config, to, text),
   now: () => new Date(),
 };
 
@@ -224,15 +207,6 @@ async function emailOutcome(
   return result.permanent ? { status: "failed", error } : { status: "retry", error };
 }
 
-async function smsOutcome(message: Claimed, shop: ShopState, deps: Deps): Promise<Outcome> {
-  if (shop.sms === undefined) shop.sms = await smsGateway(shop.id);
-  if (!shop.sms) return { status: "skipped", error: "sms_not_configured" };
-  const result = await deps.sms(shop.sms, message.recipient, (message.payload as SmsPayload).text);
-  if (result.ok) return { status: "sent", providerId: result.id };
-  const error = result.error ?? "send_failed";
-  return result.permanent ? { status: "failed", error } : { status: "retry", error };
-}
-
 async function claimMessages(limit: number): Promise<Claimed[]> {
   return db.$queryRaw<Claimed[]>`
     UPDATE "Message" SET status = 'sending', attempts = attempts + 1, "lockedAt" = now()
@@ -268,7 +242,7 @@ export async function processMessages(
       }
       const shop = shops.get(message.shopId);
       if (!shop || shop.uninstalledAt) outcome = { status: "skipped", error: "uninstalled" };
-      else if (message.channel === "sms") outcome = await smsOutcome(message, shop, deps);
+      else if (message.channel !== "email") outcome = { status: "skipped", error: "channel" };
       else outcome = await emailOutcome(message, shop, campaigns, deps);
     } catch (error) {
       outcome = { status: "retry", error: error instanceof Error ? error.message : String(error) };
@@ -343,12 +317,11 @@ export function deliveryRate(counts: Record<string, number>): DeliveryStats {
 
 export async function messageStats(
   shopId: string,
-  channel: "email" | "sms",
   options: { days?: number; kind?: string; refId?: string } = {},
 ): Promise<DeliveryStats> {
   const where = {
     shopId,
-    channel,
+    channel: "email",
     ...(options.kind ? { kind: options.kind } : {}),
     ...(options.refId ? { refId: options.refId } : {}),
     ...(options.days

@@ -20,12 +20,3 @@ export type { Contact, ContactEvent, EmailToolAdapter, FetchFn, ProviderList } f
 export { KLAVIYO_REVISION } from "./klaviyo";
 export { mailchimpBase, mailchimpEventName, memberHash } from "./mailchimp";
 export { OMNISEND_VERSION } from "./omnisend";
-export {
-  SMS_GATEWAYS,
-  buildCustomUrl,
-  isPrivateAddress,
-  normalizePhone,
-  sendSms,
-  smsSegments,
-} from "./sms";
-export type { SmsConfig, SmsGatewayId, SmsResult } from "./sms";

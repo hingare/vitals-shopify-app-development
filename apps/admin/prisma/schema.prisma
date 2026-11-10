@@ -88,8 +88,6 @@ model Shop {
   pushSubscribers  PushSubscription[]
   pushCampaigns    PushCampaign[]
   withdrawals      WithdrawalRequest[]
-  codOrders        CodOrder[]
-  codOtps          CodOtp[]
   altTextChanges   AltTextChange[]
   jobs             Job[]
 }
@@ -326,12 +324,12 @@ model DailyAbStat {
   @@unique([shopId, group, date])
 }
 
-/// বাইরের সার্ভিসের সংযোগ (Klaviyo, Mailchimp, Omnisend, SMS gateway)।
+/// বাইরের সার্ভিসের সংযোগ (Klaviyo, Mailchimp, Omnisend)।
 /// চাবি AES-256-GCM-এ এনক্রিপ্ট করা থাকে; স্টোরফ্রন্টে কখনো যায় না
 model Integration {
   id         String    @id @default(cuid())
   shopId     String
-  /// klaviyo | mailchimp | omnisend | sms
+  /// klaviyo | mailchimp | omnisend
   provider   String
   /// এনক্রিপ্ট করা JSON (app/lib/crypto.server.ts)
   secret     String
@@ -358,7 +356,7 @@ model Subscriber {
   firstName      String?
   /// subscribed | unsubscribed | bounced | complained
   status         String    @default("subscribed")
-  /// shopify | popup | spin-wheel | back-in-stock | cod-form | review
+  /// shopify | popup | spin-wheel | back-in-stock | review
   source         String    @default("shopify")
   /// Shopify customer-এর সংখ্যা-id (জানা থাকলে)
   customerId     String?
@@ -374,21 +372,21 @@ model Subscriber {
   @@index([shopId, customerId])
 }
 
-/// পাঠানো বার্তা (ইমেইল ও SMS): লাইনে থাকা থেকে পৌঁছানো পর্যন্ত অবস্থা
+/// পাঠানো বার্তা (ইমেইল): লাইনে থাকা থেকে পৌঁছানো পর্যন্ত অবস্থা
 model Message {
   id          String    @id @default(cuid())
   shopId      String
-  /// email | sms
+  /// এখন শুধু email (পরে অন্য মাধ্যম যোগ হলে এখানেই আলাদা হবে)
   channel     String
-  /// campaign | flow | back-in-stock | withdrawal | order-sms | otp | test
+  /// campaign | flow | back-in-stock | withdrawal | test
   kind        String
   /// ক্যাম্পেইনের id বা flow-র নাম
   refId       String?
-  /// ইমেইল ঠিকানা বা ফোন নম্বর
+  /// ইমেইল ঠিকানা
   recipient   String
   /// একই বার্তা দুবার না পাঠাতে (যেমন "campaign:<id>:<email>")
   dedupeKey   String?
-  /// বার্তা বানানোর তথ্য (ইমেইল: subject, heading, body, button; SMS: text)
+  /// বার্তা বানানোর তথ্য (subject, heading, body, button)
   payload     Json
   /// queued | sending | sent | delivered | failed | bounced | complained | skipped
   status      String    @default("queued")
@@ -569,38 +567,6 @@ model WithdrawalRequest {
 
   @@index([shopId, createdAt])
   @@index([shopId, email])
-}
-
-/// COD ফর্ম থেকে তৈরি অর্ডার (একই ফোন থেকে বারবার অর্ডার ঠেকাতে আর রিপোর্টের জন্য)
-model CodOrder {
-  id          String   @id @default(cuid())
-  shopId      String
-  /// Shopify order-এর সংখ্যা-id ও নাম (#1001)
-  orderId     String
-  orderName   String
-  phone       String
-  total       Decimal  @db.Decimal(14, 2)
-  currency    String
-  otpVerified Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-
-  @@index([shopId, createdAt])
-  @@index([shopId, phone, createdAt])
-}
-
-/// COD ফর্মে ফোন যাচাইয়ের এককালীন কোড (শুধু hash রাখা হয়)
-model CodOtp {
-  id        String   @id @default(cuid())
-  shopId    String
-  phone     String
-  codeHash  String
-  attempts  Int      @default(0)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
-
-  @@index([shopId, phone, createdAt])
 }
 
 /// SEO Alt Tags: বদলানো alt লেখার আগের মান (আগের অবস্থায় ফেরানোর জন্য)

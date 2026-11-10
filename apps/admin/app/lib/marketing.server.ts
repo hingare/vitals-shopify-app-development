@@ -40,6 +40,6 @@ export async function marketingContext(shop: {
   };
 }
 
-/** পরীক্ষার ইমেইল/SMS: স্টোর প্রতি ১০ মিনিটে ৫টা (ভুল করে বা ইচ্ছা করে বারবার পাঠানো ঠেকাতে) */
-export const allowTestSend = (shopId: string, channel: "email" | "sms") =>
-  allowRequest(`test-${channel}:${shopId}`, 5, 10 * 60_000);
+/** পরীক্ষার ইমেইল: স্টোর প্রতি ১০ মিনিটে ৫টা (ভুল করে বা ইচ্ছা করে বারবার পাঠানো ঠেকাতে) */
+export const allowTestSend = (shopId: string) =>
+  allowRequest(`test-email:${shopId}`, 5, 10 * 60_000);

@@ -32,7 +32,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const [context, flows, stats] = await Promise.all([
     marketingContext(shop),
     getFlows(shop.id),
-    messageStats(shop.id, "email", { kind: "flow", refId: key }),
+    messageStats(shop.id, { kind: "flow", refId: key }),
   ]);
   const flow = flows.find((f) => f.key === key)!;
   return {
@@ -67,7 +67,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (!content.success) return { ok: false as const, intent: body.intent, error: "invalid" };
 
   if (body.intent === "test") {
-    if (!allowTestSend(shop.id, "email")) {
+    if (!allowTestSend(shop.id)) {
       return { ok: false as const, intent: "test", error: "rate_limited" };
     }
     const result = await sendTestEmail(

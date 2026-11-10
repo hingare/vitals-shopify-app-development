@@ -286,8 +286,6 @@ function build() {
     pushSubscription: table("pushsub", () => ({}), [["shopId", "endpoint"]]),
     pushCampaign: table("push", () => ({ status: "queued", sent: 0, failed: 0, clicks: 0 })),
     withdrawalRequest: table("wd", () => ({ details: "", status: "new" })),
-    codOrder: table("cod", () => ({ otpVerified: false })),
-    codOtp: table("otp", () => ({ attempts: 0 })),
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
     job: table("job", () => ({
       payload: {},

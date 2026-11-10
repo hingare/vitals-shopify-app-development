@@ -734,52 +734,6 @@ export const en = {
     "Hides the Best selling sort order on collection pages so others can't easily see your top products. It stops casual snooping, not every method.",
   "field.hideSortOption": "Remove Best selling from the sort menu",
   "field.redirectVisits": "Send visitors who open a best-selling link to the normal order",
-  "tool.cod-form.name": "COD Order Form",
-  "tool.cod-form.description":
-    "Shoppers order with cash on delivery by entering their name, phone and address, without going through checkout. A real Shopify order is created with payment pending.",
-  "field.codButtonText": "Button text",
-  "field.hideBuyButtons": "Hide the theme's Add to cart and Buy buttons on product pages",
-  "field.nameLabel": "Name field label",
-  "field.phoneLabel": "Phone field label",
-  "field.addressLabel": "Address field label",
-  "field.cityLabel": "City field label",
-  "field.askEmail": "Ask for an email address (optional for the shopper)",
-  "field.showNote": "Show an order note field",
-  "field.countryCode": "Country code",
-  "help.countryCode":
-    "Two letters, for example BD. Used for the delivery address and to check phone numbers.",
-  "field.zone1Label": "Delivery area 1",
-  "field.zone1Fee": "Delivery charge for area 1",
-  "field.zone2Label": "Delivery area 2",
-  "help.zone2Label": "Leave empty if you have only one delivery charge.",
-  "field.zone2Fee": "Delivery charge for area 2",
-  "field.freeShippingOver": "Free delivery for orders over",
-  "help.freeShippingOver": "0 means delivery is never free.",
-  "field.submitText": "Submit button text",
-  "field.thanksText": "Message after ordering",
-  "help.thanksText": "{order} becomes the order number.",
-  "field.verifyPhone": "Check the phone number with an SMS code first",
-  "help.verifyPhone": "Needs an SMS gateway connected on the Integrations page.",
-  "field.maxPerDay": "Most orders per phone number per day",
-  "field.orderTag": "Tag added to these orders",
-  "tool.whatsapp-order.name": "WhatsApp Order Button",
-  "tool.whatsapp-order.description":
-    "A button that opens WhatsApp with the product or cart details already written, so shoppers can order by message.",
-  "field.whatsappNumber": "Your WhatsApp number",
-  "help.whatsappNumber": "With country code, digits only. Example: 8801712345678.",
-  "field.whatsappText": "Button text",
-  "field.orderMessage": "Message",
-  "help.orderMessage":
-    "{items} becomes the product list, {total} the total and {url} the page link.",
-  "tool.order-sms.name": "Order Confirmation SMS",
-  "tool.order-sms.description":
-    "Texts the customer when an order is placed, through your own SMS gateway account. Connect the gateway on the Integrations page.",
-  "field.sendFor": "Send for",
-  "option.all-orders": "Every order",
-  "option.cod-only": "Only COD form orders",
-  "field.smsTemplate": "SMS text",
-  "help.smsTemplate":
-    "Use {name}, {order}, {total} and {shop}. Bangla text fits 70 letters per SMS, English 160.",
 
   // ---- Marketing (email) ----
   "nav.marketing": "Marketing",
@@ -940,7 +894,6 @@ export const en = {
   "subscribers.source.popup": "Pop-up",
   "subscribers.source.spin-wheel": "Spin the Wheel",
   "subscribers.source.back-in-stock": "Back in Stock",
-  "subscribers.source.cod-form": "COD form",
   "subscribers.source.review": "Reviews",
 
   // ---- Integrations ----
@@ -978,35 +931,6 @@ export const en = {
   "integrations.syncDone": "{done} subscribers sent.",
   "integrations.syncFailed": "The sync stopped: {error}",
   "integrations.saved": "Saved",
-  "integrations.sms": "SMS gateway",
-  "integrations.smsHelp":
-    "SMS is sent through your own gateway account, so the gateway bills you directly. Used for order confirmation SMS and phone checks on the COD form.",
-  "integrations.sms.gateway": "Gateway",
-  "integrations.sms.alpha-sms": "Alpha SMS (sms.net.bd)",
-  "integrations.sms.ssl-wireless": "SSL Wireless",
-  "integrations.sms.bulksmsbd": "BulkSMSBD",
-  "integrations.sms.custom": "Another gateway (custom link)",
-  "integrations.sms.apiKey": "API key or token",
-  "integrations.sms.apiKeyKeep": "Leave empty to keep the saved key ({hint}).",
-  "integrations.sms.senderId": "Sender ID",
-  "integrations.sms.senderIdHelp":
-    "The approved sender name or number from your gateway. Leave empty if it has none.",
-  "integrations.sms.customUrl": "Gateway link",
-  "integrations.sms.customUrlHelp":
-    "An https link from your gateway's API guide. Put {to}, {message}, {api_key} and {sender_id} where the values go. The saved link is never shown again.",
-  "integrations.sms.customUrlKeep": "Leave empty to keep the saved link.",
-  "integrations.sms.customSuccess": "Text that means success (optional)",
-  "integrations.sms.customSuccessHelp":
-    "If the gateway's reply contains this text the SMS counts as sent. Empty means any successful reply counts.",
-  "integrations.sms.save": "Save gateway",
-  "integrations.sms.testTo": "Send a test SMS to",
-  "integrations.sms.sendTest": "Send test",
-  "integrations.sms.testSent": "Test SMS accepted by the gateway",
-  "integrations.sms.testFailed": "The gateway refused the SMS: {error}",
-  "integrations.sms.notSaved": "Save the gateway first.",
-  "integrations.sms.badPhone": "Enter a valid phone number with country code",
-  "integrations.sms.stats": "SMS, last 30 days",
-  "integrations.sms.statsValue": "{accepted} sent, {failed} failed, {skipped} skipped",
 } as const;
 
 export type MessageKey = keyof typeof en;

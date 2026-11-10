@@ -8,44 +8,34 @@ import {
   EMAIL_TOOL_IDS,
   IntegrationError,
   isEmailToolId,
-  normalizePhone,
-  sendSms,
   type ProviderList,
 } from "@app/integrations";
-// ফর্মে লাগে এমন ধ্রুবক আলাদা ফাইল থেকে, যাতে সার্ভারের কোড ব্রাউজারে না যায়
-import { SMS_GATEWAYS } from "@app/integrations/constants";
 
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { ensureShop } from "../lib/shop.server";
 import { SKIP_LIST, SYNC_SOURCES } from "../lib/integration-options";
 import {
-  SMS_PROVIDER,
   connectEmailTool,
   disconnectIntegration,
   listIntegrations,
   providerLists,
   readEspConfig,
   saveEspConfig,
-  saveSmsGateway,
-  smsGateway,
 } from "../lib/integrations.server";
-import { allowTestSend } from "../lib/marketing.server";
-import { messageStats, shopDisplayName } from "../lib/messages.server";
 import { enqueueJob } from "../lib/queue.server";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const [rows, backfills, smsStats] = await Promise.all([
+  const [rows, backfills] = await Promise.all([
     listIntegrations(shop.id),
     db.job.findMany({
       where: { shopId: shop.id, kind: "esp-backfill" },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
-    messageStats(shop.id, "sms", { days: 30 }),
   ]);
 
   const tools = await Promise.all(
@@ -83,27 +73,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }),
   );
 
-  const sms = rows.find((r) => r.provider === SMS_PROVIDER);
-  const smsConfig = (sms?.config ?? {}) as {
-    gateway?: string;
-    senderId?: string;
-    customSuccess?: string;
-    savedAt?: string;
-  };
-  return {
-    tools,
-    sms: {
-      connected: Boolean(sms),
-      keyHint: sms?.keyHint ?? "",
-      gateway: smsConfig.gateway ?? "alpha-sms",
-      senderId: smsConfig.senderId ?? "",
-      customSuccess: smsConfig.customSuccess ?? "",
-      lastError: sms?.lastError ?? null,
-      // সেভের পরে ফর্ম নতুন করে শুরু করতে (চাবির ঘর ফাঁকা হয়)
-      savedAt: smsConfig.savedAt ?? "",
-      stats: smsStats,
-    },
-  };
+  return { tools };
 };
 
 type Result = { ok: true; intent: string } | { ok: false; intent: string; error: string };
@@ -123,9 +93,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         await connectEmailTool(shop.id, provider, text("apiKey"));
         break;
       case "disconnect":
-        if (isEmailToolId(provider) || provider === SMS_PROVIDER) {
-          await disconnectIntegration(shop.id, provider);
-        }
+        if (isEmailToolId(provider)) await disconnectIntegration(shop.id, provider);
         break;
       case "lists":
         if (isEmailToolId(provider)) await saveEspConfig(shop.id, provider, body.config);
@@ -133,50 +101,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "backfill":
         if (isEmailToolId(provider)) await enqueueJob(shop.id, "esp-backfill", { provider });
         break;
-      case "sms-save":
-        await saveSmsGateway(shop.id, {
-          gateway: text("gateway"),
-          apiKey: text("apiKey"),
-          senderId: text("senderId"),
-          customUrl: text("customUrl"),
-          customSuccess: text("customSuccess"),
-        });
-        break;
-      case "sms-test": {
-        const to = normalizePhone(text("to"), "BD") ?? normalizePhone(text("to"), "");
-        if (!to) return { ok: false, intent, error: "bad_phone" } satisfies Result;
-        if (!allowTestSend(shop.id, "sms")) {
-          return { ok: false, intent, error: "rate_limited" } satisfies Result;
-        }
-        const gateway = await smsGateway(shop.id);
-        if (!gateway) return { ok: false, intent, error: "sms_not_configured" } satisfies Result;
-        const message = `Test SMS from ${shopDisplayName(shop)}`;
-        const result = await sendSms(gateway, to, message);
-        await db.message.create({
-          data: {
-            shopId: shop.id,
-            channel: "sms",
-            kind: "test",
-            recipient: to,
-            payload: { text: message },
-            status: result.ok ? "sent" : "failed",
-            error: result.ok ? null : (result.error ?? "send_failed").slice(0, 300),
-            providerId: result.id ?? null,
-            sentAt: result.ok ? new Date() : null,
-            attempts: 1,
-          },
-        });
-        await db.integration.updateMany({
-          where: { shopId: shop.id, provider: SMS_PROVIDER },
-          data: result.ok
-            ? { status: "connected", lastError: null, lastSyncAt: new Date() }
-            : { status: "error", lastError: (result.error ?? "send_failed").slice(0, 300) },
-        });
-        if (!result.ok) {
-          return { ok: false, intent, error: result.error ?? "send_failed" } satisfies Result;
-        }
-        break;
-      }
     }
   } catch (error) {
     // ভুল চাবি বা ভুল ফর্ম: বার্তাটা মার্চেন্টকে দেখাই
@@ -341,141 +265,6 @@ function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: str
   );
 }
 
-type Sms = ReturnType<typeof useLoaderData<typeof loader>>["sms"];
-
-function SmsGatewayCard({ sms, send, busy }: { sms: Sms; send: Send; busy: string | null }) {
-  const t = useT();
-  const [form, setForm] = useState({
-    gateway: sms.gateway,
-    apiKey: "",
-    senderId: sms.senderId,
-    customUrl: "",
-    customSuccess: sms.customSuccess,
-  });
-  const [testTo, setTestTo] = useState("");
-  const loading = (intent: string) => (busy === `${intent}:` ? { loading: true } : {});
-  const stats = sms.stats;
-
-  return (
-    <s-section heading={t("integrations.sms")}>
-      <s-stack direction="block" gap="base">
-        <s-paragraph>{t("integrations.smsHelp")}</s-paragraph>
-        <s-stack direction="inline" gap="small" alignItems="center">
-          <s-badge tone={!sms.connected ? "neutral" : sms.lastError ? "critical" : "success"}>
-            {t(sms.connected ? "integrations.connected" : "integrations.notConnected")}
-          </s-badge>
-          {stats.accepted + stats.failed + stats.skipped > 0 && (
-            <s-text color="subdued">
-              {t("integrations.sms.stats")}:{" "}
-              {t("integrations.sms.statsValue", {
-                accepted: stats.accepted,
-                failed: stats.failed,
-                skipped: stats.skipped,
-              })}
-            </s-text>
-          )}
-        </s-stack>
-        {sms.lastError && (
-          <s-banner tone="critical">
-            {t("integrations.lastError", { error: sms.lastError })}
-          </s-banner>
-        )}
-
-        <s-select
-          label={t("integrations.sms.gateway")}
-          value={form.gateway}
-          onChange={(e) => setForm({ ...form, gateway: e.currentTarget.value })}
-        >
-          {SMS_GATEWAYS.map((gateway) => (
-            <s-option key={gateway} value={gateway}>
-              {t(`integrations.sms.${gateway}`)}
-            </s-option>
-          ))}
-        </s-select>
-        <s-password-field
-          label={t("integrations.sms.apiKey")}
-          {...(sms.connected
-            ? { details: t("integrations.sms.apiKeyKeep", { hint: sms.keyHint }) }
-            : {})}
-          value={form.apiKey}
-          onChange={(e) => setForm({ ...form, apiKey: e.currentTarget.value })}
-        />
-        <s-text-field
-          label={t("integrations.sms.senderId")}
-          details={t("integrations.sms.senderIdHelp")}
-          maxLength={30}
-          value={form.senderId}
-          onChange={(e) => setForm({ ...form, senderId: e.currentTarget.value })}
-        />
-        {form.gateway === "custom" && (
-          <>
-            <s-url-field
-              label={t("integrations.sms.customUrl")}
-              details={`${t("integrations.sms.customUrlHelp")}${
-                sms.connected && sms.gateway === "custom"
-                  ? ` ${t("integrations.sms.customUrlKeep")}`
-                  : ""
-              }`}
-              value={form.customUrl}
-              onChange={(e) => setForm({ ...form, customUrl: e.currentTarget.value })}
-            />
-            <s-text-field
-              label={t("integrations.sms.customSuccess")}
-              details={t("integrations.sms.customSuccessHelp")}
-              maxLength={60}
-              value={form.customSuccess}
-              onChange={(e) => setForm({ ...form, customSuccess: e.currentTarget.value })}
-            />
-          </>
-        )}
-        <s-stack direction="inline" gap="small">
-          <s-button
-            variant="primary"
-            onClick={() => send({ intent: "sms-save", ...form })}
-            {...loading("sms-save")}
-          >
-            {t("integrations.sms.save")}
-          </s-button>
-          {sms.connected && (
-            <s-button
-              tone="critical"
-              variant="tertiary"
-              onClick={() => {
-                const question = t("integrations.confirmDisconnect", {
-                  name: t("integrations.sms"),
-                });
-                if (window.confirm(question)) send({ intent: "disconnect", provider: "sms" });
-              }}
-            >
-              {t("integrations.disconnect")}
-            </s-button>
-          )}
-        </s-stack>
-
-        {sms.connected && (
-          <>
-            <s-divider />
-            <s-stack direction="inline" gap="small" alignItems="end">
-              <s-text-field
-                label={t("integrations.sms.testTo")}
-                value={testTo}
-                onChange={(e) => setTestTo(e.currentTarget.value)}
-              />
-              <s-button
-                onClick={() => send({ intent: "sms-test", to: testTo })}
-                {...(testTo.trim() ? {} : { disabled: true })}
-                {...loading("sms-test")}
-              >
-                {t("integrations.sms.sendTest")}
-              </s-button>
-            </s-stack>
-          </>
-        )}
-      </s-stack>
-    </s-section>
-  );
-}
-
 export default function IntegrationsPage() {
   const data = useLoaderData<typeof loader>();
   const t = useT();
@@ -502,23 +291,8 @@ export default function IntegrationsPage() {
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
     const result = fetcher.data;
-    if (result.ok) {
-      shopify.toast.show(
-        t(result.intent === "sms-test" ? "integrations.sms.testSent" : "integrations.saved"),
-      );
-      return;
-    }
-    const messages: Record<string, string> = {
-      bad_phone: t("integrations.sms.badPhone"),
-      rate_limited: t("marketing.email.tooMany"),
-      sms_not_configured: t("integrations.sms.notSaved"),
-    };
-    const message =
-      messages[result.error] ??
-      (result.intent === "sms-test"
-        ? t("integrations.sms.testFailed", { error: result.error })
-        : result.error);
-    shopify.toast.show(message, { isError: true });
+    if (result.ok) shopify.toast.show(t("integrations.saved"));
+    else shopify.toast.show(result.error, { isError: true });
   }, [fetcher.state, fetcher.data, shopify, t]);
 
   const send: Send = (payload) =>
@@ -533,7 +307,6 @@ export default function IntegrationsPage() {
         // সংযোগ বদলালে কার্ডের ভেতরের ফর্ম নতুন করে শুরু হয়
         <EmailToolCard key={`${tool.id}:${tool.connected}`} tool={tool} send={send} busy={busy} />
       ))}
-      <SmsGatewayCard key={data.sms.savedAt} sms={data.sms} send={send} busy={busy} />
     </s-page>
   );
 }

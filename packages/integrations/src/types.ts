@@ -16,7 +16,7 @@ export interface Contact {
   email: string;
   phone?: string;
   firstName?: string;
-  /** কোন টুল থেকে এলো: popup, spin-wheel, back-in-stock, cod-form ... (ট্যাগ হিসেবে যায়) */
+  /** কোন টুল থেকে এলো: popup, spin-wheel, back-in-stock ... (ট্যাগ হিসেবে যায়) */
   source: string;
 }
 
