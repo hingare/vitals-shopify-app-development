@@ -674,6 +674,10 @@ export const en = {
   "field.notifyText": "Notify button text",
   "field.offerNewsletter": "Offer to join your newsletter too",
   "field.newsletterText": "Newsletter checkbox text",
+  "field.emailSubject": "Email subject",
+  "help.emailSubject": "You can use {product} and {shop}.",
+  "field.emailBody": "Email text",
+  "field.emailButton": "Email button text",
   "tool.spin-wheel.name": "Spin the Wheel",
   "tool.spin-wheel.description":
     "Shoppers enter their email and spin for a discount. Each slice is drawn at its real chance, every winner gets a one-time code, and the code's expiry is real.",
