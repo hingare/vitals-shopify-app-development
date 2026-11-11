@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isSoldOut } from "./tools/back-in-stock";
+import { readStatement } from "./tools/eu-withdrawal";
 import { orderStatus, shipmentStatus } from "./tools/order-tracker";
 import { keyBytes, sameKey } from "./tools/push-notifications";
 import { stopRotation, wheelSlices } from "./tools/spin-wheel";
@@ -141,5 +142,21 @@ describe("order tracker", () => {
     expect(orderStatus(order("PARTIALLY_FULFILLED", ["DELIVERED"]))).toBe("trackPartlyShipped");
     expect(orderStatus(order("IN_PROGRESS", ["IN_TRANSIT"]))).toBe("trackPartlyShipped");
     expect(orderStatus(order("FULFILLED", ["DELIVERED"], true))).toBe("trackCancelled");
+  });
+});
+
+describe("eu withdrawal", () => {
+  it("reads the statement from the form, trimmed, with empty details when left out", () => {
+    const form = new Map<string, unknown>([
+      ["name", "  Anna Schmidt "],
+      ["order", " #1001"],
+      ["email", "anna@example.com "],
+    ]);
+    expect(readStatement(form)).toEqual({
+      name: "Anna Schmidt",
+      order: "#1001",
+      email: "anna@example.com",
+      details: "",
+    });
   });
 });

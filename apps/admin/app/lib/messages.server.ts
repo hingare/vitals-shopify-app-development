@@ -32,6 +32,11 @@ export type MessageKind = "campaign" | "flow" | "back-in-stock" | "withdrawal" |
 
 /** আইনে বাধ্যতামূলক বা ক্রেতার নিজের চাওয়া বার্তা মাসের সীমায় আটকায় না */
 const CAP_EXEMPT: MessageKind[] = ["withdrawal", "test"];
+/**
+ * আইনে বাধ্যতামূলক প্রাপ্তিস্বীকার (EU withdrawal): ক্রেতা এইমাত্র নিজে এই ঠিকানা দিয়েছেন, তাই আগের
+ * bounce বা স্প্যাম অভিযোগের কারণে আটকানো হয় না, আর এতে খোলা বা ক্লিক গোনার কিছু বসে না।
+ */
+const REQUIRED_NOTICE: MessageKind[] = ["withdrawal"];
 const MAX_ATTEMPTS = 4;
 
 export const monthStart = (now = new Date()) =>
@@ -144,7 +149,8 @@ async function emailOutcome(
     where: { shopId_email: { shopId: shop.id, email: message.recipient } },
     select: { status: true },
   });
-  if (subscriber?.status === "bounced" || subscriber?.status === "complained") {
+  const required = REQUIRED_NOTICE.includes(kind);
+  if (!required && (subscriber?.status === "bounced" || subscriber?.status === "complained")) {
     return { status: "skipped", error: "suppressed" };
   }
   if (payload.marketing) {
@@ -182,8 +188,8 @@ async function emailOutcome(
     accent: settings.accent,
     postalAddress: settings.postalAddress,
     unsubscribeUrl: unsubscribe,
-    openPixelUrl: openPixelUrl(message.id),
-    wrapLink: (url) => clickUrl(message.id, url),
+    openPixelUrl: required ? undefined : openPixelUrl(message.id),
+    wrapLink: required ? undefined : (url) => clickUrl(message.id, url),
   });
   const result = await deps.send({
     fromName: shopName,

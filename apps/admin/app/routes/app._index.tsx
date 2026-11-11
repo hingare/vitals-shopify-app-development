@@ -7,17 +7,19 @@ import { ensureShop, syncPlanFromBilling } from "../lib/shop.server";
 import { getEmbedStatus, getToolStates } from "../lib/tools.server";
 import { getSpeedSummary } from "../lib/speed.server";
 import { getToolStats } from "../lib/analytics.server";
+import { openWithdrawals } from "../lib/withdrawals.server";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, billing, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const [plan, embedEnabled, tools, speed, stats, currency] = await Promise.all([
+  const [plan, embedEnabled, tools, speed, stats, withdrawals, currency] = await Promise.all([
     syncPlanFromBilling(billing, session.shop),
     getEmbedStatus(admin),
     getToolStates(shop.id),
     getSpeedSummary(shop.id),
     getToolStats(shop.id),
+    openWithdrawals(shop.id),
     admin
       .graphql(
         `#graphql
@@ -36,6 +38,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     baselineScore: speed.baseline?.score ?? null,
     latestScore: speed.latest?.score ?? null,
     stats,
+    // EU Withdrawal: ক্রেতার নতুন বিবৃতি থাকলে ড্যাশবোর্ডেই চোখে পড়ে
+    withdrawals,
     currency,
     // থিম এডিটরে সরাসরি আমাদের app embed খুলে দেয়
     themeEditorUrl: `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/app-tools-embed`,
@@ -72,6 +76,14 @@ export default function Dashboard() {
 
   return (
     <s-page heading={t("dashboard.title")}>
+      {data.withdrawals > 0 && (
+        <s-banner tone="warning">
+          {data.withdrawals === 1
+            ? t("withdrawals.dashboardOne")
+            : t("withdrawals.dashboard", { count: data.withdrawals })}{" "}
+          <s-link href="/app/withdrawals">{t("withdrawals.view")}</s-link>
+        </s-banner>
+      )}
       {!allDone && (
         <s-section heading={t("dashboard.setup")}>
           <s-stack direction="block" gap="base">

@@ -108,6 +108,12 @@ const strings = {
     trackNumber: "Tracking number",
     trackLink: "Track shipment",
     trackTotal: "Total",
+    withdrawName: "Your name",
+    withdrawOrder: "Order number",
+    withdrawEmail: "Email for the confirmation",
+    withdrawDetails: "What you are withdrawing from (optional)",
+    withdrawDetailsHelp: "Leave this empty to withdraw from the whole order.",
+    withdrawSubmitted: "Received on {date}",
   },
 } satisfies Record<string, Record<string, string>>;
 

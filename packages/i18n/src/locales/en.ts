@@ -732,6 +732,10 @@ export const en = {
     "Adds the withdrawal button and form that EU rules require for online purchases. The customer gets an email confirming the date and time, and you see every request in the app.",
   "field.confirmText": "Confirm button text",
   "field.doneText": "Message after sending",
+  "field.ackSubject": "Confirmation email subject",
+  "field.ackBody": "Confirmation email text",
+  "help.ackBody":
+    "You can use {name}, {order}, {date} and {shop}. What the customer sent and the date and time are always added below this text.",
   "tool.best-sellers-protection.name": "Best Sellers Protection",
   "tool.best-sellers-protection.description":
     "Hides the Best selling sort order on collection pages so others can't easily see your top products. It stops casual snooping, not every method.",
@@ -968,6 +972,47 @@ export const en = {
   "seoAlt.error.off": "Turn on SEO Alt Tags first.",
   "seoAlt.error.busy": "A run is already in progress.",
   "seoAlt.error.unknown": "Something went wrong. Please try again.",
+
+  // ---- EU Withdrawal ----
+  "withdrawals.title": "Withdrawal requests",
+  "withdrawals.off": "EU Withdrawal Button is turned off, so customers cannot send requests.",
+  "withdrawals.turnOn": "Turn it on",
+  "withdrawals.noEmail":
+    "Email sending is not set up on the server yet, so customers do not get the confirmation email the rules require.",
+  "withdrawals.help":
+    "Customers send these from the withdrawal form in your store. Each one gets a confirmation email with what they sent and the date and time. Refunds and returns are still handled by you in Shopify.",
+  "withdrawals.empty": "No requests yet.",
+  "withdrawals.new": "New",
+  "withdrawals.handled": "Handled",
+  "withdrawals.order": "Order",
+  "withdrawals.received": "Received",
+  "withdrawals.details": "Details",
+  "withdrawals.noDetails": "No details given",
+  "withdrawals.confirmation": "Confirmation email",
+  "withdrawals.mail.sent": "Sent",
+  "withdrawals.mail.queued": "Waiting to be sent",
+  "withdrawals.mail.failed": "Not sent",
+  "withdrawals.markHandled": "Mark as handled",
+  "withdrawals.reopen": "Mark as new",
+  "withdrawals.settings": "Form and email texts",
+  "withdrawals.openCount": "{count} new",
+  "withdrawals.showMore": "Show older requests",
+  "withdrawals.noNotice":
+    "Add a reply-to email on the Marketing page to get an email each time a customer sends a request.",
+  "withdrawals.addReplyTo": "Open Marketing",
+  "withdrawals.dashboard": "You have {count} new withdrawal requests from customers.",
+  "withdrawals.dashboardOne": "You have a new withdrawal request from a customer.",
+  "withdrawals.view": "View requests",
+  "withdrawals.notice.subject": "New withdrawal request for order {order}",
+  "withdrawals.notice.body":
+    "A customer sent a withdrawal statement through the form in your store. They already got a confirmation email with the details below.",
+  "withdrawals.notice.next":
+    "Open the app to see all requests and mark this one as handled. Refunds and returns are handled by you in Shopify.",
+  "withdrawals.ack.name": "Name",
+  "withdrawals.ack.order": "Order",
+  "withdrawals.ack.email": "Email",
+  "withdrawals.ack.details": "Details",
+  "withdrawals.ack.submitted": "Received on",
 } as const;
 
 export type MessageKey = keyof typeof en;

@@ -181,7 +181,14 @@ export const facebookPixels = defineTool({
   }),
 });
 
-/** EU-র নিয়ম (Directive 2023/2673): অনলাইনে কেনা চুক্তি প্রত্যাহারের বাটন ও ফর্ম */
+/**
+ * EU-র নিয়ম (Directive 2023/2673, Consumer Rights Directive-এর নতুন Article 11a):
+ * অনলাইনে কেনা চুক্তি প্রত্যাহারের বাটন ও ফর্ম। নিয়মে যা লাগে:
+ * - সব সময় চোখে পড়ার মতো একটা লিংক, লেখা "withdraw from contract here" বা সমার্থক (linkText)
+ * - ফর্মে নাম, চুক্তি চেনার তথ্য (অর্ডার নম্বর) আর প্রাপ্তিস্বীকার পাঠানোর ইমেইল
+ * - জমা দেওয়ার বাটন, লেখা "confirm withdrawal" বা সমার্থক (confirmText)
+ * - জমা পড়ার সাথে সাথে ক্রেতাকে প্রাপ্তিস্বীকার: কী জমা দিলেন আর কোন তারিখ ও সময়ে (ackSubject, ackBody)
+ */
 export const euWithdrawal = defineTool({
   id: "eu-withdrawal",
   category: "protect",
@@ -197,6 +204,11 @@ export const euWithdrawal = defineTool({
     ),
     confirmText: text(40, "Confirm withdrawal"),
     doneText: text(200, "We received your withdrawal. A confirmation is on its way to your email."),
+    ackSubject: text(150, "We received your withdrawal"),
+    ackBody: text(
+      600,
+      "Hello {name},\n\nWe received your withdrawal from the contract for order {order}. The details you sent us are below. We will contact you about the next steps.",
+    ),
     showInFooter: z.boolean().default(true),
     colors: themeColors(),
   }),

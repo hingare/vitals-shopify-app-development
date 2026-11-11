@@ -114,13 +114,39 @@ describe("sending marketing email", () => {
   it("never emails an address that bounced or complained, even for non-marketing email", async () => {
     db.subscriber.seed({ shopId, email: "a@b.com", status: "bounced" });
     await enqueueEmail(shopId, {
-      kind: "withdrawal",
+      kind: "back-in-stock",
       to: "a@b.com",
       sendAt: new Date(now.getTime() - 1000),
       payload: { marketing: false, content },
     });
     await run();
     expect(only()).toMatchObject({ status: "skipped", error: "suppressed" });
+  });
+
+  it("still sends a withdrawal confirmation to such an address, with no tracking in it", async () => {
+    // আইনে বাধ্যতামূলক, আর ক্রেতা এইমাত্র নিজে এই ঠিকানা দিয়েছেন
+    for (const [email, status] of [
+      ["a@b.com", "bounced"],
+      ["c@b.com", "complained"],
+      ["d@b.com", "unsubscribed"],
+    ] as const) {
+      db.subscriber.seed({ shopId, email, status });
+      await enqueueEmail(shopId, {
+        kind: "withdrawal",
+        to: email,
+        sendAt: new Date(now.getTime() - 1000),
+        payload: { marketing: false, content },
+      });
+    }
+    await run();
+    expect(db.message.rows.map((r) => r.status)).toEqual(["sent", "sent", "sent"]);
+    const mail = send.mock.calls[0]?.[0];
+    expect(mail.headers).toBeUndefined();
+    // খোলা গোনার ছবি নেই, বাটনের লিংকও সরাসরি (ক্লিক গোনা হয় না)
+    expect(mail.html).not.toContain("/e/o/");
+    expect(mail.html).not.toContain("/e/c/");
+    expect(mail.html).toContain('href="https://shop.com/sale"');
+    expect(mail.html).not.toContain("Unsubscribe");
   });
 
   it("skips an abandoned checkout email when the order was placed meanwhile", async () => {
