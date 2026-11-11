@@ -247,4 +247,16 @@ describe("redactCustomer", () => {
     });
     expect(everythingOf(shopA)).toBe(before);
   });
+
+  it("never guesses a customer from an id too large to have been read exactly", async () => {
+    // JSON-এর খুব বড় সংখ্যা JavaScript-এ কাছাকাছি আরেকটা সংখ্যা হয়ে যায়; সেটা অন্য কোনো ক্রেতার id হতে পারে
+    const blurred = 2 ** 60;
+    db.wishlistItem.seed({ shopId: shopA, owner: `c:${blurred}`, productId: "5", handle: "hat" });
+    expect((await customerData(shopA, { customerId: blurred })).wishlist).toEqual([]);
+    expect(await redactCustomer(shopA, { customerId: blurred })).toEqual({
+      deleted: 0,
+      anonymized: 0,
+    });
+    expect(db.wishlistItem.rows.some((row) => row.owner === `c:${blurred}`)).toBe(true);
+  });
 });

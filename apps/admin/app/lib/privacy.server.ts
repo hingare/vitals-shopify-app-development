@@ -33,8 +33,10 @@ interface Identity {
  */
 async function identify(shopId: string, ref: CustomerRef): Promise<Identity> {
   const email = cleanEmail(ref.email);
+  // খুব বড় সংখ্যা JSON থেকে পড়লে হুবহু থাকে না: ভুল id দিয়ে অন্য ক্রেতার তথ্য ধরার চেয়ে id ছাড়া চলা ভালো
   const rawId =
-    typeof ref.customerId === "number" || typeof ref.customerId === "string"
+    typeof ref.customerId === "string" ||
+    (typeof ref.customerId === "number" && Number.isSafeInteger(ref.customerId))
       ? String(ref.customerId)
       : "";
   let customerId = /^\d{1,20}$/.test(rawId) ? rawId : null;
