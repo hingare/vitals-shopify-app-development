@@ -9,6 +9,7 @@ import { canUseTool, z } from "@app/tool-sdk";
 import { authenticate } from "../shopify.server";
 import { ensureShop, planOf } from "../lib/shop.server";
 import { getToolStates, saveTool, ToolError } from "../lib/tools.server";
+import { TOOL_PAGES } from "../lib/tool-pages";
 import { useT } from "../lib/i18n";
 import { SettingsForm, type JsonSchema } from "../components/SettingsForm";
 import { previews } from "../components/previews";
@@ -25,6 +26,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     plan: tool.plan,
     allowed: plan !== null && canUseTool(tool, plan),
     nativeAlternative: tool.shopifyNativeAlternative ?? null,
+    page: TOOL_PAGES[tool.id] ?? null,
     enabled: state.enabled,
     settings: state.settings as Record<string, unknown>,
     schema: z.toJSONSchema(tool.settings, { io: "input" }) as JsonSchema,
@@ -91,6 +93,11 @@ export default function ToolSettingsPage() {
       >
         {t("tools.save")}
       </s-button>
+      {data.page && (
+        <s-button slot="secondary-actions" href={data.page}>
+          {t(`tools.page.${data.id}`)}
+        </s-button>
+      )}
 
       {data.nativeAlternative && (
         <s-banner tone="warning">

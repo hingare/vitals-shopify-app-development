@@ -44,6 +44,10 @@ export const en = {
   "tools.preview": "Preview",
   "tools.settings": "Settings",
   "tools.conflict": "This tool conflicts with {other}. Turn one of them off.",
+  "tools.page.email-marketing": "Campaigns and automatic emails",
+  "tools.page.push-notifications": "Send a notification",
+  "tools.page.seo-alt-tags": "Add alt text",
+  "tools.page.eu-withdrawal": "Withdrawal requests",
   "tools.nativeWarning":
     "Shopify's own {feature} is available. Use only one of them to avoid duplicates.",
 

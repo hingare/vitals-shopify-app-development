@@ -84,6 +84,19 @@ describe("trackOrder", () => {
     expect(order?.name).toBe("#1001");
   });
 
+  it("asks Shopify only for the contact detail the shopper gave", async () => {
+    // ইমেইল আর ফোন Shopify-র আলাদা অনুমতির তথ্য: একটার অনুমতি না থাকলেও অন্যটা দিয়ে খোঁজা চলে
+    const byEmail = admin([node()]);
+    await trackOrder(byEmail, { order: "1001", contact: "rahim@example.com" });
+    expect(byEmail.graphql.mock.calls[0]?.[0]).toMatch(/\bemail\b/);
+    expect(byEmail.graphql.mock.calls[0]?.[0]).not.toContain("phone");
+
+    const byPhone = admin([node()]);
+    await trackOrder(byPhone, { order: "1001", contact: "01712345678" });
+    expect(byPhone.graphql.mock.calls[0]?.[0]).toContain("shippingAddress { phone }");
+    expect(byPhone.graphql.mock.calls[0]?.[0]).not.toMatch(/\bemail\b/);
+  });
+
   it("returns nothing when the contact does not belong to the order", async () => {
     expect(
       await trackOrder(admin([node()]), { order: "1001", contact: "someone@else.com" }),
@@ -97,6 +110,8 @@ describe("trackOrder", () => {
     const client = admin([node()]);
     expect(await trackOrder(client, { order: "1001 OR 1", contact: "a@b.co" })).toBeNull();
     expect(await trackOrder(client, { order: "1001", contact: "" })).toBeNull();
+    // ইমেইলও নয়, ফোনও নয়
+    expect(await trackOrder(client, { order: "1001", contact: "rahim" })).toBeNull();
     expect(client.graphql).not.toHaveBeenCalled();
   });
 

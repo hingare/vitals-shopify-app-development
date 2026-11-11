@@ -6,6 +6,10 @@ import type { GraphqlClient } from "./tools.server";
  * Order Tracker: অর্ডার নম্বর আর সেই অর্ডারের ইমেইল বা ফোন দুটোই মিললে তবেই অবস্থা দেখানো হয়।
  * উত্তরে ঠিকানা, ইমেইল বা ফোন কখনো যায় না; শুধু অবস্থা, কুরিয়ারের ট্র্যাকিং আর কী কী অর্ডার হয়েছিল।
  * খোঁজা হয় Shopify থেকে সরাসরি, তাই আমাদের ডাটাবেসে অর্ডারের কোনো কপি রাখা হয় না।
+ *
+ * Shopify থেকে শুধু সেই তথ্যই চাওয়া হয় যা দিয়ে ক্রেতা নিজেকে চেনালেন: ইমেইল দিলে ইমেইল, ফোন দিলে ফোন।
+ * ইমেইল আর ফোন Shopify-র আলাদা অনুমতির (protected customer fields) তথ্য; অনুমতি নেই এমন তথ্য চাইলে Shopify
+ * পুরো উত্তরে error দেয়। আলাদা করে চাওয়ায় ফোনের অনুমতি না থাকলেও ইমেইল দিয়ে খোঁজা চলে।
  */
 export interface TrackedOrder {
   name: string;
@@ -35,10 +39,12 @@ interface OrderNode {
   cancelledAt: string | null;
   displayFinancialStatus: string | null;
   displayFulfillmentStatus: string;
-  email: string | null;
-  phone: string | null;
-  shippingAddress: { phone: string | null } | null;
-  billingAddress: { phone: string | null } | null;
+  /** ক্রেতা ইমেইল দিয়ে খুঁজলে তবেই চাওয়া হয় */
+  email?: string | null;
+  /** বাকি তিনটা ক্রেতা ফোন দিয়ে খুঁজলে তবেই চাওয়া হয় */
+  phone?: string | null;
+  shippingAddress?: { phone: string | null } | null;
+  billingAddress?: { phone: string | null } | null;
   currentTotalPriceSet: { presentmentMoney: { amount: string; currencyCode: string } };
   lineItems: { nodes: Array<{ title: string; quantity: number }> };
   fulfillments: Array<{
@@ -84,6 +90,11 @@ export async function trackOrder(
   const name = cleanOrderName(input.order);
   const contact = typeof input.contact === "string" ? input.contact.trim().slice(0, 254) : "";
   if (!name || !contact) return null;
+  const byEmail = cleanEmail(contact) !== null;
+  if (!byEmail && !phoneTail(contact)) return null;
+  const contactFields = byEmail
+    ? "email"
+    : "phone shippingAddress { phone } billingAddress { phone }";
   const data = await gql<{ orders: { nodes: OrderNode[] } }>(
     admin,
     `#graphql
@@ -95,10 +106,7 @@ export async function trackOrder(
           cancelledAt
           displayFinancialStatus
           displayFulfillmentStatus
-          email
-          phone
-          shippingAddress { phone }
-          billingAddress { phone }
+          ${contactFields}
           currentTotalPriceSet { presentmentMoney { amount currencyCode } }
           lineItems(first: 20) { nodes { title quantity } }
           fulfillments(first: 10) {

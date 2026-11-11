@@ -6,13 +6,23 @@ embedded = true
 
 [access_scopes]
 # read_themes: থিমে app embed চালু আছে কিনা দেখতে
-# read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook)
-# write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট)
+# read_orders: কোন টুল থেকে কত বিক্রি হলো (orders/paid webhook), Order Tracker-এ অর্ডারের অবস্থা,
+#   আর অসমাপ্ত চেকআউট ও নতুন অর্ডারের webhook (abandoned checkout আর win-back ইমেইল)
+# write_pixels, read_customer_events: স্টোরের Analytics পিক্সেল (ভিজিটর, কার্ট, চেকআউট) আর Facebook Pixels
 # write_app_proxy: স্টোরফ্রন্ট থেকে /apps/app-tools-এ ইভেন্ট পাঠানোর app proxy-র জন্য Shopify-র বাধ্যতামূলক scope
-# write_products: রিভিউর রেটিং প্রোডাক্টের reviews.rating metafield-এ লেখার জন্য (থিম স্টার দেখায়)
-# write_discounts: অফারের automatic app discount বানানো ও তার কনফিগ metafield লেখা
-# write_files: রিভিউর ছবি মার্চেন্টের Shopify Files-এ রাখার জন্য (আমাদের স্টোরেজ খরচ নেই)
-scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts"
+# write_products: রিভিউর রেটিং প্রোডাক্টের reviews.rating metafield-এ লেখার জন্য (থিম স্টার দেখায়);
+#   প্রোডাক্ট বদলের webhook আর স্টক দেখা (Back in Stock, SEO Alt Tags)
+# write_discounts: অফারের automatic app discount বানানো ও তার কনফিগ metafield লেখা; Spin the Wheel-এর কুপন
+# write_files: রিভিউর ছবি মার্চেন্টের Shopify Files-এ রাখার জন্য (আমাদের স্টোরেজ খরচ নেই); SEO Alt Tags-এ ছবির alt লেখা
+# write_customers (পড়ার অনুমতিও এর ভেতরে): Email Marketing-এর গ্রাহক তালিকা Shopify-র সম্মতির সাথে মিলিয়ে রাখা।
+#   কেউ আমাদের ফর্মে রাজি হলে বা আনসাবস্ক্রাইব করলে Shopify-র customer-এ লেখা হয়, আর Shopify-তে বদলালে
+#   customers webhook দিয়ে এখানে আসে। Wishlist-এর খবর ইমেইল টুলে পাঠাতে ক্রেতার ইমেইলও এখান থেকে পড়া হয়।
+#
+# ক্রেতার তথ্য (protected customer data): Partner Dashboard > API access requests-এ "Protected customer data"
+# আর Name, Email, Phone ফিল্ড বেছে নিতে হয়; নইলে Shopify নিচের customers, checkouts আর orders webhook দেয় না,
+# বা ক্রেতার ঘরগুলো ফাঁকা পাঠায়।
+# Phone লাগে শুধু Order Tracker-এ ফোন নম্বর দিয়ে খোঁজার জন্য; Address কোথাও লাগে না।
+scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts,write_customers"
 
 [webhooks]
 api_version = "2026-10"
@@ -36,6 +46,53 @@ api_version = "2026-10"
   [[webhooks.subscriptions]]
   topics = [ "orders/paid" ]
   uri = "/webhooks/orders/paid"
+
+  # অর্ডার হলে সেই ক্রেতার abandoned checkout ইমেইল থামে, আর শেষ অর্ডারের সময় রাখা হয় (win-back ইমেইল)।
+  # ক্রেতার তথ্যের webhook-এ শুধু দরকারি ঘরগুলো চাওয়া হয় (include_fields); ঠিকানা, ফোন বা পণ্যের তালিকা আসে না।
+  # Handled by: /app/routes/webhooks.orders.create.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "orders/create" ]
+  uri = "/webhooks/orders/create"
+  include_fields = [ "id", "email", "checkout_token" ]
+
+  # Abandoned checkout ইমেইল (flow চালু থাকলেই কেবল কিছু রাখা হয়)।
+  # Handled by: /app/routes/webhooks.checkouts.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "checkouts/create", "checkouts/update" ]
+  uri = "/webhooks/checkouts"
+  include_fields = [
+    "token",
+    "email",
+    "abandoned_checkout_url",
+    "completed_at",
+    "total_price",
+    "currency",
+    "buyer_accepts_marketing",
+    "customer.first_name",
+    "shipping_address.first_name",
+  ]
+
+  # মার্কেটিং ইমেইলের সম্মতি: Shopify-তে কেউ রাজি হলে বা আনসাবস্ক্রাইব করলে আমাদের গ্রাহক তালিকাও বদলায়।
+  # Handled by: /app/routes/webhooks.customers.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "customers/create", "customers/update" ]
+  uri = "/webhooks/customers"
+  include_fields = [ "id", "email", "first_name", "tags", "email_marketing_consent" ]
+
+  # একই রাস্তা; এই খবরে সম্মতির বাইরে কিছু থাকেই না, তাই ঘর বাছার দরকার নেই।
+  # Handled by: /app/routes/webhooks.customers.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "customers_email_marketing_consent/update" ]
+  uri = "/webhooks/customers"
+
+  # Back in Stock (স্টক বদলালেও products/update আসে) আর SEO Alt Tags (নতুন ছবি)।
+  # updated_at রাখা হয়েছে যাতে প্রতিটা খবর আলাদা হয়: Shopify হুবহু একই খবর পরপর এলে পরেরটা বাদ দেয়,
+  # আর তখন স্টকে ফেরার খবরটাই হারিয়ে যেতে পারত।
+  # Handled by: /app/routes/webhooks.products.update.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "products/create", "products/update" ]
+  uri = "/webhooks/products/update"
+  include_fields = [ "id", "updated_at", "images.alt", "media.alt", "media.media_content_type" ]
 
   # GDPR (App Store-এর জন্য বাধ্যতামূলক). Handled by: /app/routes/webhooks.compliance.tsx
   [[webhooks.subscriptions]]
