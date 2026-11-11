@@ -716,7 +716,7 @@ export const en = {
     "Adds alt text to product images that have none, so they can show up in Google Images. Existing alt text is never replaced, and you can undo the changes.",
   "field.altTemplate": "Alt text pattern",
   "help.altTemplate": "Use {product}, {vendor}, {type} and {shop}.",
-  "field.autoNew": "Also fill in new and updated products automatically",
+  "field.autoNew": "Fill in newly added product images automatically",
   "tool.facebook-pixels.name": "Facebook Pixels",
   "tool.facebook-pixels.description":
     "Send page views, product views, add to cart, checkout and purchase events to up to three Meta pixels. Runs only for visitors who allowed marketing cookies.",
@@ -931,6 +931,40 @@ export const en = {
   "integrations.syncDone": "{done} subscribers sent.",
   "integrations.syncFailed": "The sync stopped: {error}",
   "integrations.saved": "Saved",
+
+  // ---- SEO Alt Tags ----
+  "seoAlt.title": "SEO Alt Tags",
+  "seoAlt.fill": "Fill in missing alt text",
+  "seoAlt.off": "SEO Alt Tags is turned off.",
+  "seoAlt.turnOn": "Turn it on",
+  "seoAlt.filling":
+    "Looking through your products… {scanned} checked, {updated} images filled in so far.",
+  "seoAlt.fillDone": "Done. {scanned} products checked and alt text added to {updated} images.",
+  "seoAlt.undoing": "Removing the alt text this app added… {restored} images done so far.",
+  "seoAlt.undoDone": "Removed the alt text from {restored} images.",
+  "seoAlt.undoKept":
+    "{kept} images were left alone because their alt text was changed after this app wrote it.",
+  "seoAlt.failed": "The run stopped: {error}",
+  "seoAlt.howHeading": "How it works",
+  "seoAlt.help":
+    "Product images without alt text get one made from your pattern. Alt text you wrote yourself is never replaced. Alt text helps images show up in Google Images and is read aloud by screen readers.",
+  "seoAlt.example": "Example from your store",
+  "seoAlt.exampleEmpty":
+    "This pattern comes out empty for this product, so nothing would be written.",
+  "seoAlt.autoOn":
+    "Images you add from now on are filled in automatically, about a minute after upload.",
+  "seoAlt.autoOff":
+    "New images are not filled in automatically. Press the button above after adding products.",
+  "seoAlt.change": "Change the pattern",
+  "seoAlt.undoHeading": "Undo",
+  "seoAlt.written": "Images with alt text written by this app",
+  "seoAlt.undoHelp":
+    "This removes the alt text this app added and leaves those images without alt text, as they were before. Images whose alt text you changed afterwards are not touched.",
+  "seoAlt.undoConfirm": "Remove the alt text this app added to {count} images?",
+  "seoAlt.undo": "Remove the alt text this app added",
+  "seoAlt.error.off": "Turn on SEO Alt Tags first.",
+  "seoAlt.error.busy": "A run is already in progress.",
+  "seoAlt.error.unknown": "Something went wrong. Please try again.",
 } as const;
 
 export type MessageKey = keyof typeof en;
