@@ -1,9 +1,11 @@
+import { emailMarketing } from "@app/tools";
 import db from "../db.server";
 import { gql, offlineAdmin } from "./admin-client.server";
 import { storeUrl, triggerFlow } from "./flows.server";
-import { queueContactSync, queueUnsubscribeSync } from "./integrations.server";
+import { connectedProviders, queueContactSync, queueUnsubscribeSync } from "./integrations.server";
 import { enqueueJob, registerJob } from "./queue.server";
-import { cleanEmail } from "./tool-state.server";
+import { customerDetails, findCustomer } from "./shopify-customers.server";
+import { cleanEmail, enabledSettings } from "./tool-state.server";
 import type { GraphqlClient } from "./tools.server";
 
 /**
@@ -11,6 +13,9 @@ import type { GraphqlClient } from "./tools.server";
  * সম্মতির আসল জায়গা Shopify-র customer: আমাদের ফর্ম থেকে কেউ রাজি হলে Shopify-তেও লেখা হয়,
  * আর Shopify-তে (বা Klaviyo-র মতো অন্য অ্যাপে, যা Shopify-তে লেখে) কেউ আনসাবস্ক্রাইব করলে
  * webhook দিয়ে এখানেও বন্ধ হয়। তাই দুই দিকেই একই অবস্থা থাকে।
+ *
+ * Shopify-র খবর দেরিতে, দুবার বা উল্টো ক্রমে আসতে পারে। তাই Shopify থেকে আসা প্রতিটা বদলের সাথে
+ * Shopify-র নিজের সময় (`at`) রাখা হয়, আর পুরনো খবর নতুন অবস্থাকে বদলাতে পারে না।
  */
 type ShopRow = { id: string; domain: string; plan: string | null };
 
@@ -22,19 +27,35 @@ export interface SubscribeInput {
   customerId?: string | null;
   /** খবরটা Shopify থেকেই এসেছে, তাই আবার Shopify-তে লিখতে হবে না */
   fromShopify?: boolean;
+  /** Shopify-র হিসাবে সম্মতির সময় (Shopify থেকে আসা খবরে) */
+  at?: Date | null;
   /** পুরনো গ্রাহক একসাথে আনার সময়: welcome ইমেইল বা সিঙ্ক নয় */
   quiet?: boolean;
 }
 
-export type SubscribeResult = "created" | "resubscribed" | "exists" | "suppressed" | "invalid";
+export type SubscribeResult =
+  | "created"
+  | "resubscribed"
+  | "exists"
+  | "suppressed"
+  | "invalid"
+  /** Shopify-র পুরনো খবর: এর পরে তিনি আনসাবস্ক্রাইব করেছেন */
+  | "stale";
 
 const clip = (value: string | null | undefined, max: number) => value?.trim().slice(0, max) || null;
+
+/** Shopify-র দেওয়া সময়; ভুল হলে null, আর ভবিষ্যতের সময় হলে এখনকার সময় (নইলে পরের সব খবর "পুরনো" ঠেকত) */
+function eventTime(value: Date | null | undefined, now = new Date()): Date | null {
+  if (!(value instanceof Date) || Number.isNaN(value.getTime())) return null;
+  return value > now ? now : value;
+}
 
 export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<SubscribeResult> {
   const email = cleanEmail(input.email);
   if (!email) return "invalid";
   const firstName = clip(input.firstName, 80);
   const customerId = clip(input.customerId, 30);
+  const at = eventTime(input.at);
   const key = { shopId_email: { shopId: shop.id, email } };
 
   const existing = await db.subscriber.findUnique({ where: key });
@@ -46,16 +67,20 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
     const fill = {
       ...(firstName && !existing.firstName ? { firstName } : {}),
       ...(customerId && !existing.customerId ? { customerId } : {}),
+      // Shopify-র নতুন সম্মতির সময় মনে রাখা হয়, যাতে তার আগের (দেরিতে পৌঁছানো) আনসাবস্ক্রাইবের খবর বাদ পড়ে
+      ...(at && at > existing.consentAt ? { consentAt: at } : {}),
     };
     if (Object.keys(fill).length > 0) await db.subscriber.update({ where: key, data: fill });
     return "exists";
   }
   if (existing) {
+    // দেরিতে বা দ্বিতীয়বার পৌঁছানো পুরনো "রাজি" খবর পরের আনসাবস্ক্রাইবকে উল্টে দিতে পারে না
+    if (at && existing.unsubscribedAt && at <= existing.unsubscribedAt) return "stale";
     await db.subscriber.update({
       where: key,
       data: {
         status: "subscribed",
-        consentAt: new Date(),
+        consentAt: at ?? new Date(),
         unsubscribedAt: null,
         ...(firstName ? { firstName } : {}),
         ...(customerId ? { customerId } : {}),
@@ -64,7 +89,16 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
     result = "resubscribed";
   } else {
     const { count } = await db.subscriber.createMany({
-      data: [{ shopId: shop.id, email, firstName, customerId, source: input.source }],
+      data: [
+        {
+          shopId: shop.id,
+          email,
+          firstName,
+          customerId,
+          source: input.source,
+          ...(at ? { consentAt: at } : {}),
+        },
+      ],
       skipDuplicates: true,
     });
     // একই মুহূর্তে আরেকটা অনুরোধ তৈরি করে ফেললে welcome ইমেইল ইত্যাদি সে-ই পাঠাবে
@@ -111,9 +145,11 @@ export async function unsubscribe(
   const existing = await db.subscriber.findUnique({ where: key });
   if (existing && existing.status !== "subscribed") return false;
   // Shopify-র পুরনো খবর (আমাদের এখানে পরে আবার রাজি হয়েছেন) উপেক্ষা
-  if (existing && options.at && options.at < existing.consentAt) return false;
+  const at = eventTime(options.at);
+  if (existing && at && at < existing.consentAt) return false;
 
-  const unsubscribedAt = new Date();
+  // Shopify-র খবরে Shopify-র সময়ই রাখা হয়, যাতে পরের খবরের সাথে একই ঘড়িতে তুলনা হয়
+  const unsubscribedAt = at ?? new Date();
   if (existing) {
     await db.subscriber.update({ where: key, data: { status: "unsubscribed", unsubscribedAt } });
   } else {
@@ -134,54 +170,129 @@ export async function unsubscribe(
 /* ------------------------------------------------------------------ */
 
 export interface CustomerPayload {
+  // customers/create (shopify.app.toml-এর include_fields: শুধু এই দুটো ঘর আসে)
   id?: number | string;
   email?: string | null;
-  first_name?: string | null;
-  tags?: string | null;
-  email_marketing_consent?: { state?: string | null; consent_updated_at?: string | null } | null;
-  // customers_email_marketing_consent/update-এ
+  // customers_email_marketing_consent/update
   customer_id?: number | string;
   email_address?: string | null;
+  email_marketing_consent?: { state?: string | null; consent_updated_at?: string | null } | null;
 }
 
-export interface ConsentChange {
+export interface CustomerEvent {
   email: string;
+  /** Shopify customer-এর সংখ্যা-id */
   customerId: string | null;
-  firstName: string | null;
-  state: string;
+  /**
+   * সম্মতির খবরে (customers_email_marketing_consent/update) থাকে: subscribed, unsubscribed, not_subscribed…
+   * নতুন customer-এর খবরে (customers/create) সম্মতি আসেই না, তখন null।
+   */
+  state: string | null;
+  /** Shopify-র হিসাবে সম্মতি কবে বদলেছে */
   at: Date | null;
-  source: string;
 }
 
-/** customers/create, customers/update আর customers_email_marketing_consent/update-এর payload পড়ে */
-export function parseCustomerPayload(payload: CustomerPayload): ConsentChange | null {
+/**
+ * customers/create আর customers_email_marketing_consent/update-এর payload পড়ে।
+ * ইমেইল না থাকলে (ক্রেতার তথ্যের অনুমতি না থাকলে Shopify ঘরটা ফাঁকা পাঠায়) null।
+ */
+export function parseCustomerPayload(payload: CustomerPayload): CustomerEvent | null {
   const email = cleanEmail(payload.email ?? payload.email_address);
-  const state = payload.email_marketing_consent?.state;
-  if (!email || !state) return null;
-  const id = payload.id ?? payload.customer_id;
-  const stamp = payload.email_marketing_consent?.consent_updated_at;
-  const at = stamp ? new Date(stamp) : null;
-  const tags = (payload.tags ?? "").split(",").map((t) => t.trim().toLowerCase());
+  if (!email) return null;
+  const rawId = payload.id ?? payload.customer_id ?? "";
+  // খুব বড় সংখ্যা JSON থেকে পড়লে হুবহু থাকে না; ভুল id দিয়ে অন্য customer-কে ধরার চেয়ে id ছাড়া চলা ভালো
+  const id = typeof rawId === "number" && !Number.isSafeInteger(rawId) ? "" : String(rawId);
+  const consent = payload.email_marketing_consent;
+  const at = consent?.consent_updated_at ? new Date(consent.consent_updated_at) : null;
   return {
     email,
-    customerId: id ? String(id) : null,
-    firstName: payload.first_name ?? null,
-    state,
+    customerId: /^\d{1,20}$/.test(id) ? id : null,
+    state: consent?.state ?? null,
     at: at && !Number.isNaN(at.getTime()) ? at : null,
-    // আমাদের Pop-up ফর্ম Shopify-র নিউজলেটার ফর্ম দিয়ে পাঠায়, সাথে "popup" ট্যাগ
-    source: tags.includes("popup") ? "popup" : "shopify",
   };
 }
 
-export async function applyConsentChange(shop: ShopRow, change: ConsentChange) {
-  if (change.state === "subscribed") {
-    return subscribe(shop, { ...change, fromShopify: true });
-  }
-  if (change.state === "unsubscribed") {
-    await unsubscribe(shop.id, change.email, { fromShopify: true, at: change.at ?? undefined });
+/**
+ * স্টোরটা গ্রাহক তালিকা কাজে লাগায় কিনা: Email Marketing চালু, বা কোনো ইমেইল টুল (Klaviyo ইত্যাদি) যুক্ত।
+ * যে স্টোর লাগায় না, তার Shopify গ্রাহকদের ঠিকানা আমরা জমাই না (অকারণে ক্রেতার তথ্য রাখা হয় না);
+ * পরে চালু করলে মার্চেন্ট Subscribers পেজের "Import from Shopify" দিয়ে সবাইকে আনেন।
+ */
+async function usesList(shop: ShopRow): Promise<boolean> {
+  if (await enabledSettings(shop, emailMarketing)) return true;
+  return (await connectedProviders(shop.id)).length > 0;
+}
+
+/** Shopify webhook-এর উত্তর ৫ সেকেন্ডের মধ্যে চায়, তাই Shopify-কে জিজ্ঞেস করে এর বেশি অপেক্ষা করা হয় না */
+const LOOKUP_TIMEOUT_MS = 3_000;
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`No answer from Shopify in ${ms} ms`)), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * Shopify-র customer webhook-এর খবর গ্রাহক তালিকায় বসায়।
+ * - আনসাবস্ক্রাইব: তালিকায় থাকা ঠিকানায় সবসময়; অচেনা ঠিকানা মনে রাখা হয় শুধু তালিকা কাজে লাগলে।
+ * - রাজি হওয়া: তালিকায় আগে থেকে থাকলে সরাসরি। নতুন কাউকে যোগ করার আগে Shopify-কে জিজ্ঞেস করা হয়
+ *   (`admin`), কারণ নাম আর ট্যাগ webhook-এ আসে না, আর নতুন customer-এর খবরে সম্মতিও থাকে না।
+ *   Shopify উত্তর না দিলে (বা দেরি করলে) সম্মতির খবরটা নাম ছাড়াই বসে; নতুন customer-এর খবর তখন বাদ পড়ে
+ *   (সম্মতির আলাদা খবর বা পরের আমদানিতে তিনি আসবেন)।
+ */
+export async function applyCustomerEvent(
+  shop: ShopRow,
+  event: CustomerEvent,
+  admin?: GraphqlClient | null,
+): Promise<SubscribeResult | null> {
+  const known = await db.subscriber.findUnique({
+    where: { shopId_email: { shopId: shop.id, email: event.email } },
+    select: { status: true },
+  });
+
+  if (event.state === "unsubscribed") {
+    if (!known && !(await usesList(shop))) return null;
+    await unsubscribe(shop.id, event.email, { fromShopify: true, at: event.at ?? undefined });
+    return null;
   }
   // not_subscribed / pending / invalid: কিছু বদলায় না
-  return null;
+  if (event.state && event.state !== "subscribed") return null;
+
+  const input = {
+    email: event.email,
+    customerId: event.customerId,
+    source: "shopify",
+    fromShopify: true,
+    at: event.at,
+  };
+  // তালিকায় থাকা কারো জন্য Shopify-কে জিজ্ঞেস করার কিছু নেই (আমাদের ফর্ম থেকে এলে এটা আমাদের লেখারই প্রতিধ্বনি)।
+  // ব্যতিক্রম: আনসাবস্ক্রাইব করা কারো নামে নতুন customer-এর খবর, যাতে সম্মতি লেখা নেই।
+  if (known && (event.state === "subscribed" || known.status !== "unsubscribed")) {
+    return subscribe(shop, input);
+  }
+  if (!(await usesList(shop))) return null;
+
+  const answer =
+    admin && event.customerId
+      ? await withTimeout(customerDetails(admin, event.customerId), LOOKUP_TIMEOUT_MS).catch(
+          (error: unknown) => {
+            console.warn("[subscribers] customer lookup failed", error);
+            return null;
+          },
+        )
+      : null;
+  // উত্তরটা এই ঠিকানারই হতে হবে: এর মধ্যে ঠিকানা বদলে গিয়ে থাকলে অন্য ঠিকানার সম্মতি বা নাম এখানে খাটে না
+  const details = answer?.email === event.email ? answer : null;
+  // সম্মতি ছাড়া খবরে (নতুন customer) Shopify-র এখনকার উত্তরই ভরসা
+  if (!event.state && details?.marketingState !== "SUBSCRIBED") return null;
+  return subscribe(shop, {
+    ...input,
+    firstName: details?.firstName ?? null,
+    // আমাদের Pop-up ফর্ম Shopify-র নিউজলেটার ফর্ম দিয়ে পাঠায়, সাথে "popup" ট্যাগ
+    source: details?.tags.includes("popup") ? "popup" : "shopify",
+    at: event.at ?? details?.marketingUpdatedAt ?? null,
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -193,52 +304,6 @@ interface ConsentJob {
   firstName?: string | null;
   state: "SUBSCRIBED" | "UNSUBSCRIBED";
   source?: string;
-}
-
-const quote = (value: string) => `"${value.replace(/["\\]/g, "")}"`;
-
-interface ShopifyCustomer {
-  /** gid://shopify/Customer/… */
-  id: string;
-  marketingState: string | null;
-}
-
-/**
- * এই ইমেইলের Shopify customer; এমন কেউ না থাকলে null।
- * Shopify-র খোঁজ কাছাকাছি ঠিকানাও ফেরত দিতে পারে, তাই ঠিকানা হুবহু মিললে তবেই ধরা হয়:
- * ভুল মানুষকে ধরলে তাঁর সম্মতি বদলে যেত, বা তাঁর তথ্য অন্য ক্রেতার হাতে যেত।
- */
-async function findCustomer(admin: GraphqlClient, email: string): Promise<ShopifyCustomer | null> {
-  const wanted = email.trim().toLowerCase();
-  const found = await gql<{
-    customers: {
-      nodes: Array<{
-        id: string;
-        defaultEmailAddress: { emailAddress: string | null; marketingState: string } | null;
-      }>;
-    };
-  }>(
-    admin,
-    `#graphql
-    query CustomerByEmail($query: String!) {
-      customers(first: 5, query: $query) {
-        nodes { id defaultEmailAddress { emailAddress marketingState } }
-      }
-    }`,
-    { query: `email:${quote(wanted)}` },
-  );
-  const match = found.customers.nodes.find(
-    (node) => node.defaultEmailAddress?.emailAddress?.trim().toLowerCase() === wanted,
-  );
-  return match
-    ? { id: match.id, marketingState: match.defaultEmailAddress?.marketingState ?? null }
-    : null;
-}
-
-/** এই ইমেইলের Shopify customer-এর সংখ্যা-id (লগইন করা ক্রেতার wishlist এই id-তে রাখা) */
-export async function findCustomerId(admin: GraphqlClient, email: string): Promise<string | null> {
-  const customer = await findCustomer(admin, email);
-  return customer?.id.split("/").pop() ?? null;
 }
 
 export async function pushConsent(admin: GraphqlClient, shopId: string, job: ConsentJob) {
@@ -315,7 +380,11 @@ registerJob("shopify-consent", async (job) => {
 interface CustomerNode {
   id: string;
   firstName: string | null;
-  defaultEmailAddress: { emailAddress: string; marketingState: string } | null;
+  defaultEmailAddress: {
+    emailAddress: string;
+    marketingState: string;
+    marketingUpdatedAt?: string | null;
+  } | null;
   lastOrder: { createdAt: string } | null;
 }
 
@@ -334,7 +403,7 @@ export async function importPage(admin: GraphqlClient, shopId: string, cursor: s
         nodes {
           id
           firstName
-          defaultEmailAddress { emailAddress marketingState }
+          defaultEmailAddress { emailAddress marketingState marketingUpdatedAt }
           lastOrder { createdAt }
         }
         pageInfo { hasNextPage endCursor }
@@ -345,6 +414,8 @@ export async function importPage(admin: GraphqlClient, shopId: string, cursor: s
   const rows = data.customers.nodes.flatMap((node) => {
     const email = cleanEmail(node.defaultEmailAddress?.emailAddress);
     if (!email || node.defaultEmailAddress?.marketingState !== "SUBSCRIBED") return [];
+    const stamp = node.defaultEmailAddress.marketingUpdatedAt;
+    const consentAt = eventTime(stamp ? new Date(stamp) : null);
     return [
       {
         shopId,
@@ -352,6 +423,8 @@ export async function importPage(admin: GraphqlClient, shopId: string, cursor: s
         firstName: clip(node.firstName, 80),
         customerId: node.id.split("/").pop() ?? null,
         source: "shopify",
+        // Shopify-র হিসাবে কবে রাজি হয়েছেন (জানা থাকলে): এর পরের আনসাবস্ক্রাইবের খবর তখন ঠিকঠাক মানা হয়
+        ...(consentAt ? { consentAt } : {}),
         // win-back ইমেইলের জন্য
         lastOrderAt: node.lastOrder ? new Date(node.lastOrder.createdAt) : null,
       },

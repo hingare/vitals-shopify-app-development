@@ -884,7 +884,7 @@ export const en = {
   // ---- Subscribers ----
   "subscribers.title": "Subscribers",
   "subscribers.help":
-    "People who agreed to marketing emails. Consent is kept in sync with the customer's record in Shopify.",
+    "People who agreed to marketing emails. Consent is kept in sync with the customer's record in Shopify. New subscribers from Shopify are added automatically while Email Marketing is on or an email tool is connected. Use Import from Shopify to add everyone else.",
   "subscribers.status.subscribed": "Subscribed",
   "subscribers.status.unsubscribed": "Unsubscribed",
   "subscribers.status.bounced": "Bounced",

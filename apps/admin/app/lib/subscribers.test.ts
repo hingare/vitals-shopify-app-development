@@ -5,9 +5,9 @@ process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 5).toString("base64");
 vi.mock("../db.server", async () => ({ default: (await import("./test-db")).fakeDb }));
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
 const { FLOWS } = await import("./email-template");
+const { findCustomerId } = await import("./shopify-customers.server");
 const {
-  applyConsentChange,
-  findCustomerId,
+  applyCustomerEvent,
   importPage,
   listSubscribers,
   parseCustomerPayload,
@@ -19,6 +19,14 @@ const {
 
 let shop: { id: string; domain: string; plan: string | null };
 const jobs = () => db.job.rows.map((j) => [j.kind, j.payload] as const);
+
+/** নকল Admin API: দেওয়া উত্তরগুলো পরপর ফেরত দেয় */
+const admin = (responses: unknown[]) => {
+  const graphql = vi.fn<
+    (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>
+  >(async () => Response.json({ data: responses.shift() }));
+  return { graphql };
+};
 
 beforeEach(() => {
   resetFakeDb();
@@ -102,6 +110,54 @@ describe("subscribe", () => {
     expect(db.subscriber.rows[0]).toMatchObject({ status: "subscribed", unsubscribedAt: null });
   });
 
+  it("ignores a late copy of an old opt-in from Shopify once the shopper has unsubscribed", async () => {
+    // Shopify একই খবর আবার পাঠাতে পারে; এর মধ্যে তিনি আমাদের ইমেইলের লিংক থেকে আনসাবস্ক্রাইব করেছেন
+    db.subscriber.seed({
+      shopId: shop.id,
+      email: "a@b.com",
+      status: "unsubscribed",
+      unsubscribedAt: new Date("2026-11-10T11:00:00Z"),
+    });
+    const old = { email: "a@b.com", source: "shopify", fromShopify: true };
+    expect(await subscribe(shop, { ...old, at: new Date("2026-11-10T10:00:00Z") })).toBe("stale");
+    expect(await subscribe(shop, { ...old, at: new Date("2026-11-10T11:00:00Z") })).toBe("stale");
+    expect(db.subscriber.rows[0]?.status).toBe("unsubscribed");
+    expect(db.message.rows).toHaveLength(0);
+
+    // পরে Shopify-তে আবার রাজি হলে সেটা মানা হয়, Shopify-র সময়সহ
+    const again = new Date("2026-11-10T12:00:00Z");
+    expect(await subscribe(shop, { ...old, at: again })).toBe("resubscribed");
+    expect(db.subscriber.rows[0]).toMatchObject({
+      status: "subscribed",
+      consentAt: again,
+      unsubscribedAt: null,
+    });
+  });
+
+  it("keeps Shopify's own time of consent, and never one from the future", async () => {
+    const at = new Date("2026-11-01T08:00:00Z");
+    await subscribe(shop, { email: "a@b.com", source: "shopify", fromShopify: true, at });
+    expect(db.subscriber.rows[0]?.consentAt).toEqual(at);
+
+    // আগে থেকে থাকা গ্রাহকের নতুন সম্মতির সময়ও রাখা হয় (তার আগের আনসাবস্ক্রাইবের খবর তখন পুরনো)
+    const newer = new Date("2026-11-05T08:00:00Z");
+    await subscribe(shop, { email: "a@b.com", source: "shopify", fromShopify: true, at: newer });
+    expect(db.subscriber.rows[0]?.consentAt).toEqual(newer);
+    await subscribe(shop, { email: "a@b.com", source: "shopify", fromShopify: true, at });
+    expect(db.subscriber.rows[0]?.consentAt).toEqual(newer);
+
+    const before = Date.now();
+    await subscribe(shop, {
+      email: "late@b.com",
+      source: "shopify",
+      fromShopify: true,
+      at: new Date(before + 86_400_000),
+    });
+    const stored = (db.subscriber.rows[1]?.consentAt as Date).getTime();
+    expect(stored).toBeGreaterThanOrEqual(before);
+    expect(stored).toBeLessThanOrEqual(Date.now());
+  });
+
   it("never re-adds an address that bounced or complained", async () => {
     db.subscriber.seed({ shopId: shop.id, email: "a@b.com", status: "complained" });
     expect(await subscribe(shop, { email: "a@b.com", source: "popup" })).toBe("suppressed");
@@ -148,6 +204,17 @@ describe("unsubscribe", () => {
     expect(db.job.rows).toHaveLength(0);
   });
 
+  it("keeps Shopify's own time of the unsubscribe", async () => {
+    db.subscriber.seed({
+      shopId: shop.id,
+      email: "a@b.com",
+      consentAt: new Date("2026-11-01T10:00:00Z"),
+    });
+    const at = new Date("2026-11-09T10:00:00Z");
+    expect(await unsubscribe(shop.id, "a@b.com", { fromShopify: true, at })).toBe(true);
+    expect(db.subscriber.rows[0]).toMatchObject({ status: "unsubscribed", unsubscribedAt: at });
+  });
+
   it("ignores stale news from Shopify that is older than a fresh opt-in here", async () => {
     const consentAt = new Date("2026-11-10T10:00:00Z");
     db.subscriber.seed({ shopId: shop.id, email: "a@b.com", consentAt });
@@ -158,76 +225,254 @@ describe("unsubscribe", () => {
 });
 
 describe("Shopify customer webhooks", () => {
-  it("reads customers/create and customers/update", () => {
-    expect(
-      parseCustomerPayload({
-        id: 123,
-        email: "A@B.com",
-        first_name: "Mina",
-        tags: "newsletter, Popup",
-        email_marketing_consent: {
-          state: "subscribed",
-          consent_updated_at: "2026-11-10T09:00:00Z",
-        },
-      }),
-    ).toEqual({
+  /** স্টোরে Email Marketing চালু: গ্রাহক তালিকা কাজে লাগে */
+  const useList = () =>
+    db.toolSetting.seed({ shopId: shop.id, toolId: "email-marketing", enabled: true });
+  /** Shopify-র উত্তর: এই customer-এর নাম, ট্যাগ আর সম্মতির এখনকার অবস্থা */
+  const customer = (extra: Record<string, unknown> = {}) => ({
+    customer: {
+      firstName: "Mina",
+      tags: ["newsletter", "Popup"],
+      defaultEmailAddress: {
+        emailAddress: "A@b.com",
+        marketingState: "SUBSCRIBED",
+        marketingUpdatedAt: "2026-11-10T09:00:00Z",
+      },
+      ...extra,
+    },
+  });
+  const consent = (state: string, at: string | null = "2026-11-10T09:00:00Z") => ({
+    email: "a@b.com",
+    customerId: "9",
+    state,
+    at: at ? new Date(at) : null,
+  });
+  const created = { email: "a@b.com", customerId: "9", state: null, at: null };
+
+  it("reads customers/create, which carries no consent", () => {
+    expect(parseCustomerPayload({ id: 123, email: "A@B.com" })).toEqual({
       email: "a@b.com",
       customerId: "123",
-      firstName: "Mina",
-      state: "subscribed",
-      at: new Date("2026-11-10T09:00:00Z"),
-      source: "popup",
+      state: null,
+      at: null,
     });
   });
 
   it("reads customers_email_marketing_consent/update", () => {
     expect(
       parseCustomerPayload({
+        customer_id: 706405506930370084n.toString(),
+        email_address: "Bob@Biller.com",
+        email_marketing_consent: {
+          state: "subscribed",
+          consent_updated_at: "2026-11-10T09:00:00Z",
+        },
+      }),
+    ).toEqual({
+      email: "bob@biller.com",
+      customerId: "706405506930370084",
+      state: "subscribed",
+      at: new Date("2026-11-10T09:00:00Z"),
+    });
+    expect(
+      parseCustomerPayload({
         customer_id: 9,
         email_address: "a@b.com",
-        email_marketing_consent: { state: "unsubscribed" },
+        email_marketing_consent: { state: "not_subscribed", consent_updated_at: null },
       }),
-    ).toMatchObject({
-      email: "a@b.com",
-      customerId: "9",
-      state: "unsubscribed",
-      source: "shopify",
-    });
+    ).toMatchObject({ customerId: "9", state: "not_subscribed", at: null });
   });
 
-  it("ignores payloads without an email or a consent state (redacted fields)", () => {
+  it("ignores a payload without an email (redacted fields) and drops an id that is not a number", () => {
     expect(parseCustomerPayload({ id: 1, email: null })).toBeNull();
-    expect(parseCustomerPayload({ id: 1, email: "a@b.com" })).toBeNull();
+    expect(parseCustomerPayload({ customer_id: 1 })).toBeNull();
+    expect(parseCustomerPayload({ id: "gid://x/1", email: "a@b.com" })?.customerId).toBeNull();
+    // এত বড় সংখ্যা JSON থেকে হুবহু পড়া যায় না; ভুল id দিয়ে অন্য customer-কে ধরা হয় না
+    expect(parseCustomerPayload({ id: 2 ** 60, email: "a@b.com" })?.customerId).toBeNull();
   });
 
-  it("mirrors subscribe and unsubscribe, and leaves other states alone", async () => {
-    const base = {
+  it("adds a new subscriber from the consent news, with the name and source Shopify knows", async () => {
+    useList();
+    const client = admin([customer()]);
+    expect(await applyCustomerEvent(shop, consent("subscribed"), client)).toBe("created");
+    expect(client.graphql.mock.calls[0]?.[1]?.variables).toEqual({
+      id: "gid://shopify/Customer/9",
+    });
+    expect(db.subscriber.rows[0]).toMatchObject({
       email: "a@b.com",
+      status: "subscribed",
       customerId: "9",
-      firstName: null,
-      at: null,
-      source: "shopify",
-    };
-    await applyConsentChange(shop, { ...base, state: "subscribed" });
-    expect(db.subscriber.rows[0]).toMatchObject({ status: "subscribed", customerId: "9" });
-    await applyConsentChange(shop, { ...base, state: "not_subscribed" });
-    await applyConsentChange(shop, { ...base, state: "pending" });
-    expect(db.subscriber.rows[0]?.status).toBe("subscribed");
-    await applyConsentChange(shop, { ...base, state: "unsubscribed" });
-    expect(db.subscriber.rows[0]?.status).toBe("unsubscribed");
+      firstName: "Mina",
+      // আমাদের Pop-up ফর্ম "popup" ট্যাগ দেয়
+      source: "popup",
+      consentAt: new Date("2026-11-10T09:00:00Z"),
+    });
     // Shopify থেকে আসা খবর আবার Shopify-তে লেখা হয় না
     expect(db.job.rows.filter((j) => j.kind === "shopify-consent")).toHaveLength(0);
+  });
+
+  it("still adds the subscriber when Shopify does not answer, just without the name", async () => {
+    useList();
+    const failing = { graphql: vi.fn(async () => Response.json({ errors: [{ message: "No" }] })) };
+    expect(await applyCustomerEvent(shop, consent("subscribed"), failing)).toBe("created");
+    expect(db.subscriber.rows[0]).toMatchObject({ firstName: null, source: "shopify" });
+    // admin ছাড়াও (স্টোরের সেশন না থাকলে) একই
+    db.subscriber.rows.length = 0;
+    expect(await applyCustomerEvent(shop, consent("subscribed"))).toBe("created");
+  });
+
+  it("does not keep Shopify's webhook waiting when the answer is slow", async () => {
+    useList();
+    vi.useFakeTimers();
+    try {
+      const silent = { graphql: vi.fn(() => new Promise<Response>(() => {})) };
+      const result = applyCustomerEvent(shop, consent("subscribed"), silent);
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(await result).toBe("created");
+      expect(db.subscriber.rows[0]).toMatchObject({ firstName: null, source: "shopify" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("asks Shopify about a new customer, and adds them only if they agreed with that address", async () => {
+    useList();
+    expect(await applyCustomerEvent(shop, created, admin([customer()]))).toBe("created");
+    expect(db.subscriber.rows[0]).toMatchObject({
+      email: "a@b.com",
+      customerId: "9",
+      firstName: "Mina",
+      source: "popup",
+      consentAt: new Date("2026-11-10T09:00:00Z"),
+    });
+
+    db.subscriber.rows.length = 0;
+    const address = (extra: Record<string, unknown>) => ({
+      defaultEmailAddress: {
+        emailAddress: "a@b.com",
+        marketingState: "SUBSCRIBED",
+        marketingUpdatedAt: null,
+        ...extra,
+      },
+    });
+    const answers = [
+      customer(address({ marketingState: "NOT_SUBSCRIBED" })),
+      customer(address({ marketingState: "PENDING" })),
+      // এর মধ্যে ঠিকানা বদলে গেছে: অন্য ঠিকানার সম্মতি এই ঠিকানায় খাটে না
+      customer(address({ emailAddress: "other@b.com" })),
+      customer({ defaultEmailAddress: null }),
+      { customer: null },
+    ];
+    for (const answer of answers) {
+      expect(await applyCustomerEvent(shop, created, admin([answer]))).toBeNull();
+    }
+    // Shopify উত্তর না দিলে বা জিজ্ঞেস করার উপায় না থাকলে না জেনে কাউকে যোগ করা হয় না
+    const failing = { graphql: vi.fn(async () => Response.json({ errors: [{ message: "No" }] })) };
+    expect(await applyCustomerEvent(shop, created, failing)).toBeNull();
+    expect(await applyCustomerEvent(shop, created)).toBeNull();
+    expect(await applyCustomerEvent(shop, { ...created, customerId: null }, admin([]))).toBeNull();
+    expect(db.subscriber.rows).toHaveLength(0);
+  });
+
+  it("does not ask Shopify about someone already on the list, and fills in their customer id", async () => {
+    // যেমন Spin the Wheel থেকে আসা গ্রাহক: Shopify-তে customer তৈরি হলে তার খবর ফিরে আসে
+    db.subscriber.seed({ shopId: shop.id, email: "a@b.com", source: "spin-wheel" });
+    const client = admin([]);
+    expect(await applyCustomerEvent(shop, created, client)).toBe("exists");
+    expect(await applyCustomerEvent(shop, consent("subscribed"), client)).toBe("exists");
+    expect(client.graphql).not.toHaveBeenCalled();
+    expect(db.subscriber.rows[0]).toMatchObject({ customerId: "9", source: "spin-wheel" });
+    expect(db.job.rows).toHaveLength(0);
+    expect(db.message.rows).toHaveLength(0);
+  });
+
+  it("mirrors an unsubscribe, and leaves the other states alone", async () => {
+    db.subscriber.seed({
+      shopId: shop.id,
+      email: "a@b.com",
+      consentAt: new Date("2026-11-01T00:00:00Z"),
+    });
+    const client = admin([]);
+    await applyCustomerEvent(shop, consent("not_subscribed", null), client);
+    await applyCustomerEvent(shop, consent("pending"), client);
+    await applyCustomerEvent(shop, consent("invalid"), client);
+    expect(db.subscriber.rows[0]?.status).toBe("subscribed");
+    await applyCustomerEvent(shop, consent("unsubscribed"), client);
+    expect(db.subscriber.rows[0]).toMatchObject({
+      status: "unsubscribed",
+      unsubscribedAt: new Date("2026-11-10T09:00:00Z"),
+    });
+    expect(client.graphql).not.toHaveBeenCalled();
+    expect(db.job.rows.filter((j) => j.kind === "shopify-consent")).toHaveLength(0);
+  });
+
+  it("lets Shopify's newer opt-in bring back someone who unsubscribed, but not an older one", async () => {
+    useList();
+    db.subscriber.seed({
+      shopId: shop.id,
+      email: "a@b.com",
+      status: "unsubscribed",
+      unsubscribedAt: new Date("2026-11-10T08:00:00Z"),
+    });
+    const client = admin([]);
+    expect(
+      await applyCustomerEvent(shop, consent("subscribed", "2026-11-10T07:00:00Z"), client),
+    ).toBe("stale");
+    expect(await applyCustomerEvent(shop, consent("subscribed"), client)).toBe("resubscribed");
+    expect(client.graphql).not.toHaveBeenCalled();
+
+    // নতুন customer-এর খবরে সম্মতি নেই, তাই Shopify-র উত্তর আর তার সময় দেখা হয়
+    db.subscriber.rows[0]!.status = "unsubscribed";
+    db.subscriber.rows[0]!.unsubscribedAt = new Date("2026-11-10T10:00:00Z");
+    expect(await applyCustomerEvent(shop, created, admin([customer()]))).toBe("stale");
+    db.subscriber.rows[0]!.unsubscribedAt = new Date("2026-11-10T08:00:00Z");
+    expect(await applyCustomerEvent(shop, created, admin([customer()]))).toBe("resubscribed");
+  });
+
+  it("never brings back an address that bounced or complained", async () => {
+    useList();
+    db.subscriber.seed({ shopId: shop.id, email: "a@b.com", status: "bounced" });
+    expect(await applyCustomerEvent(shop, consent("subscribed"), admin([]))).toBe("suppressed");
+    expect(await applyCustomerEvent(shop, created, admin([]))).toBe("suppressed");
+    expect(db.subscriber.rows[0]?.status).toBe("bounced");
+  });
+
+  it("stores nothing about Shopify's customers for a store that does not use the list", async () => {
+    // Email Marketing বন্ধ, কোনো ইমেইল টুলও যুক্ত নয়: ক্রেতার ঠিকানা জমানোর কারণ নেই
+    const client = admin([]);
+    expect(await applyCustomerEvent(shop, consent("subscribed"), client)).toBeNull();
+    expect(await applyCustomerEvent(shop, created, client)).toBeNull();
+    await applyCustomerEvent(shop, consent("unsubscribed"), client);
+    expect(db.subscriber.rows).toHaveLength(0);
+    expect(client.graphql).not.toHaveBeenCalled();
+
+    // Starter প্ল্যানে Email Marketing নেই, তাই টুলের সারি চালু থাকলেও একই
+    useList();
+    shop = { ...shop, plan: "starter" };
+    expect(await applyCustomerEvent(shop, consent("subscribed"), client)).toBeNull();
+    expect(db.subscriber.rows).toHaveLength(0);
+  });
+
+  it("keeps the list for a store that has an email tool connected, and remembers a stranger's unsubscribe", async () => {
+    db.integration.seed({ shopId: shop.id, provider: "klaviyo", secret: "x" });
+    await applyCustomerEvent(shop, { ...consent("unsubscribed"), email: "gone@b.com" }, admin([]));
+    expect(db.subscriber.rows[0]).toMatchObject({ email: "gone@b.com", status: "unsubscribed" });
+
+    expect(await applyCustomerEvent(shop, consent("subscribed"), admin([customer()]))).toBe(
+      "created",
+    );
+    expect(jobs()).toContainEqual([
+      "esp-sync",
+      {
+        provider: "klaviyo",
+        action: "subscribe",
+        contact: { email: "a@b.com", source: "popup", firstName: "Mina" },
+      },
+    ]);
   });
 });
 
 describe("writing consent to Shopify", () => {
-  const admin = (responses: unknown[]) => {
-    const graphql = vi.fn<
-      (query: string, options?: { variables?: Record<string, unknown> }) => Promise<Response>
-    >(async () => Response.json({ data: responses.shift() }));
-    return { graphql };
-  };
-
   it("creates the customer with consent when Shopify does not know the email", async () => {
     db.subscriber.seed({ shopId: shop.id, email: "a@b.com" });
     const client = admin([
@@ -355,7 +600,11 @@ describe("importing existing subscribers from Shopify", () => {
     const node = (email: string, marketingState = "SUBSCRIBED") => ({
       id: `gid://shopify/Customer/${email.length}`,
       firstName: "X",
-      defaultEmailAddress: { emailAddress: email, marketingState },
+      defaultEmailAddress: {
+        emailAddress: email,
+        marketingState,
+        marketingUpdatedAt: "2026-09-01T00:00:00Z",
+      },
       lastOrder: { createdAt: "2026-10-01T00:00:00Z" },
     });
     const client = {
@@ -386,6 +635,8 @@ describe("importing existing subscribers from Shopify", () => {
       ["new@b.com", "subscribed"],
     ]);
     expect(db.subscriber.rows[1]?.lastOrderAt).toEqual(new Date("2026-10-01T00:00:00Z"));
+    // সম্মতির সময় Shopify-র হিসাবেই থাকে (আমদানির সময় নয়)
+    expect(db.subscriber.rows[1]?.consentAt).toEqual(new Date("2026-09-01T00:00:00Z"));
     // পুরনো গ্রাহক আনার সময় welcome ইমেইল বা সিঙ্ক হয় না
     expect(db.message.rows).toHaveLength(0);
     expect(db.job.rows).toHaveLength(0);

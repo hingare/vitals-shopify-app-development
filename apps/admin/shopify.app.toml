@@ -73,17 +73,20 @@ api_version = "2026-10"
   ]
 
   # মার্কেটিং ইমেইলের সম্মতি: Shopify-তে কেউ রাজি হলে বা আনসাবস্ক্রাইব করলে আমাদের গ্রাহক তালিকাও বদলায়।
-  # Handled by: /app/routes/webhooks.customers.tsx
-  [[webhooks.subscriptions]]
-  topics = [ "customers/create", "customers/update" ]
-  uri = "/webhooks/customers"
-  include_fields = [ "id", "email", "first_name", "tags", "email_marketing_consent" ]
-
-  # একই রাস্তা; এই খবরে সম্মতির বাইরে কিছু থাকেই না, তাই ঘর বাছার দরকার নেই।
+  # এই খবরে থাকে শুধু customer id, ইমেইল আর সম্মতির অবস্থা, তাই ঘর বাছার দরকার নেই।
   # Handled by: /app/routes/webhooks.customers.tsx
   [[webhooks.subscriptions]]
   topics = [ "customers_email_marketing_consent/update" ]
   uri = "/webhooks/customers"
+
+  # নতুন customer (যেমন থিমের নিউজলেটার ফর্ম বা আমাদের Pop-up থেকে তৈরি হওয়া)। 2025-01 থেকে customer-এর
+  # payload-এ সম্মতি বা ট্যাগ আসে না, তাই id দিয়ে Shopify-কে জিজ্ঞেস করা হয়; সেজন্য id আর ইমেইলই যথেষ্ট।
+  # customers/update নেওয়া হয় না: সম্মতি বদলালে উপরের খবরটাই আসে।
+  # Handled by: /app/routes/webhooks.customers.tsx
+  [[webhooks.subscriptions]]
+  topics = [ "customers/create" ]
+  uri = "/webhooks/customers"
+  include_fields = [ "id", "email" ]
 
   # Back in Stock (স্টক বদলালেও products/update আসে) আর SEO Alt Tags (নতুন ছবি)।
   # updated_at রাখা হয়েছে যাতে প্রতিটা খবর আলাদা হয়: Shopify হুবহু একই খবর পরপর এলে পরেরটা বাদ দেয়,

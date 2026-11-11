@@ -13,12 +13,8 @@ import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
 import { customerData, hasCustomerData } from "../lib/privacy.server";
 import { enqueueJob, latestJob } from "../lib/queue.server";
-import {
-  findCustomerId,
-  listSubscribers,
-  subscriberCounts,
-  unsubscribe,
-} from "../lib/subscribers.server";
+import { findCustomerId } from "../lib/shopify-customers.server";
+import { listSubscribers, subscriberCounts, unsubscribe } from "../lib/subscribers.server";
 import { cleanEmail } from "../lib/tool-state.server";
 import { useT } from "../lib/i18n";
 
