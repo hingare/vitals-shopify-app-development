@@ -666,7 +666,7 @@ export const en = {
     "Send email campaigns and automatic emails: welcome, abandoned checkout, review request and win-back. Every email has an unsubscribe link.",
   "field.subscribersOnly": "Send automatic emails only to subscribers",
   "help.subscribersOnly":
-    "Applies to abandoned checkout and review request emails. Turn this off only if the rules in your country allow emailing customers who did not subscribe.",
+    "Applies to abandoned checkout and review request emails. Turn this off only if the rules in your country allow emailing customers who did not subscribe. Customers who unsubscribed, here or in Shopify, are never emailed.",
   "tool.push-notifications.name": "Push Notifications",
   "tool.push-notifications.description":
     "Ask visitors to allow browser notifications, then send them news and offers from the Marketing page.",

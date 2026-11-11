@@ -27,7 +27,9 @@ const content = {
 };
 
 const send = vi.fn();
-const deps = { send, now: () => now };
+/** Shopify-কে জিজ্ঞেস করা: এই ঠিকানা সেখানে মার্কেটিং ইমেইল বন্ধ করেছে কিনা */
+const optedOut = vi.fn<(shopDomain: string, email: string) => Promise<boolean>>();
+const deps = { send, now: () => now, optedOut };
 
 /** আসল SQL-এর (FOR UPDATE SKIP LOCKED) জায়গায়: সময় হওয়া বার্তাগুলো তুলে নেয় */
 const claim = async (limit: number) => {
@@ -56,6 +58,7 @@ const marketing = (extra: Record<string, unknown> = {}) =>
 beforeEach(() => {
   resetFakeDb();
   send.mockReset().mockResolvedValue({ ok: true, providerId: "prov-1" });
+  optedOut.mockReset().mockResolvedValue(false);
   shopId = db.shop.seed({ domain: "tom.myshopify.com" }).id as string;
 });
 
@@ -111,6 +114,53 @@ describe("sending marketing email", () => {
     expect(only().status).toBe("sent");
   });
 
+  it("asks Shopify before emailing someone who is not on the list, and honours an opt-out there", async () => {
+    // অ্যাপ বসানোর আগে (বা অন্য অ্যাপ দিয়ে) করা আনসাবস্ক্রাইব শুধু Shopify জানে
+    optedOut.mockResolvedValue(true);
+    await marketing({ allowNonSubscribers: true });
+    await run();
+    expect(optedOut).toHaveBeenCalledWith("tom.myshopify.com", "a@b.com");
+    expect(only()).toMatchObject({ status: "skipped", error: "unsubscribed" });
+    expect(send).not.toHaveBeenCalled();
+    // মনে রাখা হয়, তাই পরের ইমেইলের জন্য আর জিজ্ঞেস করতে হয় না
+    expect(db.subscriber.rows[0]).toMatchObject({
+      email: "a@b.com",
+      status: "unsubscribed",
+      unsubscribedAt: now,
+    });
+    await marketing({ allowNonSubscribers: true });
+    await run();
+    expect(optedOut).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("does not ask Shopify about people on the list, or for email that is not marketing", async () => {
+    db.subscriber.seed({ shopId, email: "a@b.com" });
+    await marketing({ allowNonSubscribers: true });
+    await enqueueEmail(shopId, {
+      kind: "back-in-stock",
+      to: "new@b.com",
+      sendAt: new Date(now.getTime() - 1000),
+      payload: { marketing: false, content },
+    });
+    await run();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(optedOut).not.toHaveBeenCalled();
+  });
+
+  it("holds the email back and tries again later when Shopify cannot say", async () => {
+    optedOut.mockRejectedValue(new Error("Throttled"));
+    await marketing({ allowNonSubscribers: true });
+    await run();
+    expect(send).not.toHaveBeenCalled();
+    expect(only()).toMatchObject({
+      status: "queued",
+      error: "Throttled",
+      sendAt: new Date(now.getTime() + 5 * 60_000),
+    });
+    expect(db.subscriber.rows).toHaveLength(0);
+  });
+
   it("never emails an address that bounced or complained, even for non-marketing email", async () => {
     db.subscriber.seed({ shopId, email: "a@b.com", status: "bounced" });
     await enqueueEmail(shopId, {
@@ -154,6 +204,8 @@ describe("sending marketing email", () => {
     await marketing({ allowNonSubscribers: true, checkoutId: checkout.id });
     await run();
     expect(only()).toMatchObject({ status: "skipped", error: "ordered" });
+    // বেশিরভাগ চেকআউটই অর্ডারে শেষ হয়: তাদের জন্য Shopify-কে জিজ্ঞেস করার খরচ করা হয় না
+    expect(optedOut).not.toHaveBeenCalled();
   });
 
   it("loads campaign content once and skips when the campaign is gone", async () => {

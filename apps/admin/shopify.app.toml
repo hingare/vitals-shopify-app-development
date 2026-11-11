@@ -17,6 +17,8 @@ embedded = true
 # write_customers (পড়ার অনুমতিও এর ভেতরে): Email Marketing-এর গ্রাহক তালিকা Shopify-র সম্মতির সাথে মিলিয়ে রাখা।
 #   কেউ আমাদের ফর্মে রাজি হলে বা আনসাবস্ক্রাইব করলে Shopify-র customer-এ লেখা হয়, আর Shopify-তে বদলালে
 #   customers webhook দিয়ে এখানে আসে। Wishlist-এর খবর ইমেইল টুলে পাঠাতে ক্রেতার ইমেইলও এখান থেকে পড়া হয়।
+#   তালিকার বাইরের কাউকে মার্কেটিং ইমেইল (যেমন abandoned checkout) পাঠানোর আগে এখান থেকেই দেখা হয়
+#   তিনি Shopify-তে আনসাবস্ক্রাইব করেছেন কিনা।
 #
 # ক্রেতার তথ্য (protected customer data): Partner Dashboard > API access requests-এ "Protected customer data"
 # আর Name, Email, Phone ফিল্ড বেছে নিতে হয়; নইলে Shopify নিচের customers, checkouts আর orders webhook দেয় না,

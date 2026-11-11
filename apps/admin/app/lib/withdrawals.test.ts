@@ -33,7 +33,7 @@ async function deliver(at = now) {
     }
     return due.map((r) => ({ ...r })) as never;
   };
-  await processMessages(20, { send, now: () => at }, claim);
+  await processMessages(20, { send, now: () => at, optedOut: async () => false }, claim);
   return send.mock.calls.map(
     (call) => call[0] as { to: string; subject: string; html: string; text: string },
   );

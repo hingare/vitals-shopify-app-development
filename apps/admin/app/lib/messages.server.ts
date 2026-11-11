@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
+import { offlineAdmin } from "./admin-client.server";
 import {
   emailContentSchema,
   fillContent,
@@ -12,16 +13,19 @@ import { queueUnsubscribeSync } from "./integrations.server";
 import { clickUrl, openPixelUrl, unsubscribeUrl } from "./links.server";
 import { EMAIL_MONTHLY_CAP } from "./plans";
 import { enqueueJob } from "./queue.server";
+import { hasOptedOut } from "./shopify-customers.server";
 
 /**
  * সব ইমেইল আগে `Message` টেবিলে লাইনে পড়ে, তারপর ব্যাকগ্রাউন্ডে যায়।
  * পাঠানোর ঠিক আগে প্রতিবার দেখা হয়: মাসের সীমা, গ্রাহক এখনো রাজি কিনা, ঠিকানা থেকে আগে bounce এসেছে কিনা।
  * তাই লাইনে দেওয়ার পরে কেউ আনসাবস্ক্রাইব করলেও তার কাছে আর যায় না।
+ * তালিকায় নেই এমন কাউকে মার্কেটিং ইমেইল পাঠানোর আগে Shopify-কেও জিজ্ঞেস করা হয়, কারণ তিনি অ্যাপ বসানোর
+ * আগে (বা অন্য অ্যাপ দিয়ে) আনসাবস্ক্রাইব করে থাকলে সেটা শুধু Shopify জানে।
  */
 export type EmailPayload = {
   /** মার্কেটিং হলে আনসাবস্ক্রাইব লিংক বসে, আর শুধু রাজি থাকা গ্রাহক পান */
   marketing: boolean;
-  /** true হলে গ্রাহক তালিকায় না থাকলেও যায় (তবে আনসাবস্ক্রাইব করা কাউকে নয়) */
+  /** true হলে গ্রাহক তালিকায় না থাকলেও যায় (তবে এখানে বা Shopify-তে আনসাবস্ক্রাইব করা কাউকে নয়) */
   allowNonSubscribers?: boolean;
   /** abandoned checkout: পাঠানোর আগে দেখা হয় অর্ডার হয়ে গেছে কিনা */
   checkoutId?: string;
@@ -112,11 +116,14 @@ interface ShopState {
 export interface Deps {
   send: (mail: OutgoingEmail) => Promise<SendResult>;
   now: () => Date;
+  /** এই ঠিকানার মালিক Shopify-তে মার্কেটিং ইমেইল বন্ধ করেছেন কিনা; Shopify উত্তর না দিলে ছোড়ে */
+  optedOut: (shopDomain: string, email: string) => Promise<boolean>;
 }
 
 const defaultDeps: Deps = {
   send: (mail) => sendEmail(mail),
   now: () => new Date(),
+  optedOut: async (shopDomain, email) => hasOptedOut(await offlineAdmin(shopDomain), email),
 };
 
 type Outcome =
@@ -179,6 +186,24 @@ async function emailOutcome(
     content = payload.content;
   }
   if (!content) return { status: "skipped", error: "no_content" };
+
+  // তালিকায় নেই: Shopify-তে আনসাবস্ক্রাইব করা থাকলে যায় না, আর সেটা মনে রাখা হয় (পরের বার জিজ্ঞেস করতে হয় না)।
+  // Shopify উত্তর না দিলে এখানেই ত্রুটি ওঠে আর বার্তাটা পরে আবার চেষ্টা হয়; না জেনে পাঠানো হয় না।
+  // এটা Shopify-তে একটা অনুরোধ, তাই বাকি সব পরীক্ষার পরে (অর্ডার হয়ে যাওয়া চেকআউটের জন্য জিজ্ঞেসই করা হয় না)।
+  if (payload.marketing && !subscriber && (await deps.optedOut(shop.domain, message.recipient))) {
+    await db.subscriber.createMany({
+      data: [
+        {
+          shopId: shop.id,
+          email: message.recipient,
+          status: "unsubscribed",
+          unsubscribedAt: deps.now(),
+        },
+      ],
+      skipDuplicates: true,
+    });
+    return { status: "skipped", error: "unsubscribed" };
+  }
 
   const settings = readEmailSettings(shop.emailSettings);
   const shopName = shopDisplayName(shop);
