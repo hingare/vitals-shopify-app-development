@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isSoldOut } from "./tools/back-in-stock";
+import { showsBestSelling } from "./tools/best-sellers-protection";
 import { readStatement } from "./tools/eu-withdrawal";
 import { orderStatus, shipmentStatus } from "./tools/order-tracker";
 import { keyBytes, sameKey } from "./tools/push-notifications";
@@ -158,5 +159,23 @@ describe("eu withdrawal", () => {
       email: "anna@example.com",
       details: "",
     });
+  });
+});
+
+describe("best sellers protection", () => {
+  it("knows when the page is sorted by best selling", () => {
+    expect(showsBestSelling("?sort_by=best-selling")).toBe(true);
+    expect(showsBestSelling("?filter.v.availability=1&sort_by=best-selling&page=2")).toBe(true);
+    // ব্রাউজার যেভাবেই লিখুক (%2D = "-")
+    expect(showsBestSelling("?sort_by=best%2Dselling")).toBe(true);
+    expect(showsBestSelling("?sort_by=price-ascending&sort_by=best-selling")).toBe(true);
+  });
+
+  it("does not mistake other addresses for it", () => {
+    expect(showsBestSelling("")).toBe(false);
+    expect(showsBestSelling("?sort_by=price-ascending")).toBe(false);
+    // খোঁজার শব্দ বা ট্যাগে একই কথা থাকলেও সেটা সাজানোর ক্রম নয়
+    expect(showsBestSelling("?q=best-selling&filter.p.tag=best-selling")).toBe(false);
+    expect(showsBestSelling("?sort_by=best-selling-shoes")).toBe(false);
   });
 });

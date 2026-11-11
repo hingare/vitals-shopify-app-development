@@ -19,6 +19,8 @@ export interface StoreConfig {
   /** বর্তমান দেশ আর Markets-এ চালু দেশগুলো (Geolocation Redirect) */
   country?: string;
   countries?: string[];
+  /** কালেকশন পেজে মার্চেন্টের ঠিক করা মূল ক্রম, যেমন "manual" (Best Sellers Protection); অন্য পেজে null */
+  defaultSort?: string | null;
   tools: Array<{ id: string; settings: Record<string, unknown> }>;
   /** মার্চেন্ট নিজে উইজেটের জায়গা ঠিক করলে (না করলে উইজেট নিজেই খুঁজে নেয়) */
   placement?: {

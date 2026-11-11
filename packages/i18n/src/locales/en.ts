@@ -740,7 +740,11 @@ export const en = {
   "tool.best-sellers-protection.description":
     "Hides the Best selling sort order on collection pages so others can't easily see your top products. It stops casual snooping, not every method.",
   "field.hideSortOption": "Remove Best selling from the sort menu",
+  "help.hideSortOption":
+    "Collections that you set to sort by Best selling in Shopify admin are left as they are, because that order is their normal one.",
   "field.redirectVisits": "Send visitors who open a best-selling link to the normal order",
+  "help.redirectVisits":
+    "A link that opens a collection sorted by best selling shows the normal order instead, including links in your own menus. The sort option is removed too while this is on.",
 
   // ---- Marketing (email) ----
   "nav.marketing": "Marketing",
