@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import db from "../db.server";
 import { syncOffers } from "./offers.server";
 import { readPlacement } from "./placement";
+import { syncPixel, type PixelSync } from "./web-pixel.server";
 
 export const CONFIG_NAMESPACE = "app_config";
 export const CONFIG_KEY = "tools";
@@ -36,13 +37,17 @@ export class ToolError extends Error {
   }
 }
 
-/** টুল চালু/বন্ধ বা সেটিংস সেভ করে, তারপর স্টোরের কনফিগ আপডেট করে। */
+/**
+ * টুল চালু/বন্ধ বা সেটিংস সেভ করে, তারপর স্টোরের কনফিগ আপডেট করে।
+ * যে টুল web pixel দিয়ে চলে (Facebook Pixels) তার সেটিংস পিক্সেলেও পাঠানো হয়;
+ * ফলাফল pixel-এ জানানো হয়, যাতে পাঠানো না গেলে মার্চেন্টকে বলা যায়।
+ */
 export async function saveTool(
   admin: GraphqlClient,
   shop: { id: string; plan: Plan | null },
   toolId: string,
   input: { enabled?: boolean; settings?: unknown },
-) {
+): Promise<{ pixel: PixelSync | null }> {
   const tool = registry.get(toolId);
   if (!tool) throw new ToolError("unknown_tool", `Unknown tool ${toolId}`);
   if (input.enabled && (!shop.plan || !canUseTool(tool, shop.plan))) {
@@ -63,6 +68,7 @@ export async function saveTool(
     },
   });
   await syncStoreConfig(admin, shop);
+  return { pixel: tool.delivery === "pixel" ? await syncPixel(admin, shop.id) : null };
 }
 
 /**

@@ -38,6 +38,8 @@ export const en = {
   "tools.upgrade": "Upgrade to unlock",
   "tools.save": "Save",
   "tools.saved": "Settings saved",
+  "tools.pixelPending":
+    "Saved, but the change has not reached your store's pixel yet. Please save again in a few minutes.",
   "tools.enabled": "Enabled",
   "tools.preview": "Preview",
   "tools.settings": "Settings",
@@ -723,7 +725,8 @@ export const en = {
   "field.pixelId1": "Pixel ID",
   "field.pixelId2": "Second pixel ID (optional)",
   "field.pixelId3": "Third pixel ID (optional)",
-  "help.pixelId1": "The number from Meta Events Manager, digits only.",
+  "help.pixelId1":
+    "The number from Meta Events Manager, digits only. Do not add a pixel that the Facebook & Instagram app already sends events to, or its events are counted twice.",
   "tool.eu-withdrawal.name": "EU Withdrawal Button",
   "tool.eu-withdrawal.description":
     "Adds the withdrawal button and form that EU rules require for online purchases. The customer gets an email confirming the date and time, and you see every request in the app.",

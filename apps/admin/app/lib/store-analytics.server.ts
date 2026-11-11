@@ -1,8 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import db from "../db.server";
 import { utcDay } from "./analytics.server";
-import type { GraphqlClient } from "./tools.server";
 
 /* ------------------------------------------------------------------ */
 /* Web Pixel থেকে আসা ইভেন্ট যাচাই                                     */
@@ -299,80 +298,3 @@ export async function getStoreReport(shopId: string, days: number) {
 }
 
 export { rate } from "./rate";
-
-/* ------------------------------------------------------------------ */
-/* Shopify-তে পিক্সেল চালু রাখা                                        */
-/* ------------------------------------------------------------------ */
-
-export function ingestEndpoint(appUrl = process.env.SHOPIFY_APP_URL ?? ""): string {
-  return `${appUrl.replace(/\/+$/, "")}/ingest/pixel`;
-}
-
-interface PixelMutationResult {
-  data?: Record<
-    string,
-    { webPixel?: { id: string } | null; userErrors: Array<{ code?: string; message: string }> }
-  >;
-}
-
-/**
- * স্টোরে আমাদের web pixel আছে আর সঠিক URL-এ ইভেন্ট পাঠায় তা নিশ্চিত করে।
- * অ্যাপ খুললেই চলে; সব ঠিক থাকলে কোনো API কল হয় না।
- */
-export async function ensurePixel(
-  admin: GraphqlClient,
-  shop: {
-    id: string;
-    ingestKey: string | null;
-    pixelId: string | null;
-    pixelEndpoint: string | null;
-  },
-) {
-  const endpoint = ingestEndpoint();
-  if (!process.env.SHOPIFY_APP_URL) return;
-  if (shop.pixelId && shop.ingestKey && shop.pixelEndpoint === endpoint) return;
-
-  const ingestKey = shop.ingestKey ?? randomBytes(18).toString("base64url");
-  const settings = JSON.stringify({ ingestKey, endpoint });
-
-  const run = async (mutation: "create" | "update", id?: string) => {
-    const res = await admin.graphql(
-      mutation === "create"
-        ? `#graphql
-          mutation CreatePixel($settings: JSON!) {
-            webPixelCreate(webPixel: { settings: $settings }) {
-              webPixel { id } userErrors { code message }
-            }
-          }`
-        : `#graphql
-          mutation UpdatePixel($id: ID!, $settings: JSON!) {
-            webPixelUpdate(id: $id, webPixel: { settings: $settings }) {
-              webPixel { id } userErrors { code message }
-            }
-          }`,
-      { variables: mutation === "create" ? { settings } : { id, settings } },
-    );
-    const json = (await res.json()) as PixelMutationResult;
-    return json.data?.[mutation === "create" ? "webPixelCreate" : "webPixelUpdate"];
-  };
-
-  let result = shop.pixelId ? await run("update", shop.pixelId) : await run("create");
-  if (result?.userErrors.some((e) => e.code === "TAKEN")) {
-    // আগে থেকেই আছে (যেমন আবার ইনস্টল): id খুঁজে আপডেট করি
-    const res = await admin.graphql(`#graphql
-      query CurrentPixel { webPixel { id } }`);
-    const json = (await res.json()) as { data?: { webPixel?: { id: string } } };
-    const id = json.data?.webPixel?.id;
-    if (id) result = await run("update", id);
-  }
-  const pixelId = result?.webPixel?.id;
-  if (!pixelId) {
-    console.warn("[pixel] could not connect", result?.userErrors);
-    await db.shop.update({ where: { id: shop.id }, data: { ingestKey } });
-    return;
-  }
-  await db.shop.update({
-    where: { id: shop.id },
-    data: { ingestKey, pixelId, pixelEndpoint: endpoint },
-  });
-}

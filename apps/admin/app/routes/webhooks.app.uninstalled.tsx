@@ -12,9 +12,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   // webhook একাধিকবার আসতে পারে, তাই সব কাজ idempotent
   await db.session.deleteMany({ where: { shop } });
+  // Shopify আনইনস্টলের সাথে আমাদের web pixel-ও মুছে দেয়; পুরোনো id মনে রাখলে আবার ইনস্টলের পর
+  // নতুন পিক্সেল বসত না, তাই সেটাও খালি করি
   await db.shop.updateMany({
     where: { domain: shop },
-    data: { uninstalledAt: new Date(), plan: null, subscriptionId: null },
+    data: {
+      uninstalledAt: new Date(),
+      plan: null,
+      subscriptionId: null,
+      pixelId: null,
+      pixelEndpoint: null,
+      pixelSettings: null,
+    },
   });
 
   return new Response();

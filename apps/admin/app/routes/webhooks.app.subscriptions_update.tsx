@@ -3,6 +3,7 @@ import { authenticate, unauthenticated } from "../shopify.server";
 import db from "../db.server";
 import { tierFromSubscriptionName } from "../lib/plans";
 import { syncStoreConfig } from "../lib/tools.server";
+import { syncPixel } from "../lib/web-pixel.server";
 
 interface Payload {
   app_subscription?: { admin_graphql_api_id?: string; name?: string; status?: string };
@@ -36,6 +37,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         id: updated.id,
         plan: updated.plan === "starter" || updated.plan === "professional" ? updated.plan : null,
       });
+      // প্ল্যানে Facebook Pixels না থাকলে পিক্সেল থেকে Meta-র id সরে যায়
+      await syncPixel(admin, updated.id);
     }
   }
   return new Response();

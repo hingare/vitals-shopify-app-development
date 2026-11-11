@@ -1,15 +1,21 @@
 # স্টোরের Analytics: ভিজিটর, পেজ ভিউ, কার্ট, চেকআউট আর অর্ডার গোনে।
 # Shopify নিজেই কাস্টমারের সম্মতি (cookie consent) মেনে এটা চালায়।
+# Facebook Pixels টুল চালু থাকলে একই পিক্সেল মার্চেন্টের Meta পিক্সেলেও ইভেন্ট পাঠায়
+# (Shopify প্রতি অ্যাপে একটাই web pixel দেয়, তাই আলাদা পিক্সেল বানানো যায় না)।
 name = "store-analytics"
 type = "web_pixel_extension"
 runtime_context = "strict"
 uid = "aa3ad6ce-6f46-b54a-5b74-69c31f7f90aa3f70eae1"
 
+# পিক্সেল লোড হতে শুধু analytics সম্মতি লাগে, যাতে গোনার কাজ মার্কেটিং সম্মতির ওপর নির্ভর না করে।
+# Meta-র অংশটা কোডের ভেতরে নিজে মার্কেটিং সম্মতি দেখে (src/index.ts-এর startMeta)।
+# sale_of_data = "ldu": Meta-তে পাঠানো তথ্য "data sale / sharing"-এর মধ্যে পড়ে, কিন্তু ক্রেতা
+# আপত্তি জানালে আমরা Meta-তে কিছুই পাঠাই না; পিক্সেল তখনো লোড হয় শুধু গোনার জন্য।
 [customer_privacy]
 analytics = true
 marketing = false
 preferences = false
-sale_of_data = "disabled"
+sale_of_data = "ldu"
 
 [settings]
 type = "object"
@@ -23,5 +29,11 @@ validations = [{ name = "min", value = "1" }]
 [settings.fields.endpoint]
 name = "Endpoint"
 description = "Where events are sent. Set by the app."
+type = "single_line_text_field"
+validations = [{ name = "min", value = "1" }]
+
+[settings.fields.metaPixels]
+name = "Meta pixels"
+description = "Meta pixel IDs separated by commas, or the word none. Set by the app."
 type = "single_line_text_field"
 validations = [{ name = "min", value = "1" }]
