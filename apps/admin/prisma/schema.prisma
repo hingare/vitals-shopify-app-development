@@ -487,6 +487,8 @@ model StockAlert {
 
   @@unique([shopId, variantId, email])
   @@index([shopId, variantId, status])
+  /// products/update এলে: এই প্রোডাক্টের জন্য কেউ অপেক্ষায় আছে কিনা
+  @@index([shopId, productId, status])
   @@index([shopId, email])
 }
 

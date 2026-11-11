@@ -10,6 +10,7 @@ import type { GraphqlClient } from "./tools.server";
 import "./integrations.server";
 import "./push.server";
 import "./seo-alt.server";
+import "./stock-alerts.server";
 import "./subscribers.server";
 
 /**

@@ -32,6 +32,12 @@ export function registerJob(kind: string, handler: Handler) {
   handlers.set(kind, handler);
 }
 
+/**
+ * কাজের নামে ":" থাকলে তার আগের অংশটাই ধরন, যেমন "stock-check:123" চালায় "stock-check"-এর handler।
+ * পরের অংশটা শুধু আলাদা করে চেনার জন্য: একই প্রোডাক্টের কাজ একটাই থাকে, কিন্তু অন্য প্রোডাক্টের কাজ আটকায় না।
+ */
+const handlerFor = (kind: string) => handlers.get(kind) ?? handlers.get(kind.split(":")[0] ?? "");
+
 export async function enqueueJob(
   shopId: string,
   kind: string,
@@ -70,7 +76,7 @@ export async function claimJob(): Promise<JobContext | null> {
 }
 
 export async function runJob(job: JobContext) {
-  const handler = handlers.get(job.kind);
+  const handler = handlerFor(job.kind);
   try {
     if (!handler) throw new Error(`No handler for job "${job.kind}"`);
     const result = (await handler(job)) ?? {};
