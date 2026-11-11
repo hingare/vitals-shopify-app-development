@@ -1,14 +1,10 @@
 -- COD অর্ডার ফর্ম প্ল্যান থেকে বাদ গেছে, তাই তার দুটো টেবিল আর লাগে না।
 -- আগের মাইগ্রেশন ডেভ ডাটাবেসে চলে গেছে বলে সেটা না বদলে এখানে আলাদা করে মোছা হলো।
-
--- DropForeignKey
-ALTER TABLE "CodOrder" DROP CONSTRAINT "CodOrder_shopId_fkey";
-
--- DropForeignKey
-ALTER TABLE "CodOtp" DROP CONSTRAINT "CodOtp_shopId_fkey";
+-- IF EXISTS: কোনো ডেভ ডাটাবেসে টেবিল দুটো আগেই হাতে মোছা হয়ে থাকলেও এই ধাপ আটকায় না।
+-- (টেবিল মুছলে তার foreign key নিজে থেকেই যায়।)
 
 -- DropTable
-DROP TABLE "CodOrder";
+DROP TABLE IF EXISTS "CodOrder";
 
 -- DropTable
-DROP TABLE "CodOtp";
+DROP TABLE IF EXISTS "CodOtp";
