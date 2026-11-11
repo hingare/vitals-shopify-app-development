@@ -352,7 +352,6 @@ model Subscriber {
   shopId         String
   /// ছোট হাতের অক্ষরে
   email          String
-  phone          String?
   firstName      String?
   /// subscribed | unsubscribed | bounced | complained
   status         String    @default("subscribed")

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
 import {
   useFetcher,
@@ -11,8 +11,15 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
+import { customerData, hasCustomerData } from "../lib/privacy.server";
 import { enqueueJob, latestJob } from "../lib/queue.server";
-import { listSubscribers, subscriberCounts, unsubscribe } from "../lib/subscribers.server";
+import {
+  findCustomerId,
+  listSubscribers,
+  subscriberCounts,
+  unsubscribe,
+} from "../lib/subscribers.server";
+import { cleanEmail } from "../lib/tool-state.server";
 import { useT } from "../lib/i18n";
 
 const STATUSES = ["subscribed", "unsubscribed", "bounced", "complained"] as const;
@@ -63,9 +70,27 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
   const body = (await request.json()) as { intent?: string; email?: string };
+  if (body.intent === "export") {
+    // ক্রেতা নিজের তথ্য চাইলে (GDPR): এই ইমেইলের জন্য অ্যাপে যা যা রাখা আছে
+    const email = cleanEmail(body.email);
+    // লগইন করা ক্রেতার wishlist ইমেইলে নয়, Shopify customer id-তে রাখা, তাই id-টা Shopify থেকে জানা হয়।
+    // Shopify উত্তর না দিলে আমাদের তালিকায় থাকা id-ই ভরসা, আর মার্চেন্টকে বলা হয় wishlist বাদ পড়ে থাকতে পারে।
+    let customerId: string | null = null;
+    let partial = false;
+    if (email) {
+      try {
+        customerId = await findCustomerId(admin, email);
+      } catch (error) {
+        partial = true;
+        console.warn("[privacy] customer lookup failed", error);
+      }
+    }
+    const data = await customerData(shop.id, { email, customerId });
+    return { ok: true as const, found: hasCustomerData(data), partial, data };
+  }
   if (body.intent === "import") {
     await enqueueJob(shop.id, "subscribers-import", {}, { unique: true });
   } else if (body.intent === "unsubscribe") {
@@ -74,10 +99,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   return { ok: true as const };
 };
 
+/** ব্রাউজারে ফাইল হিসেবে নামানো (সার্ভারে আলাদা ডাউনলোড ঠিকানা লাগে না) */
+function downloadJson(name: string, text: string) {
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function SubscribersPage() {
   const data = useLoaderData<typeof loader>();
   const t = useT();
   const fetcher = useFetcher<typeof action>();
+  // তথ্য খোঁজার জন্য আলাদা fetcher, যাতে আমদানি বা আনসাবস্ক্রাইবের অবস্থার সাথে না মেশে
+  const lookup = useFetcher<typeof action>();
+  const [lookupEmail, setLookupEmail] = useState("");
   const revalidator = useRevalidator();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -104,6 +142,8 @@ export default function SubscribersPage() {
     fetcher.submit(JSON.stringify(payload), { method: "POST", encType: "application/json" });
 
   const job = data.importJob;
+  const found = lookup.data && "data" in lookup.data ? lookup.data : null;
+  const foundText = found?.found ? JSON.stringify(found.data, null, 2) : "";
   return (
     <s-page heading={t("subscribers.title")}>
       <s-link slot="breadcrumb-actions" href="/app/marketing">
@@ -222,6 +262,47 @@ export default function SubscribersPage() {
                 {t("reviews.next")}
               </s-button>
             </s-stack>
+          )}
+        </s-stack>
+      </s-section>
+
+      <s-section heading={t("subscribers.data.title")}>
+        <s-stack direction="block" gap="base">
+          <s-paragraph>{t("subscribers.data.help")}</s-paragraph>
+          <s-stack direction="inline" gap="small" alignItems="end">
+            <s-email-field
+              label={t("subscribers.data.email")}
+              value={lookupEmail}
+              onChange={(e) => setLookupEmail(e.currentTarget.value.trim())}
+            />
+            <s-button
+              onClick={() =>
+                lookup.submit(JSON.stringify({ intent: "export", email: lookupEmail }), {
+                  method: "POST",
+                  encType: "application/json",
+                })
+              }
+              {...(lookup.state !== "idle" ? { loading: true } : {})}
+              {...(lookupEmail === "" ? { disabled: true } : {})}
+            >
+              {t("subscribers.data.find")}
+            </s-button>
+          </s-stack>
+          {found?.partial && <s-banner tone="warning">{t("subscribers.data.partial")}</s-banner>}
+          {found && !found.found && <s-text color="subdued">{t("subscribers.data.none")}</s-text>}
+          {found?.found && (
+            <>
+              <s-text-area
+                label={t("subscribers.data.result")}
+                details={t("subscribers.data.resultHelp")}
+                rows={12}
+                readOnly
+                value={foundText}
+              />
+              <s-button onClick={() => downloadJson("customer-data.json", foundText)}>
+                {t("subscribers.data.download")}
+              </s-button>
+            </>
           )}
         </s-stack>
       </s-section>

@@ -906,6 +906,18 @@ export const en = {
   "subscribers.source.spin-wheel": "Spin the Wheel",
   "subscribers.source.back-in-stock": "Back in Stock",
   "subscribers.source.review": "Reviews",
+  "subscribers.data.title": "Customer data requests",
+  "subscribers.data.help":
+    "When a customer asks what data you hold about them, enter their email to see everything this app has stored for them. When Shopify tells us to erase a customer, this data is deleted automatically.",
+  "subscribers.data.email": "Customer email",
+  "subscribers.data.find": "Find data",
+  "subscribers.data.none": "This app has nothing stored for that email.",
+  "subscribers.data.result": "Stored data",
+  "subscribers.data.resultHelp":
+    "Subscriber details, emails sent, reviews, unfinished checkouts, back-in-stock requests, wheel spins, withdrawal requests and the wishlist saved in their customer account.",
+  "subscribers.data.partial":
+    "Shopify did not tell us this customer's ID, so a wishlist saved in their customer account may be missing from this result. Try again later.",
+  "subscribers.data.download": "Download as a file",
 
   // ---- Integrations ----
   "integrations.title": "Integrations",

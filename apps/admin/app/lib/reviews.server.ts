@@ -335,18 +335,6 @@ export async function moderate(
   return { products, files };
 }
 
-/** GDPR customers/redact: ক্রেতার নাম ও ইমেইল মুছে রিভিউ বেনামী করে */
-export async function redactCustomerReviews(shopDomain: string, email: string | undefined) {
-  if (!email) return 0;
-  const shop = await db.shop.findUnique({ where: { domain: shopDomain }, select: { id: true } });
-  if (!shop) return 0;
-  const result = await db.review.updateMany({
-    where: { shopId: shop.id, authorEmail: email.toLowerCase() },
-    data: { authorEmail: null, authorName: "Customer" },
-  });
-  return result.count;
-}
-
 /** অ্যাডমিন তালিকায় প্রোডাক্টের নাম দেখাতে */
 export async function productTitles(
   admin: GraphqlClient,

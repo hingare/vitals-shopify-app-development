@@ -16,6 +16,15 @@ function test(value: unknown, cond: unknown): boolean {
   if (cond === null) return value === null || value === undefined;
   if (cond instanceof Date) return value instanceof Date && value.getTime() === cond.getTime();
   if (typeof cond !== "object") return value === cond;
+  // JSON কলামের ভেতরের ঘর: { path: ["contact", "email"], equals: "a@b.co" }
+  const { path, ...rest } = cond as { path?: unknown } & Record<string, unknown>;
+  if (Array.isArray(path)) {
+    let inner: unknown = value;
+    for (const key of path as string[]) {
+      inner = inner && typeof inner === "object" ? (inner as Row)[key] : undefined;
+    }
+    return test(inner, rest);
+  }
   return Object.entries(cond as Record<string, unknown>).every(([op, arg]) => {
     if (arg === undefined) return true;
     const present = value !== null && value !== undefined;
@@ -242,7 +251,6 @@ function build() {
         status: "subscribed",
         source: "shopify",
         firstName: null,
-        phone: null,
         customerId: null,
         consentAt: new Date(),
         unsubscribedAt: null,
@@ -286,6 +294,14 @@ function build() {
     pushSubscription: table("pushsub", () => ({}), [["shopId", "endpoint"]]),
     pushCampaign: table("push", () => ({ status: "queued", sent: 0, failed: 0, clicks: 0 })),
     withdrawalRequest: table("wd", () => ({ details: "", status: "new" })),
+    review: table("review", () => ({
+      productId: null,
+      title: null,
+      authorEmail: null,
+      verified: false,
+      status: "pending",
+      source: "form",
+    })),
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
     job: table("job", () => ({
       payload: {},

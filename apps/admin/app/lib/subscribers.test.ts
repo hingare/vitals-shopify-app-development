@@ -7,6 +7,7 @@ const { fakeDb: db, resetFakeDb } = await import("./test-db");
 const { FLOWS } = await import("./email-template");
 const {
   applyConsentChange,
+  findCustomerId,
   importPage,
   listSubscribers,
   parseCustomerPayload,
@@ -163,7 +164,6 @@ describe("Shopify customer webhooks", () => {
         id: 123,
         email: "A@B.com",
         first_name: "Mina",
-        phone: "+8801712345678",
         tags: "newsletter, Popup",
         email_marketing_consent: {
           state: "subscribed",
@@ -174,7 +174,6 @@ describe("Shopify customer webhooks", () => {
       email: "a@b.com",
       customerId: "123",
       firstName: "Mina",
-      phone: "+8801712345678",
       state: "subscribed",
       at: new Date("2026-11-10T09:00:00Z"),
       source: "popup",
@@ -206,7 +205,6 @@ describe("Shopify customer webhooks", () => {
       email: "a@b.com",
       customerId: "9",
       firstName: null,
-      phone: null,
       at: null,
       source: "shopify",
     };
@@ -259,7 +257,7 @@ describe("writing consent to Shopify", () => {
           nodes: [
             {
               id: "gid://shopify/Customer/5",
-              defaultEmailAddress: { marketingState: "SUBSCRIBED" },
+              defaultEmailAddress: { emailAddress: "a@b.com", marketingState: "SUBSCRIBED" },
             },
           ],
         },
@@ -274,7 +272,7 @@ describe("writing consent to Shopify", () => {
           nodes: [
             {
               id: "gid://shopify/Customer/5",
-              defaultEmailAddress: { marketingState: "SUBSCRIBED" },
+              defaultEmailAddress: { emailAddress: "a@b.com", marketingState: "SUBSCRIBED" },
             },
           ],
         },
@@ -308,6 +306,46 @@ describe("writing consent to Shopify", () => {
     await expect(
       pushConsent(client, shop.id, { email: "a@b.com", state: "SUBSCRIBED" }),
     ).rejects.toThrow("Email is invalid");
+  });
+
+  it("never acts on a customer whose email only resembles the one searched for", async () => {
+    const lookalike = {
+      customers: {
+        nodes: [
+          {
+            id: "gid://shopify/Customer/9",
+            defaultEmailAddress: { emailAddress: "a@b.com.au", marketingState: "SUBSCRIBED" },
+          },
+        ],
+      },
+    };
+    // সম্মতি বন্ধ করার খবর: কাছাকাছি ঠিকানার অন্য মানুষের সম্মতি বদলায় না
+    const client = admin([structuredClone(lookalike)]);
+    await pushConsent(client, shop.id, { email: "a@b.com", state: "UNSUBSCRIBED" });
+    expect(client.graphql).toHaveBeenCalledTimes(1);
+    expect(await findCustomerId(admin([structuredClone(lookalike)]), "a@b.com")).toBeNull();
+  });
+
+  it("finds the Shopify id of the customer with exactly that email", async () => {
+    const client = admin([
+      {
+        customers: {
+          nodes: [
+            {
+              id: "gid://shopify/Customer/9",
+              defaultEmailAddress: { emailAddress: "a@b.com.au", marketingState: "SUBSCRIBED" },
+            },
+            {
+              id: "gid://shopify/Customer/12",
+              defaultEmailAddress: { emailAddress: "A@B.com", marketingState: "NOT_SUBSCRIBED" },
+            },
+          ],
+        },
+      },
+    ]);
+    expect(await findCustomerId(client, " a@b.com ")).toBe("12");
+    expect(client.graphql.mock.calls[0]?.[1]?.variables?.query).toBe('email:"a@b.com"');
+    expect(await findCustomerId(admin([{ customers: { nodes: [] } }]), "a@b.com")).toBeNull();
   });
 });
 

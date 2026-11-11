@@ -14,7 +14,6 @@ export const timedFetch: FetchFn = (input, init) =>
 
 export interface Contact {
   email: string;
-  phone?: string;
   firstName?: string;
   /** কোন টুল থেকে এলো: popup, spin-wheel, back-in-stock ... (ট্যাগ হিসেবে যায়) */
   source: string;

@@ -18,7 +18,6 @@ export interface SubscribeInput {
   email: unknown;
   source: string;
   firstName?: string | null;
-  phone?: string | null;
   /** Shopify customer-এর সংখ্যা-id */
   customerId?: string | null;
   /** খবরটা Shopify থেকেই এসেছে, তাই আবার Shopify-তে লিখতে হবে না */
@@ -35,7 +34,6 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
   const email = cleanEmail(input.email);
   if (!email) return "invalid";
   const firstName = clip(input.firstName, 80);
-  const phone = clip(input.phone, 30);
   const customerId = clip(input.customerId, 30);
   const key = { shopId_email: { shopId: shop.id, email } };
 
@@ -47,7 +45,6 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
   if (existing?.status === "subscribed") {
     const fill = {
       ...(firstName && !existing.firstName ? { firstName } : {}),
-      ...(phone && !existing.phone ? { phone } : {}),
       ...(customerId && !existing.customerId ? { customerId } : {}),
     };
     if (Object.keys(fill).length > 0) await db.subscriber.update({ where: key, data: fill });
@@ -61,14 +58,13 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
         consentAt: new Date(),
         unsubscribedAt: null,
         ...(firstName ? { firstName } : {}),
-        ...(phone ? { phone } : {}),
         ...(customerId ? { customerId } : {}),
       },
     });
     result = "resubscribed";
   } else {
     const { count } = await db.subscriber.createMany({
-      data: [{ shopId: shop.id, email, firstName, phone, customerId, source: input.source }],
+      data: [{ shopId: shop.id, email, firstName, customerId, source: input.source }],
       skipDuplicates: true,
     });
     // একই মুহূর্তে আরেকটা অনুরোধ তৈরি করে ফেললে welcome ইমেইল ইত্যাদি সে-ই পাঠাবে
@@ -89,7 +85,6 @@ export async function subscribe(shop: ShopRow, input: SubscribeInput): Promise<S
     email,
     source: input.source,
     ...(firstName ? { firstName } : {}),
-    ...(phone ? { phone } : {}),
   });
   await triggerFlow(shop, "welcome", {
     email,
@@ -142,7 +137,6 @@ export interface CustomerPayload {
   id?: number | string;
   email?: string | null;
   first_name?: string | null;
-  phone?: string | null;
   tags?: string | null;
   email_marketing_consent?: { state?: string | null; consent_updated_at?: string | null } | null;
   // customers_email_marketing_consent/update-এ
@@ -154,7 +148,6 @@ export interface ConsentChange {
   email: string;
   customerId: string | null;
   firstName: string | null;
-  phone: string | null;
   state: string;
   at: Date | null;
   source: string;
@@ -173,7 +166,6 @@ export function parseCustomerPayload(payload: CustomerPayload): ConsentChange | 
     email,
     customerId: id ? String(id) : null,
     firstName: payload.first_name ?? null,
-    phone: payload.phone ?? null,
     state,
     at: at && !Number.isNaN(at.getTime()) ? at : null,
     // আমাদের Pop-up ফর্ম Shopify-র নিউজলেটার ফর্ম দিয়ে পাঠায়, সাথে "popup" ট্যাগ
@@ -205,25 +197,57 @@ interface ConsentJob {
 
 const quote = (value: string) => `"${value.replace(/["\\]/g, "")}"`;
 
+interface ShopifyCustomer {
+  /** gid://shopify/Customer/… */
+  id: string;
+  marketingState: string | null;
+}
+
+/**
+ * এই ইমেইলের Shopify customer; এমন কেউ না থাকলে null।
+ * Shopify-র খোঁজ কাছাকাছি ঠিকানাও ফেরত দিতে পারে, তাই ঠিকানা হুবহু মিললে তবেই ধরা হয়:
+ * ভুল মানুষকে ধরলে তাঁর সম্মতি বদলে যেত, বা তাঁর তথ্য অন্য ক্রেতার হাতে যেত।
+ */
+async function findCustomer(admin: GraphqlClient, email: string): Promise<ShopifyCustomer | null> {
+  const wanted = email.trim().toLowerCase();
+  const found = await gql<{
+    customers: {
+      nodes: Array<{
+        id: string;
+        defaultEmailAddress: { emailAddress: string | null; marketingState: string } | null;
+      }>;
+    };
+  }>(
+    admin,
+    `#graphql
+    query CustomerByEmail($query: String!) {
+      customers(first: 5, query: $query) {
+        nodes { id defaultEmailAddress { emailAddress marketingState } }
+      }
+    }`,
+    { query: `email:${quote(wanted)}` },
+  );
+  const match = found.customers.nodes.find(
+    (node) => node.defaultEmailAddress?.emailAddress?.trim().toLowerCase() === wanted,
+  );
+  return match
+    ? { id: match.id, marketingState: match.defaultEmailAddress?.marketingState ?? null }
+    : null;
+}
+
+/** এই ইমেইলের Shopify customer-এর সংখ্যা-id (লগইন করা ক্রেতার wishlist এই id-তে রাখা) */
+export async function findCustomerId(admin: GraphqlClient, email: string): Promise<string | null> {
+  const customer = await findCustomer(admin, email);
+  return customer?.id.split("/").pop() ?? null;
+}
+
 export async function pushConsent(admin: GraphqlClient, shopId: string, job: ConsentJob) {
   const consent = {
     marketingState: job.state,
     marketingOptInLevel: "SINGLE_OPT_IN",
     consentUpdatedAt: new Date().toISOString(),
   };
-  const found = await gql<{
-    customers: {
-      nodes: Array<{ id: string; defaultEmailAddress: { marketingState: string } | null }>;
-    };
-  }>(
-    admin,
-    `#graphql
-    query CustomerByEmail($query: String!) {
-      customers(first: 1, query: $query) { nodes { id defaultEmailAddress { marketingState } } }
-    }`,
-    { query: `email:${quote(job.email)}` },
-  );
-  const customer = found.customers.nodes[0];
+  const customer = await findCustomer(admin, job.email);
 
   if (!customer) {
     if (job.state !== "SUBSCRIBED") return;
@@ -263,7 +287,7 @@ export async function pushConsent(admin: GraphqlClient, shopId: string, job: Con
     where: { shopId, email: job.email, customerId: null },
     data: { customerId: customer.id.split("/").pop() ?? null },
   });
-  if (customer.defaultEmailAddress?.marketingState === job.state) return;
+  if (customer.marketingState === job.state) return;
   const updated = await gql<{
     customerEmailMarketingConsentUpdate: { userErrors: Array<{ message: string }> };
   }>(
