@@ -52,12 +52,12 @@ describe("list mapping", () => {
   it("sends each source to its own list, the default list, or nowhere", () => {
     const config = readEspConfig({
       defaultList: "MAIN",
-      lists: { "spin-wheel": "WHEEL", popup: SKIP_LIST, review: "", unknown: "X" },
+      lists: { "spin-wheel": "WHEEL", popup: SKIP_LIST, "back-in-stock": "", unknown: "X" },
     });
-    expect(config.lists).toEqual({ "spin-wheel": "WHEEL", popup: SKIP_LIST, review: "" });
+    expect(config.lists).toEqual({ "spin-wheel": "WHEEL", popup: SKIP_LIST, "back-in-stock": "" });
     expect(listFor(config, "spin-wheel")).toEqual({ skip: false, listId: "WHEEL" });
-    expect(listFor(config, "review")).toEqual({ skip: false, listId: "MAIN" });
     expect(listFor(config, "back-in-stock")).toEqual({ skip: false, listId: "MAIN" });
+    expect(listFor(config, "shopify")).toEqual({ skip: false, listId: "MAIN" });
     expect(listFor(config, "popup")).toEqual({ skip: true, listId: null });
     expect(listFor(readEspConfig(null), "popup")).toEqual({ skip: false, listId: null });
   });

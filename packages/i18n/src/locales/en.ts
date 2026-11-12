@@ -909,7 +909,6 @@ export const en = {
   "subscribers.source.popup": "Pop-up",
   "subscribers.source.spin-wheel": "Spin the Wheel",
   "subscribers.source.back-in-stock": "Back in Stock",
-  "subscribers.source.review": "Reviews",
   "subscribers.data.title": "Customer data requests",
   "subscribers.data.help":
     "When a customer asks what data you hold about them, enter their email to see everything this app has stored for them. When Shopify tells us to erase a customer, this data is deleted automatically.",
