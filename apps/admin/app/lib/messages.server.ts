@@ -1,3 +1,4 @@
+import { emailMarketing } from "@app/tools";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
 import { offlineAdmin } from "./admin-client.server";
@@ -14,11 +15,13 @@ import { clickUrl, openPixelUrl, unsubscribeUrl } from "./links.server";
 import { EMAIL_MONTHLY_CAP } from "./plans";
 import { enqueueJob } from "./queue.server";
 import { hasOptedOut } from "./shopify-customers.server";
+import { enabledSettings } from "./tool-state.server";
 
 /**
  * সব ইমেইল আগে `Message` টেবিলে লাইনে পড়ে, তারপর ব্যাকগ্রাউন্ডে যায়।
- * পাঠানোর ঠিক আগে প্রতিবার দেখা হয়: মাসের সীমা, গ্রাহক এখনো রাজি কিনা, ঠিকানা থেকে আগে bounce এসেছে কিনা।
- * তাই লাইনে দেওয়ার পরে কেউ আনসাবস্ক্রাইব করলেও তার কাছে আর যায় না।
+ * পাঠানোর ঠিক আগে প্রতিবার দেখা হয়: মাসের সীমা, টুল আর flow এখনো চালু কিনা, গ্রাহক এখনো রাজি কিনা,
+ * ঠিকানা থেকে আগে bounce এসেছে কিনা। তাই লাইনে দেওয়ার পরে কেউ আনসাবস্ক্রাইব করলে, বা মার্চেন্ট টুল বন্ধ
+ * করলে, আর কিছু যায় না।
  * তালিকায় নেই এমন কাউকে মার্কেটিং ইমেইল পাঠানোর আগে Shopify-কেও জিজ্ঞেস করা হয়, কারণ তিনি অ্যাপ বসানোর
  * আগে (বা অন্য অ্যাপ দিয়ে) আনসাবস্ক্রাইব করে থাকলে সেটা শুধু Shopify জানে।
  */
@@ -52,6 +55,11 @@ interface QueueInput {
   refId?: string;
   dedupeKey?: string;
   sendAt?: Date;
+  /**
+   * একই বার্তা (dedupeKey) এখনো লাইনে থাকলে তার ঠিকানা আর লেখা এই নতুন তথ্যে বদলায়; পাঠানোর সময় বদলায় না।
+   * যে ঘটনার তথ্য পাঠানোর আগে বদলাতে পারে তার জন্য (যেমন চেকআউটে শুধরে নেওয়া ইমেইল)।
+   */
+  refresh?: boolean;
 }
 
 /** false ফেরত দিলে একই বার্তা আগেই লাইনে আছে (dedupeKey মিলে গেছে) */
@@ -74,6 +82,12 @@ export async function enqueueEmail(
     ],
     skipDuplicates: true,
   });
+  if (count === 0 && input.refresh && input.dedupeKey) {
+    await db.message.updateMany({
+      where: { shopId, dedupeKey: input.dedupeKey, status: "queued" },
+      data: { recipient: input.to, payload: input.payload as Prisma.InputJsonValue },
+    });
+  }
   return count > 0;
 }
 
@@ -111,6 +125,9 @@ interface ShopState {
   uninstalledAt: Date | null;
   emailSettings: unknown;
   sentThisMonth: number;
+  /** Email Marketing চালু কিনা, আর কোন flow চালু (এই ব্যাচে প্রথমবার দরকার হলে জানা হয়) */
+  marketingOn?: boolean;
+  flows?: Map<string, boolean>;
 }
 
 export interface Deps {
@@ -152,6 +169,25 @@ async function emailOutcome(
     return { status: "skipped", error: "monthly_limit" };
   }
 
+  // মার্চেন্ট Email Marketing বা flow-টা বন্ধ করলে আগে থেকে লাইনে থাকা ইমেইলও আর যায় না
+  // (review request-এর মতো ইমেইল কয়েক দিন লাইনে থাকে)
+  if (kind === "flow" || kind === "campaign") {
+    shop.marketingOn ??= (await enabledSettings(shop, emailMarketing)) !== null;
+    if (!shop.marketingOn) return { status: "skipped", error: "tool_off" };
+  }
+  if (kind === "flow") {
+    const key = message.refId ?? "";
+    shop.flows ??= new Map();
+    if (!shop.flows.has(key)) {
+      const flow = await db.emailFlow.findUnique({
+        where: { shopId_key: { shopId: shop.id, key } },
+        select: { enabled: true },
+      });
+      shop.flows.set(key, flow?.enabled === true);
+    }
+    if (!shop.flows.get(key)) return { status: "skipped", error: "flow_off" };
+  }
+
   const subscriber = await db.subscriber.findUnique({
     where: { shopId_email: { shopId: shop.id, email: message.recipient } },
     select: { status: true },
@@ -169,9 +205,13 @@ async function emailOutcome(
   if (payload.checkoutId) {
     const checkout = await db.abandonedCheckout.findUnique({
       where: { id: payload.checkoutId },
-      select: { completedAt: true },
+      select: { completedAt: true, email: true },
     });
     if (!checkout || checkout.completedAt) return { status: "skipped", error: "ordered" };
+    // ক্রেতা এর মধ্যে চেকআউটে ঠিকানা বদলে থাকলে আগের ঠিকানায় যায় না
+    if (checkout.email !== message.recipient) {
+      return { status: "skipped", error: "address_changed" };
+    }
   }
 
   let content: EmailContent | null;

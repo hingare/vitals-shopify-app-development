@@ -58,6 +58,8 @@ api_version = "2026-10"
   include_fields = [ "id", "email", "checkout_token" ]
 
   # Abandoned checkout ইমেইল (flow চালু থাকলেই কেবল কিছু রাখা হয়)।
+  # updated_at দিয়ে বোঝা যায় কোন খবরটা নতুন (ক্রেতা ইমেইল শুধরে নিলে পুরনো খবর যেন নতুনটার উপর না বসে),
+  # আর এতে প্রতিটা খবর আলাদা হয়, তাই Shopify পরপর আসা খবর "একই" ভেবে বাদ দেয় না।
   # Handled by: /app/routes/webhooks.checkouts.tsx
   [[webhooks.subscriptions]]
   topics = [ "checkouts/create", "checkouts/update" ]
@@ -66,6 +68,7 @@ api_version = "2026-10"
     "token",
     "email",
     "abandoned_checkout_url",
+    "updated_at",
     "completed_at",
     "total_price",
     "currency",

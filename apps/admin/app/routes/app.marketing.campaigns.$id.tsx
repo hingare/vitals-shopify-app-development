@@ -109,7 +109,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     }
     if (intent === "send") await startCampaign(shop.id, id);
   } catch (error) {
-    if (error instanceof CampaignError) return fail("already_sent");
+    if (error instanceof CampaignError) return fail(error.code);
     throw error;
   }
   if (!existing) return redirect(`/app/marketing/campaigns/${id}`);
@@ -169,6 +169,7 @@ export default function CampaignPage() {
       email_not_configured: t("marketing.notConfigured"),
       already_sent: t("marketing.campaign.sentNote"),
       bad_time: t("marketing.campaign.badTime"),
+      tool_off: t("marketing.toolOff"),
     };
     shopify.toast.show(
       messages[result.error] ?? t("marketing.email.testFailed", { error: result.error }),
@@ -302,7 +303,9 @@ export default function CampaignPage() {
               <s-button
                 variant="primary"
                 onClick={send}
-                {...(data.subscribed === 0 || !data.allowed ? { disabled: true } : {})}
+                {...(data.subscribed === 0 || !data.allowed || !data.toolEnabled
+                  ? { disabled: true }
+                  : {})}
                 {...loading("send")}
               >
                 {t("marketing.campaign.send")}
@@ -322,7 +325,7 @@ export default function CampaignPage() {
               </label>
               <s-button
                 onClick={schedule}
-                {...(data.allowed ? {} : { disabled: true })}
+                {...(data.allowed && data.toolEnabled ? {} : { disabled: true })}
                 {...loading("schedule")}
               >
                 {t("marketing.campaign.schedule")}

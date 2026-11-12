@@ -47,19 +47,35 @@ const run = () => processMessages(20, deps, claim);
 const only = () => db.message.rows[0] as Record<string, unknown>;
 
 let shopId: string;
-const marketing = (extra: Record<string, unknown> = {}) =>
+/** একটা flow-এর ইমেইল, সময় হয়ে গেছে এমন */
+const marketing = (extra: Record<string, unknown> = {}, refId = "welcome") =>
   enqueueEmail(shopId, {
     kind: "flow",
+    refId,
     to: "a@b.com",
     sendAt: new Date(now.getTime() - 1000),
     payload: { marketing: true, content, vars: { first_name: "Rahim" }, ...extra },
   });
+const campaignEmail = (to: string, extra: Record<string, unknown> = {}) =>
+  enqueueEmail(shopId, {
+    kind: "campaign",
+    to,
+    sendAt: new Date(now.getTime() - 1000),
+    payload: { marketing: true, content, ...extra },
+  });
+
+/** Professional প্ল্যানের স্টোর, Email Marketing আর welcome flow চালু */
+function seedShop() {
+  shopId = db.shop.seed({ domain: "tom.myshopify.com" }).id as string;
+  db.toolSetting.seed({ shopId, toolId: "email-marketing", enabled: true });
+  db.emailFlow.seed({ shopId, key: "welcome", enabled: true });
+}
 
 beforeEach(() => {
   resetFakeDb();
   send.mockReset().mockResolvedValue({ ok: true, providerId: "prov-1" });
   optedOut.mockReset().mockResolvedValue(false);
-  shopId = db.shop.seed({ domain: "tom.myshopify.com" }).id as string;
+  seedShop();
 });
 
 describe("sending marketing email", () => {
@@ -108,7 +124,7 @@ describe("sending marketing email", () => {
     expect(only()).toMatchObject({ status: "skipped", error: "not_subscribed" });
 
     resetFakeDb();
-    shopId = db.shop.seed({ domain: "tom.myshopify.com" }).id as string;
+    seedShop();
     await marketing({ allowNonSubscribers: true });
     await run();
     expect(only().status).toBe("sent");
@@ -208,6 +224,23 @@ describe("sending marketing email", () => {
     expect(optedOut).not.toHaveBeenCalled();
   });
 
+  it("does not send a recovery email to an address the shopper has since replaced", async () => {
+    // লাইনে দেওয়ার পরে ক্রেতা চেকআউটে ঠিকানা শুধরে নিয়েছেন (প্রথমটা ভুল বানানের, হয়তো অন্য কারো)
+    const checkout = db.abandonedCheckout.seed({ shopId, token: "t", email: "right@b.com" });
+    await marketing({ allowNonSubscribers: true, checkoutId: checkout.id });
+    await run();
+    expect(only()).toMatchObject({ status: "skipped", error: "address_changed" });
+    expect(send).not.toHaveBeenCalled();
+    expect(optedOut).not.toHaveBeenCalled();
+  });
+
+  it("sends the recovery email when the checkout is still open with the same address", async () => {
+    const checkout = db.abandonedCheckout.seed({ shopId, token: "t", email: "a@b.com" });
+    await marketing({ allowNonSubscribers: true, checkoutId: checkout.id });
+    await run();
+    expect(only().status).toBe("sent");
+  });
+
   it("loads campaign content once and skips when the campaign is gone", async () => {
     db.subscriber.seed({ shopId, email: "a@b.com" });
     const campaign = db.emailCampaign.seed({ shopId, name: "Eid", content });
@@ -229,6 +262,61 @@ describe("sending marketing email", () => {
       ["skipped", "no_content"],
     ]);
     expect(send.mock.calls[0]?.[0].subject).toBe("Hi Mina");
+  });
+});
+
+describe("switched off after the email was queued", () => {
+  const other = (kind: "back-in-stock" | "withdrawal", to: string) =>
+    enqueueEmail(shopId, {
+      kind,
+      to,
+      sendAt: new Date(now.getTime() - 1000),
+      payload: { marketing: false, content },
+    });
+
+  it("sends no flow or campaign email once Email Marketing is turned off", async () => {
+    db.subscriber.seed({ shopId, email: "a@b.com" });
+    await marketing();
+    await campaignEmail("a@b.com");
+    // অন্য টুলের বা আইনে বাধ্যতামূলক ইমেইল Email Marketing-এর সুইচে আটকায় না
+    await other("back-in-stock", "c@b.com");
+    await other("withdrawal", "d@b.com");
+    db.toolSetting.rows[0]!.enabled = false;
+    await run();
+    expect(db.message.rows.map((r) => [r.kind, r.status, r.error])).toEqual([
+      ["flow", "skipped", "tool_off"],
+      ["campaign", "skipped", "tool_off"],
+      ["back-in-stock", "sent", null],
+      ["withdrawal", "sent", null],
+    ]);
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("sends no email for a flow the merchant has turned off, while other flows keep going", async () => {
+    db.subscriber.seed({ shopId, email: "a@b.com" });
+    db.emailFlow.seed({ shopId, key: "review-request", enabled: true });
+    await marketing({}, "review-request");
+    await marketing();
+    await marketing({}, "winback");
+    db.emailFlow.rows[1]!.enabled = false;
+    await run();
+    // winback-এর জন্য কোনো সারিই নেই: মার্চেন্ট কখনো চালু করেননি
+    expect(db.message.rows.map((r) => [r.refId, r.status, r.error])).toEqual([
+      ["review-request", "skipped", "flow_off"],
+      ["welcome", "sent", null],
+      ["winback", "skipped", "flow_off"],
+    ]);
+  });
+
+  it("stays skipped: turning the tool back on does not send what was held back", async () => {
+    db.subscriber.seed({ shopId, email: "a@b.com" });
+    await marketing();
+    db.toolSetting.rows[0]!.enabled = false;
+    await run();
+    db.toolSetting.rows[0]!.enabled = true;
+    expect(await run()).toBe(0);
+    expect(only()).toMatchObject({ status: "skipped", error: "tool_off" });
+    expect(send).not.toHaveBeenCalled();
   });
 });
 

@@ -81,36 +81,66 @@ export interface FlowTrigger {
   checkoutId?: string;
   /** ক্রেতা এই মুহূর্তে নিজে মার্কেটিংয়ে রাজি হয়েছেন (যেমন চেকআউটের টিক) */
   consented?: boolean;
+  /** একই ঘটনার ইমেইল এখনো লাইনে থাকলে তার ঠিকানা আর লেখা এই নতুন তথ্যে বদলায় (পাঠানোর সময় বদলায় না) */
+  refresh?: boolean;
 }
 
-/** flow চালু থাকলে ইমেইল লাইনে দেয়; পাঠানোর সময় সম্মতি আর মাসের সীমা আবার দেখা হয় */
+const flowDedupeKey = (key: FlowKey, id: string) => `flow:${key}:${id}`;
+
+interface LoadedFlow {
+  /** Email Marketing-এর সেটিং: মার্কেটিং ইমেইল শুধু গ্রাহকদের জন্য কিনা */
+  subscribersOnly: boolean;
+  flow: FlowState;
+}
+
+/** Email Marketing আর এই flow দুটোই চালু থাকলে তাদের সেটিং, নইলে null */
+async function loadFlow(shop: ShopRef, key: FlowKey): Promise<LoadedFlow | null> {
+  const tool = await enabledSettings(shop, emailMarketing);
+  if (!tool) return null;
+  const row = await db.emailFlow.findUnique({ where: { shopId_key: { shopId: shop.id, key } } });
+  if (!row?.enabled) return null;
+  return { subscribersOnly: tool.subscribersOnly, flow: readFlow(key, row) };
+}
+
+/** চালু থাকা flow-এর ইমেইল লাইনে দেয়; false মানে একই ঘটনার ইমেইল আগেই লাইনে আছে */
+function queueFlow(
+  shop: ShopRef,
+  key: FlowKey,
+  loaded: LoadedFlow,
+  input: FlowTrigger,
+  now = new Date(),
+): Promise<boolean> {
+  // welcome আর win-back সবসময় শুধু গ্রাহকদের জন্য; বাকি দুটো মার্চেন্টের সেটিং অনুযায়ী
+  const subscribersOnly = key === "welcome" || key === "winback" || loaded.subscribersOnly;
+  return enqueueEmail(shop.id, {
+    kind: "flow",
+    refId: key,
+    to: input.email,
+    dedupeKey: flowDedupeKey(key, input.dedupeKey),
+    refresh: input.refresh,
+    sendAt: new Date(now.getTime() + loaded.flow.delayMinutes * 60_000),
+    payload: {
+      marketing: true,
+      allowNonSubscribers: !subscribersOnly || input.consented === true,
+      checkoutId: input.checkoutId,
+      vars: { first_name: input.firstName?.trim() || "there", ...input.vars },
+      content: { ...loaded.flow.content, buttonUrl: input.buttonUrl, imageUrl: "" },
+    },
+  });
+}
+
+/**
+ * টুল আর flow চালু থাকলে ইমেইল লাইনে দেয়। পাঠানোর সময় আবার দেখা হয়: দুটো এখনো চালু কিনা, সম্মতি আর মাসের সীমা
+ * (messages.server.ts)।
+ */
 export async function triggerFlow(
   shop: ShopRow,
   key: FlowKey,
   input: FlowTrigger,
   now = new Date(),
 ): Promise<boolean> {
-  const tool = await enabledSettings(shop, emailMarketing);
-  if (!tool) return false;
-  const row = await db.emailFlow.findUnique({ where: { shopId_key: { shopId: shop.id, key } } });
-  if (!row?.enabled) return false;
-  const flow = readFlow(key, row);
-  // welcome আর win-back সবসময় শুধু গ্রাহকদের জন্য; বাকি দুটো মার্চেন্টের সেটিং অনুযায়ী
-  const subscribersOnly = key === "welcome" || key === "winback" || tool.subscribersOnly;
-  return enqueueEmail(shop.id, {
-    kind: "flow",
-    refId: key,
-    to: input.email,
-    dedupeKey: `flow:${key}:${input.dedupeKey}`,
-    sendAt: new Date(now.getTime() + flow.delayMinutes * 60_000),
-    payload: {
-      marketing: true,
-      allowNonSubscribers: !subscribersOnly || input.consented === true,
-      checkoutId: input.checkoutId,
-      vars: { first_name: input.firstName?.trim() || "there", ...input.vars },
-      content: { ...flow.content, buttonUrl: input.buttonUrl, imageUrl: "" },
-    },
-  });
+  const loaded = await loadFlow(shop, key);
+  return loaded ? queueFlow(shop, key, loaded, input, now) : false;
 }
 
 export const storeUrl = (shop: { domain: string }) => `https://${shop.domain}`;
@@ -123,6 +153,8 @@ export interface CheckoutPayload {
   token?: string;
   email?: string | null;
   abandoned_checkout_url?: string;
+  /** Shopify-র হিসাবে চেকআউট শেষ কবে বদলেছে */
+  updated_at?: string | null;
   completed_at?: string | null;
   total_price?: string;
   currency?: string;
@@ -131,42 +163,113 @@ export interface CheckoutPayload {
   shipping_address?: { first_name?: string | null } | null;
 }
 
-/** checkouts/create ও checkouts/update: ইমেইল জানা থাকলে চেকআউট রাখে আর abandoned ইমেইল লাইনে দেয় */
+const timeOf = (value: string | null | undefined) => {
+  const time = value ? new Date(value) : null;
+  return time && !Number.isNaN(time.getTime()) ? time : null;
+};
+
+/**
+ * checkouts/create ও checkouts/update: ইমেইল জানা থাকলে চেকআউট রাখে আর abandoned ইমেইল লাইনে দেয়।
+ *
+ * ক্রেতা চেকআউটে ইমেইল শুধরে নিতে পারেন, আর Shopify-র খবর উল্টো ক্রমেও আসতে পারে। তাই:
+ * - সারিতে Shopify-র `updated_at` রাখা হয়, আর তার চেয়ে পুরনো খবর নতুন তথ্যের উপর বসে না;
+ * - লাইনে থাকা ইমেইলের ঠিকানা আর লেখা প্রতিবার সারির এখনকার তথ্যে বদলায়, যাতে ইমেইলটা
+ *   প্রথমে লেখা (হয়তো ভুল বানানের, অন্য কারো) ঠিকানায় না গিয়ে শেষ ঠিকানায় যায়;
+ * - ক্রেতা ইমেইল সরিয়ে নিলে সারি আর লাইনের ইমেইল দুটোই মুছে যায়।
+ *
+ * Email Marketing বা এই flow বন্ধ থাকলে নতুন কোনো চেকআউট রাখা হয় না, কোনো ইমেইলও লাইনে পড়ে না।
+ */
 export async function recordCheckout(shop: ShopRow, payload: CheckoutPayload) {
-  const email = cleanEmail(payload.email);
   const token = payload.token;
+  if (!token) return;
+  const email = cleanEmail(payload.email);
+  const stamp = timeOf(payload.updated_at);
+  const completedAt = timeOf(payload.completed_at);
+  // এই খবরের চেয়ে নতুন কিছু আগে বসে থাকলে সারিটা ছোঁয়া হয় না
+  const notNewer = stamp
+    ? { OR: [{ sourceUpdatedAt: null }, { sourceUpdatedAt: { lte: stamp } }] }
+    : {};
+
+  if (!email) {
+    // সময় জানা না থাকলে খবরটা নতুন না পুরনো বোঝা যায় না, তখন কিছু মোছা হয় না
+    if (!stamp) return;
+    const gone = await db.abandonedCheckout.deleteMany({
+      where: { shopId: shop.id, token, completedAt: null, ...notNewer },
+    });
+    if (gone.count > 0) {
+      await db.message.deleteMany({
+        where: {
+          shopId: shop.id,
+          dedupeKey: flowDedupeKey("abandoned-checkout", token),
+          status: "queued",
+        },
+      });
+    }
+    return;
+  }
   const url = payload.abandoned_checkout_url;
-  if (!email || !token || !url || !/^https:\/\//.test(url)) return;
-  // flow বন্ধ থাকলে ক্রেতার কোনো তথ্যই রাখা হয় না
-  const flow = await db.emailFlow.findUnique({
-    where: { shopId_key: { shopId: shop.id, key: "abandoned-checkout" } },
-    select: { enabled: true },
-  });
-  if (!flow?.enabled) return;
-  const firstName = payload.shipping_address?.first_name ?? payload.customer?.first_name ?? null;
+  if (!url || !/^https:\/\//.test(url)) return;
+  const loaded = await loadFlow(shop, "abandoned-checkout");
+
   const data = {
     email,
-    firstName,
+    firstName: payload.shipping_address?.first_name ?? payload.customer?.first_name ?? null,
     recoveryUrl: url,
-    total: payload.total_price ?? "0",
+    // কলামটা দশমিক সংখ্যার; অচেনা লেখা এলে পুরো চেকআউট হারানোর বদলে ০ রাখা হয়
+    total: /^\d{1,12}(\.\d+)?$/.test(payload.total_price ?? "") ? payload.total_price! : "0",
     currency: payload.currency ?? "",
     acceptsMarketing: payload.buyer_accepts_marketing === true,
-    ...(payload.completed_at ? { completedAt: new Date(payload.completed_at) } : {}),
+    ...(stamp ? { sourceUpdatedAt: stamp } : {}),
+    ...(completedAt ? { completedAt } : {}),
   };
-  const row = await db.abandonedCheckout.upsert({
-    where: { shopId_token: { shopId: shop.id, token } },
-    create: { shopId: shop.id, token, ...data },
-    update: data,
-  });
-  if (row.completedAt) return;
-  await triggerFlow(shop, "abandoned-checkout", {
-    email,
-    firstName,
-    buttonUrl: url,
-    dedupeKey: token,
-    checkoutId: row.id,
-    consented: data.acceptsMarketing,
-  });
+  const key = { shopId: shop.id, token };
+  // শর্তসহ একটাই লেখা, যাতে একসাথে আসা দুটো খবরের পুরনোটা জিততে না পারে
+  const apply = () => db.abandonedCheckout.updateMany({ where: { ...key, ...notNewer }, data });
+  if ((await apply()).count === 0) {
+    // টুল বা flow বন্ধ থাকলে নতুন কোনো ক্রেতার তথ্য রাখা হয় না। আগে থেকে থাকা সারি তবু হালনাগাদ থাকে (উপরের লেখা),
+    // যাতে আবার চালু করলে লাইনে থাকা ইমেইল পুরনো, শুধরে নেওয়া ঠিকানায় না যায়।
+    const created = loaded
+      ? await db.abandonedCheckout.createMany({ data: [{ ...key, ...data }], skipDuplicates: true })
+      : { count: 0 };
+    // বানানো যায়নি মানে সারিটা আছে: একই চেকআউটের আরেকটা খবর এইমাত্র বানিয়েছে (তখন এই খবরটা আবার বসানো হয়),
+    // বা তাতে এর চেয়ে নতুন তথ্য আছে (তখন পুরনো খবর থেকে শুধু "অর্ডার হয়ে গেছে" কথাটা নেওয়া হয়)
+    if (created.count === 0 && (!loaded || (await apply()).count === 0)) {
+      if (completedAt) {
+        await db.abandonedCheckout.updateMany({
+          where: { ...key, completedAt: null },
+          data: { completedAt },
+        });
+      }
+      return;
+    }
+  }
+  if (!loaded) return;
+
+  // লাইনের ইমেইলে সারির এখনকার তথ্য বসে। একই চেকআউটের আরেকটা খবর ঠিক এই ফাঁকে সারি বদলে দিলে আরেকবার বসানো হয়,
+  // যাতে লাইনের ইমেইল সারির সাথে মিলে থাকে (তবু না মিললে পাঠানোর সময় ইমেইলটা বাদ পড়ে, ভুল ঠিকানায় যায় না)।
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const row = await db.abandonedCheckout.findUnique({ where: { shopId_token: key } });
+    if (!row || row.completedAt) return;
+    await queueFlow(shop, "abandoned-checkout", loaded, {
+      email: row.email,
+      firstName: row.firstName,
+      buttonUrl: row.recoveryUrl,
+      dedupeKey: token,
+      checkoutId: row.id,
+      consented: row.acceptsMarketing,
+      refresh: true,
+    });
+    const after = await db.abandonedCheckout.findUnique({ where: { shopId_token: key } });
+    if (
+      !after ||
+      (after.email === row.email &&
+        after.firstName === row.firstName &&
+        after.recoveryUrl === row.recoveryUrl &&
+        after.acceptsMarketing === row.acceptsMarketing)
+    ) {
+      return;
+    }
+  }
 }
 
 export interface OrderPayload {
@@ -202,11 +305,9 @@ export async function onOrderPaid(shop: ShopRow, admin: GraphqlClient, payload: 
   const email = cleanEmail(payload.email);
   const first = payload.line_items?.find((item) => item.product_id);
   if (!email || !first?.product_id || !payload.id) return;
-  const flow = await db.emailFlow.findUnique({
-    where: { shopId_key: { shopId: shop.id, key: "review-request" } },
-    select: { enabled: true },
-  });
-  if (!flow?.enabled) return;
+  // টুল বা flow বন্ধ থাকলে Shopify-কে প্রোডাক্টের কথা জিজ্ঞেসও করা হয় না
+  const loaded = await loadFlow(shop, "review-request");
+  if (!loaded) return;
   const data = await gql<{ product: { handle: string; title: string } | null }>(
     admin,
     `#graphql
@@ -214,7 +315,7 @@ export async function onOrderPaid(shop: ShopRow, admin: GraphqlClient, payload: 
     { id: `gid://shopify/Product/${first.product_id}` },
   );
   if (!data.product) return;
-  await triggerFlow(shop, "review-request", {
+  await queueFlow(shop, "review-request", loaded, {
     email,
     firstName: payload.customer?.first_name,
     buttonUrl: `${storeUrl(shop)}/products/${data.product.handle}#app-reviews`,
@@ -234,7 +335,10 @@ export async function queueWinbacks(now = new Date()) {
   let queued = 0;
   for (const flow of flows) {
     if (flow.shop.uninstalledAt) continue;
-    const edge = new Date(now.getTime() - flow.delayMinutes * 60_000);
+    // টুল বন্ধ (বা প্ল্যানে নেই): গ্রাহকদের খোঁজাই হয় না
+    const loaded = await loadFlow(flow.shop, "winback");
+    if (!loaded) continue;
+    const edge = new Date(now.getTime() - loaded.flow.delayMinutes * 60_000);
     let cursor = "";
     for (;;) {
       const subscribers = await db.subscriber.findMany({
@@ -248,9 +352,10 @@ export async function queueWinbacks(now = new Date()) {
         take: WINBACK_PAGE,
       });
       for (const sub of subscribers) {
-        const sent = await triggerFlow(
+        const sent = await queueFlow(
           flow.shop,
           "winback",
+          loaded,
           {
             email: sub.email,
             firstName: sub.firstName,

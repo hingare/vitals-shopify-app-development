@@ -1,3 +1,4 @@
+import { emailMarketing } from "@app/tools";
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
 import {
@@ -10,7 +11,7 @@ import {
 import { sendEmail, type SendResult } from "./email-transport.server";
 import { messageStats, shopDisplayName, type EmailPayload } from "./messages.server";
 import { enqueueJob, registerJob } from "./queue.server";
-import { cleanEmail } from "./tool-state.server";
+import { cleanEmail, enabledSettings } from "./tool-state.server";
 
 /**
  * একবারের ইমেইল ক্যাম্পেইন: খসড়া → (চাইলে সময় ঠিক করা) → পাঠানো।
@@ -46,7 +47,28 @@ export function readCampaignContent(raw: unknown): EmailContent {
   return parsed.success ? parsed.data : DEFAULT_CAMPAIGN;
 }
 
-export class CampaignError extends Error {}
+export class CampaignError extends Error {
+  constructor(
+    message: string,
+    public code: "already_sent" | "tool_off" = "already_sent",
+  ) {
+    super(message);
+  }
+}
+
+/**
+ * Email Marketing বন্ধ থাকলে (বা প্ল্যানে না থাকলে) ক্যাম্পেইন পাঠানো বা সময় ঠিক করা যায় না।
+ * ক্যাম্পেইন একবারই পাঠানো যায়; বন্ধ অবস্থায় শুরু হলে তার সব ইমেইল বাদ পড়ত আর ক্যাম্পেইনটা নষ্ট হতো।
+ */
+async function requireMarketingOn(shopId: string) {
+  const shop = await db.shop.findUnique({
+    where: { id: shopId },
+    select: { id: true, plan: true },
+  });
+  if (!shop || !(await enabledSettings(shop, emailMarketing))) {
+    throw new CampaignError("Email Marketing is turned off", "tool_off");
+  }
+}
 
 /** নতুন খসড়া বা আগের খসড়া সেভ; পাঠানো শুরু হয়ে গেলে আর বদলানো যায় না */
 export async function saveCampaign(
@@ -75,6 +97,7 @@ export async function deleteCampaign(shopId: string, id: string) {
 }
 
 export async function scheduleCampaign(shopId: string, id: string, at: Date | null) {
+  if (at) await requireMarketingOn(shopId);
   const { count } = await db.emailCampaign.updateMany({
     where: { id, shopId, status: { in: ["draft", "scheduled"] } },
     data: at ? { status: "scheduled", scheduledAt: at } : { status: "draft", scheduledAt: null },
@@ -84,6 +107,7 @@ export async function scheduleCampaign(shopId: string, id: string, at: Date | nu
 
 /** পাঠানো শুরু করে। দুবার চাপলেও (বা দুটো সার্ভার একসাথে ধরলেও) একবারই শুরু হয় */
 export async function startCampaign(shopId: string, id: string, now = new Date()) {
+  await requireMarketingOn(shopId);
   const { count } = await db.emailCampaign.updateMany({
     where: { id, shopId, status: { in: ["draft", "scheduled"] } },
     data: { status: "sending", sentAt: now },
@@ -100,8 +124,20 @@ export async function startDueCampaigns(now = new Date()) {
     select: { id: true, shopId: true },
     take: 50,
   });
-  for (const campaign of due) await startCampaign(campaign.shopId, campaign.id, now);
-  return due.length;
+  let started = 0;
+  for (const campaign of due) {
+    try {
+      if (await startCampaign(campaign.shopId, campaign.id, now)) started++;
+    } catch (error) {
+      if (!(error instanceof CampaignError)) throw error;
+      // সময় হওয়ার আগেই টুল বন্ধ করা হয়েছে: ক্যাম্পেইন খসড়ায় ফেরে, যাতে পরে টুল চালু করলে নিজে থেকে চলে না যায়
+      await db.emailCampaign.updateMany({
+        where: { id: campaign.id, status: "scheduled" },
+        data: { status: "draft", scheduledAt: null },
+      });
+    }
+  }
+  return started;
 }
 
 /** এক ধাপ: পরের ৫০০ গ্রাহকের জন্য বার্তা লাইনে দেয় */

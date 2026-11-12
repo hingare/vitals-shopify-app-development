@@ -462,6 +462,8 @@ model AbandonedCheckout {
   /// ক্রেতা মার্কেটিং ইমেইলে রাজি কিনা
   acceptsMarketing Boolean   @default(false)
   completedAt      DateTime?
+  /// Shopify-র হিসাবে চেকআউট শেষ কবে বদলেছে (দেরিতে আসা পুরনো খবর চেনার জন্য)
+  sourceUpdatedAt  DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   shop             Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)

@@ -140,11 +140,43 @@ describe("abandoned checkout", () => {
     shipping_address: { first_name: "Mina" },
   };
 
-  it("stores nothing about the shopper while the flow is off", async () => {
+  it("stores nothing about the shopper while the flow or Email Marketing is off", async () => {
     enableTool();
     await recordCheckout(shop, checkout);
     expect(db.abandonedCheckout.rows).toHaveLength(0);
     expect(db.message.rows).toHaveLength(0);
+
+    db.toolSetting.rows.length = 0;
+    enableFlow("abandoned-checkout");
+    await recordCheckout(shop, checkout);
+    expect(db.abandonedCheckout.rows).toHaveLength(0);
+    expect(db.message.rows).toHaveLength(0);
+  });
+
+  it("while switched off, keeps a stored checkout correct but stores no new one and queues nothing", async () => {
+    enableTool();
+    enableFlow("abandoned-checkout", 60);
+    await recordCheckout(shop, {
+      ...checkout,
+      email: "buyer@exmaple.com",
+      updated_at: "2026-11-10T09:00:00Z",
+    });
+    db.toolSetting.rows[0]!.enabled = false;
+    await recordCheckout(shop, { ...checkout, updated_at: "2026-11-10T09:01:00Z" });
+    await recordCheckout(shop, { ...checkout, token: "tok2", updated_at: "2026-11-10T09:01:00Z" });
+    expect(db.abandonedCheckout.rows).toHaveLength(1);
+    // সারির ঠিকানা শুধরে গেছে। লাইনের ইমেইল পুরনো ঠিকানাতেই আছে, তাই টুল আবার চালু হলেও পাঠানোর সময়
+    // সেটা বাদ পড়ে (messages.test.ts: address_changed)
+    expect(db.abandonedCheckout.rows[0]?.email).toBe("buyer@example.com");
+    expect(db.message.rows.map((r) => r.recipient)).toEqual(["buyer@exmaple.com"]);
+
+    // বন্ধ অবস্থায় আসা "অর্ডার হয়ে গেছে" খবরও সারিতে বসে
+    await recordCheckout(shop, {
+      ...checkout,
+      updated_at: "2026-11-10T09:02:00Z",
+      completed_at: "2026-11-10T09:02:00Z",
+    });
+    expect(db.abandonedCheckout.rows[0]?.completedAt).toEqual(new Date("2026-11-10T09:02:00Z"));
   });
 
   it("queues one recovery email per checkout, however many updates arrive", async () => {
@@ -162,6 +194,149 @@ describe("abandoned checkout", () => {
     expect(payload.content.buttonUrl).toBe("https://tom.com/checkouts/tok1/recover");
     expect(payload.checkoutId).toBe(db.abandonedCheckout.rows[0]?.id);
     expect(payload.vars.first_name).toBe("Mina");
+  });
+
+  it("sends the email to the address the shopper ended up with, not the first one they typed", async () => {
+    enableTool({ subscribersOnly: true });
+    enableFlow("abandoned-checkout", 60);
+    // প্রথমে বানান ভুল (ঠিকানাটা অন্য কারো হতে পারে), তারপর শুধরে নেওয়া
+    await recordCheckout(shop, {
+      ...checkout,
+      email: "buyer@exmaple.com",
+      updated_at: "2026-11-10T09:00:00Z",
+    });
+    const sendAt = db.message.rows[0]?.sendAt;
+    await recordCheckout(shop, {
+      ...checkout,
+      updated_at: "2026-11-10T09:01:00Z",
+      buyer_accepts_marketing: true,
+      shipping_address: { first_name: "Minara" },
+    });
+    expect(db.message.rows).toHaveLength(1);
+    const message = db.message.rows[0] as Record<string, unknown>;
+    expect(message.recipient).toBe("buyer@example.com");
+    // পাঠানোর সময় বদলায় না; নাম আর সম্মতির টিক নতুন তথ্য থেকে আসে
+    expect(message.sendAt).toEqual(sendAt);
+    expect(payloadOf(message).vars.first_name).toBe("Minara");
+    expect(payloadOf(message).allowNonSubscribers).toBe(true);
+    // ভুল ঠিকানাটা আর কোথাও রাখা নেই
+    expect(JSON.stringify([db.message.rows, db.abandonedCheckout.rows])).not.toContain("exmaple");
+  });
+
+  it("ignores an older update that arrives late, except for the news that the order was placed", async () => {
+    enableTool();
+    enableFlow("abandoned-checkout", 60);
+    await recordCheckout(shop, { ...checkout, updated_at: "2026-11-10T09:05:00Z" });
+    await recordCheckout(shop, {
+      ...checkout,
+      email: "old@example.com",
+      total_price: "10.00",
+      updated_at: "2026-11-10T09:00:00Z",
+    });
+    expect(db.abandonedCheckout.rows[0]).toMatchObject({
+      email: "buyer@example.com",
+      total: "49.00",
+      sourceUpdatedAt: new Date("2026-11-10T09:05:00Z"),
+    });
+    expect(db.message.rows[0]?.recipient).toBe("buyer@example.com");
+    expect(db.abandonedCheckout.rows[0]?.completedAt ?? null).toBeNull();
+
+    await recordCheckout(shop, {
+      ...checkout,
+      email: "old@example.com",
+      updated_at: "2026-11-10T09:01:00Z",
+      completed_at: "2026-11-10T09:01:00Z",
+    });
+    expect(db.abandonedCheckout.rows[0]).toMatchObject({
+      email: "buyer@example.com",
+      completedAt: new Date("2026-11-10T09:01:00Z"),
+    });
+  });
+
+  describe("two updates for the same checkout handled at the same moment", () => {
+    const first = { ...checkout, email: "first@example.com", updated_at: "2026-11-10T09:00:00Z" };
+    const second = { ...checkout, updated_at: "2026-11-10T09:01:00Z" };
+
+    /** `table.createMany`-এর প্রথম ডাকের ঠিক আগে অন্য খবরটা পুরো চালিয়ে দেয় (দুটো webhook একসাথে এলে যা হয়) */
+    async function race(
+      table: { createMany: (typeof db.message)["createMany"] },
+      running: typeof checkout,
+      other: typeof checkout,
+    ) {
+      const real = table.createMany;
+      let raced = false;
+      table.createMany = async (args) => {
+        if (!raced) {
+          raced = true;
+          await recordCheckout(shop, other);
+        }
+        return real(args);
+      };
+      try {
+        await recordCheckout(shop, running);
+      } finally {
+        table.createMany = real;
+      }
+    }
+    const state = () => [
+      db.abandonedCheckout.rows.map((r) => r.email),
+      db.message.rows.map((r) => r.recipient),
+    ];
+
+    beforeEach(() => {
+      enableTool();
+      enableFlow("abandoned-checkout", 60);
+    });
+
+    it("keeps the newer one when the other gets to create the checkout first", async () => {
+      await race(db.abandonedCheckout, second, first);
+      expect(state()).toEqual([["buyer@example.com"], ["buyer@example.com"]]);
+    });
+
+    it("keeps the newer one when the older one loses that race", async () => {
+      await race(db.abandonedCheckout, first, second);
+      expect(state()).toEqual([["buyer@example.com"], ["buyer@example.com"]]);
+    });
+
+    it("re-addresses the queued email when the checkout changes while it is being queued", async () => {
+      // প্রথম খবরটা সারি পড়ে নিয়েছে, ইমেইল লাইনে দেওয়ার ঠিক আগে দ্বিতীয় খবরটা সারি আর ইমেইল দুটোই বদলে দেয়
+      await race(db.message, first, second);
+      expect(state()).toEqual([["buyer@example.com"], ["buyer@example.com"]]);
+    });
+  });
+
+  it("forgets the checkout and its queued email when the shopper removes their email", async () => {
+    enableTool();
+    enableFlow("abandoned-checkout", 60);
+    await recordCheckout(shop, { ...checkout, updated_at: "2026-11-10T09:05:00Z" });
+    // এর চেয়ে পুরনো "ইমেইল নেই" খবর (ক্রেতা তখনো লেখেননি) কিছু মোছে না
+    await recordCheckout(shop, { ...checkout, email: null, updated_at: "2026-11-10T09:00:00Z" });
+    await recordCheckout(shop, { ...checkout, email: null });
+    expect(db.abandonedCheckout.rows).toHaveLength(1);
+    expect(db.message.rows).toHaveLength(1);
+
+    await recordCheckout(shop, { ...checkout, email: null, updated_at: "2026-11-10T09:06:00Z" });
+    expect(db.abandonedCheckout.rows).toHaveLength(0);
+    expect(db.message.rows).toHaveLength(0);
+
+    // পরে আবার ইমেইল দিলে নতুন করে লাইনে পড়ে
+    await recordCheckout(shop, { ...checkout, updated_at: "2026-11-10T09:07:00Z" });
+    expect(db.message.rows).toHaveLength(1);
+  });
+
+  it("never rewrites an email that has already gone out", async () => {
+    enableTool();
+    enableFlow("abandoned-checkout", 60);
+    await recordCheckout(shop, { ...checkout, updated_at: "2026-11-10T09:00:00Z" });
+    db.message.rows[0]!.status = "sent";
+    await recordCheckout(shop, {
+      ...checkout,
+      email: "second@example.com",
+      updated_at: "2026-11-10T12:00:00Z",
+    });
+    expect(db.message.rows).toHaveLength(1);
+    expect(db.message.rows[0]).toMatchObject({ status: "sent", recipient: "buyer@example.com" });
+    expect(db.abandonedCheckout.rows[0]?.email).toBe("second@example.com");
   });
 
   it("by default only emails shoppers who agreed to marketing", async () => {
@@ -228,10 +403,14 @@ describe("review request", () => {
 
   beforeEach(() => admin.graphql.mockClear());
 
-  it("does not call Shopify at all while the flow is off", async () => {
+  it("does not call Shopify at all while the flow or Email Marketing is off", async () => {
     enableTool();
     await onOrderPaid(shop, admin, order);
+    db.toolSetting.rows[0]!.enabled = false;
+    enableFlow("review-request");
+    await onOrderPaid(shop, admin, order);
     expect(admin.graphql).not.toHaveBeenCalled();
+    expect(db.message.rows).toHaveLength(0);
   });
 
   it("links to the first real product's review section, once per order", async () => {
