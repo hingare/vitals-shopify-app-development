@@ -44,10 +44,23 @@ api_version = "2026-10"
   topics = [ "app_subscriptions/update" ]
   uri = "/webhooks/app/subscriptions_update"
 
+  # টুলের বিক্রির হিসাব, অফারের রিপোর্ট, Recent Sales আর review request ইমেইল।
+  # শুধু যে ঘরগুলো পড়া হয় সেগুলোই চাওয়া হয়; ঠিকানা, ফোন, IP বা পেমেন্টের তথ্য আসে না।
+  # (উপরের স্তরের ঘর পুরোটা আসে; ক্রেতার নামের জন্য শুধু customer.first_name।)
   # Handled by: /app/routes/webhooks.orders.paid.tsx
   [[webhooks.subscriptions]]
   topics = [ "orders/paid" ]
   uri = "/webhooks/orders/paid"
+  include_fields = [
+    "id",
+    "name",
+    "email",
+    "total_price",
+    "note_attributes",
+    "discount_applications",
+    "line_items",
+    "customer.first_name",
+  ]
 
   # অর্ডার হলে সেই ক্রেতার abandoned checkout ইমেইল থামে, আর শেষ অর্ডারের সময় রাখা হয় (win-back ইমেইল)।
   # ক্রেতার তথ্যের webhook-এ শুধু দরকারি ঘরগুলো চাওয়া হয় (include_fields); ঠিকানা, ফোন বা পণ্যের তালিকা আসে না।

@@ -12,6 +12,9 @@ import { onOrderPaid, type OrderPayload } from "../lib/flows.server";
  * - আমাদের অফারের ছাড় থাকলে অফার রিপোর্টে আর A/B টেস্টে গোনা হয়
  * - Recent Sales চালু থাকলে প্রোডাক্ট আর সময় রাখা হয় (ক্রেতার কোনো তথ্য নয়)
  * - Review request ইমেইল চালু থাকলে সেটা লাইনে পড়ে (মার্চেন্টের ঠিক করা দিন পরে যায়)
+ *
+ * payload-এ শুধু shopify.app.toml-এর include_fields-এ লেখা ঘরগুলো আসে (ঠিকানা, ফোন ইত্যাদি আসে না);
+ * এখানে নতুন কোনো ঘর পড়তে হলে আগে সেখানে যোগ করতে হবে।
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { shop, payload, admin } = await authenticate.webhook(request);
