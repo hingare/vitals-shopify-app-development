@@ -35,6 +35,16 @@ export async function activeShop(domain: string | undefined | null) {
   return shop && !shop.uninstalledAt ? shop : null;
 }
 
+/**
+ * webhook-এর কাজ ব্যর্থ হলে এই উত্তর দেওয়া হয়। 2xx ছাড়া যেকোনো উত্তরে Shopify খবরটা পরে আবার পাঠায়
+ * (৪ ঘণ্টায় ৮ বার পর্যন্ত), তাই ডাটাবেস বা Shopify-র সাময়িক সমস্যায় খবরটা হারায় না।
+ * শুধু সেই webhook-এ ব্যবহার করা হয় যার কাজ দুবার চললেও ফল একই থাকে।
+ */
+export function retryWebhook(label: string, error: unknown) {
+  console.error(`[${label}] webhook failed; Shopify will send it again`, error);
+  return new Response(null, { status: 503 });
+}
+
 export const jsonResponse = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), {
     status,

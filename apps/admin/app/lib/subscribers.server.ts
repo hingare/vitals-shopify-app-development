@@ -4,7 +4,7 @@ import { gql, offlineAdmin } from "./admin-client.server";
 import { storeUrl, triggerFlow } from "./flows.server";
 import { connectedProviders, queueContactSync, queueUnsubscribeSync } from "./integrations.server";
 import { enqueueJob, registerJob } from "./queue.server";
-import { customerDetails, findCustomer } from "./shopify-customers.server";
+import { customerDetails, findCustomer, type CustomerDetails } from "./shopify-customers.server";
 import { cleanEmail, enabledSettings } from "./tool-state.server";
 import type { GraphqlClient } from "./tools.server";
 
@@ -238,8 +238,8 @@ function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
  * - আনসাবস্ক্রাইব: তালিকায় থাকা ঠিকানায় সবসময়; অচেনা ঠিকানা মনে রাখা হয় শুধু তালিকা কাজে লাগলে।
  * - রাজি হওয়া: তালিকায় আগে থেকে থাকলে সরাসরি। নতুন কাউকে যোগ করার আগে Shopify-কে জিজ্ঞেস করা হয়
  *   (`admin`), কারণ নাম আর ট্যাগ webhook-এ আসে না, আর নতুন customer-এর খবরে সম্মতিও থাকে না।
- *   Shopify উত্তর না দিলে (বা দেরি করলে) সম্মতির খবরটা নাম ছাড়াই বসে; নতুন customer-এর খবর তখন বাদ পড়ে
- *   (সম্মতির আলাদা খবর বা পরের আমদানিতে তিনি আসবেন)।
+ *   Shopify উত্তর না দিলে (বা দেরি করলে) সম্মতির খবরটা নাম ছাড়াই বসে; নতুন customer-এর খবরে তখন ত্রুটি ওঠে,
+ *   যাতে Shopify খবরটা পরে আবার পাঠায়।
  */
 export async function applyCustomerEvent(
   shop: ShopRow,
@@ -273,15 +273,17 @@ export async function applyCustomerEvent(
   }
   if (!(await usesList(shop))) return null;
 
-  const answer =
-    admin && event.customerId
-      ? await withTimeout(customerDetails(admin, event.customerId), LOOKUP_TIMEOUT_MS).catch(
-          (error: unknown) => {
-            console.warn("[subscribers] customer lookup failed", error);
-            return null;
-          },
-        )
-      : null;
+  let answer: CustomerDetails | null = null;
+  if (admin && event.customerId) {
+    try {
+      answer = await withTimeout(customerDetails(admin, event.customerId), LOOKUP_TIMEOUT_MS);
+    } catch (error) {
+      // নতুন customer-এর খবরে সম্মতি লেখা থাকে না, তাই Shopify-র উত্তর ছাড়া কিছু জানার উপায় নেই: ত্রুটিটা উপরে যায়,
+      // webhook ব্যর্থ বলে গণ্য হয়, আর Shopify খবরটা পরে আবার পাঠায়। সম্মতির খবরে শুধু নামটা বাদ পড়ে।
+      if (!event.state) throw error;
+      console.warn("[subscribers] customer lookup failed", error);
+    }
+  }
   // উত্তরটা এই ঠিকানারই হতে হবে: এর মধ্যে ঠিকানা বদলে গিয়ে থাকলে অন্য ঠিকানার সম্মতি বা নাম এখানে খাটে না
   const details = answer?.email === event.email ? answer : null;
   // সম্মতি ছাড়া খবরে (নতুন customer) Shopify-র এখনকার উত্তরই ভরসা

@@ -366,12 +366,19 @@ describe("Shopify customer webhooks", () => {
     for (const answer of answers) {
       expect(await applyCustomerEvent(shop, created, admin([answer]))).toBeNull();
     }
-    // Shopify উত্তর না দিলে বা জিজ্ঞেস করার উপায় না থাকলে না জেনে কাউকে যোগ করা হয় না
-    const failing = { graphql: vi.fn(async () => Response.json({ errors: [{ message: "No" }] })) };
-    expect(await applyCustomerEvent(shop, created, failing)).toBeNull();
+    // জিজ্ঞেস করার উপায় না থাকলে না জেনে কাউকে যোগ করা হয় না
     expect(await applyCustomerEvent(shop, created)).toBeNull();
     expect(await applyCustomerEvent(shop, { ...created, customerId: null }, admin([]))).toBeNull();
     expect(db.subscriber.rows).toHaveLength(0);
+  });
+
+  it("fails the webhook when Shopify cannot say whether a new customer agreed, so it is sent again", async () => {
+    useList();
+    const failing = { graphql: vi.fn(async () => Response.json({ errors: [{ message: "No" }] })) };
+    await expect(applyCustomerEvent(shop, created, failing)).rejects.toThrow("No");
+    expect(db.subscriber.rows).toHaveLength(0);
+    // পরের বার Shopify উত্তর দিলে তিনি যোগ হন
+    expect(await applyCustomerEvent(shop, created, admin([customer()]))).toBe("created");
   });
 
   it("does not ask Shopify about someone already on the list, and fills in their customer id", async () => {
