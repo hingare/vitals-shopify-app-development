@@ -8,10 +8,12 @@ const { FLOWS } = await import("./email-template");
 const { findCustomerId } = await import("./shopify-customers.server");
 const {
   applyCustomerEvent,
+  forgetStaleSubscribers,
   importPage,
   listSubscribers,
   parseCustomerPayload,
   pushConsent,
+  queueReimport,
   subscribe,
   subscriberCounts,
   unsubscribe,
@@ -647,6 +649,48 @@ describe("importing existing subscribers from Shopify", () => {
     // পুরনো গ্রাহক আনার সময় welcome ইমেইল বা সিঙ্ক হয় না
     expect(db.message.rows).toHaveLength(0);
     expect(db.job.rows).toHaveLength(0);
+  });
+});
+
+describe("after the app is installed again", () => {
+  it("forgets who was subscribed, but keeps every opt-out, bounce and complaint", async () => {
+    // আনইনস্টল থাকার সময়ে Shopify-তে কে আনসাবস্ক্রাইব করেছেন তা জানার উপায় ছিল না
+    for (const [email, status] of [
+      ["a@b.com", "subscribed"],
+      ["b@b.com", "subscribed"],
+      ["gone@b.com", "unsubscribed"],
+      ["bad@b.com", "bounced"],
+      ["spam@b.com", "complained"],
+    ] as const) {
+      db.subscriber.seed({ shopId: shop.id, email, status });
+    }
+    db.subscriber.seed({ shopId: "other", email: "a@b.com" });
+    expect(await forgetStaleSubscribers(shop.id)).toBe(2);
+    expect(db.subscriber.rows.map((r) => [r.shopId === shop.id, r.email, r.status])).toEqual([
+      [true, "gone@b.com", "unsubscribed"],
+      [true, "bad@b.com", "bounced"],
+      [true, "spam@b.com", "complained"],
+      [false, "a@b.com", "subscribed"],
+    ]);
+  });
+
+  it("brings the list back from Shopify only for a store that uses it", async () => {
+    expect(await queueReimport(shop.id)).toBe(false);
+    expect(db.job.rows).toHaveLength(0);
+
+    // প্ল্যান তখনো বাছা না থাকলেও চলে (আবার ইনস্টলের ঠিক পরে প্ল্যান থাকে না)
+    db.shop.rows[0]!.plan = null;
+    db.toolSetting.seed({ shopId: shop.id, toolId: "email-marketing", enabled: true });
+    expect(await queueReimport(shop.id)).toBe(true);
+    expect(await queueReimport(shop.id)).toBe(true);
+    expect(jobs()).toEqual([["subscribers-import", {}]]);
+
+    db.job.rows.length = 0;
+    db.toolSetting.rows[0]!.enabled = false;
+    expect(await queueReimport(shop.id)).toBe(false);
+    db.integration.seed({ shopId: shop.id, provider: "klaviyo", secret: "x" });
+    expect(await queueReimport(shop.id)).toBe(true);
+    expect(jobs()).toEqual([["subscribers-import", {}]]);
   });
 });
 

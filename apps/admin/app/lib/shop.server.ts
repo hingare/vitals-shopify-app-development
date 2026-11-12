@@ -1,17 +1,37 @@
 import type { Plan } from "@app/tool-sdk";
 import db from "../db.server";
 import { ALL_PLAN_KEYS, tierFromSubscriptionName } from "./plans";
-import { authenticate } from "../shopify.server";
+import { forgetStaleSubscribers, queueReimport } from "./subscribers.server";
+import type { authenticate } from "../shopify.server";
 
 type AdminContext = Awaited<ReturnType<typeof authenticate.admin>>;
 
-/** স্টোরের রেকর্ড আনে, না থাকলে তৈরি করে; আবার ইনস্টল করলে uninstalledAt মুছে দেয়। */
+/**
+ * স্টোরের রেকর্ড আনে, না থাকলে তৈরি করে।
+ * আবার ইনস্টল হলে (আনইনস্টলের ৪৮ ঘণ্টার মধ্যে, তথ্য মোছার আগে) `uninstalledAt` তোলার আগে গ্রাহক তালিকার
+ * পুরনো "রাজি" সারিগুলো মোছা হয়, তারপর Shopify থেকে নতুন করে আনার কাজ লাইনে পড়ে (subscribers.server.ts)।
+ * ক্রমটা ইচ্ছাকৃত: মাঝপথে সার্ভার থামলে পরের অনুরোধ আবার মোছে; আনার কাজটা হারালে তালিকা খালি থাকে, ভুল থাকে না।
+ */
 export async function ensureShop(domain: string) {
-  return db.shop.upsert({
-    where: { domain },
-    create: { domain },
-    update: { uninstalledAt: null },
+  const existing = await db.shop.findUnique({ where: { domain } });
+  if (!existing) {
+    // প্রথম ইনস্টলে একসাথে কয়েকটা অনুরোধ আসে (পেজের একাধিক loader): যে আগে পৌঁছায় সে বানায়, বাকিরা সেটাই পায়
+    await db.shop.createMany({ data: [{ domain }], skipDuplicates: true });
+    return db.shop.findUniqueOrThrow({ where: { domain } });
+  }
+  if (!existing.uninstalledAt) return existing;
+  await forgetStaleSubscribers(existing.id);
+  // একসাথে আসা অনুরোধগুলোর মধ্যে যেটা চিহ্নটা তোলে, শুধু সেটাই আনার কাজ লাইনে দেয়
+  const { count } = await db.shop.updateMany({
+    where: { id: existing.id, uninstalledAt: { not: null } },
+    data: { uninstalledAt: null },
   });
+  if (count > 0) {
+    await queueReimport(existing.id).catch((error: unknown) =>
+      console.warn("[subscribers] could not queue the import after reinstall", error),
+    );
+  }
+  return { ...existing, uninstalledAt: null };
 }
 
 /**

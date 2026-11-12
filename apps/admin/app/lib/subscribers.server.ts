@@ -459,6 +459,35 @@ registerJob("subscribers-import", async (job) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* আবার ইনস্টলের পরে                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * অ্যাপ আনইনস্টল থাকার সময়ে Shopify-র কোনো খবর আসে না, তাই তখন কেউ Shopify-তে (বা অন্য অ্যাপ দিয়ে) আনসাবস্ক্রাইব
+ * করে থাকলে আমাদের তালিকা তা জানে না। আবার ইনস্টলের পরে তাই "রাজি" সারিগুলো আর বিশ্বাস করা হয় না: মুছে ফেলা হয়,
+ * আর `queueReimport` Shopify-র এখনকার অবস্থা থেকে নতুন করে আনে।
+ * আনসাবস্ক্রাইব, bounce আর অভিযোগের সারি থাকে: ওগুলো আমাদের নিজের জানা, হারালে সেই মানুষেরা আবার ইমেইল পেতেন।
+ */
+export async function forgetStaleSubscribers(shopId: string): Promise<number> {
+  const { count } = await db.subscriber.deleteMany({ where: { shopId, status: "subscribed" } });
+  return count;
+}
+
+/**
+ * স্টোরটা গ্রাহক তালিকা কাজে লাগালে (Email Marketing চালু করা ছিল, বা কোনো ইমেইল টুল যুক্ত) Shopify থেকে
+ * গ্রাহকদের আনার কাজ লাইনে দেয়। প্ল্যান দেখা হয় না: আবার ইনস্টলের ঠিক পরে প্ল্যান তখনো বাছা হয়নি।
+ */
+export async function queueReimport(shopId: string): Promise<boolean> {
+  const tool = await db.toolSetting.findUnique({
+    where: { shopId_toolId: { shopId, toolId: emailMarketing.id } },
+    select: { enabled: true },
+  });
+  if (!tool?.enabled && (await connectedProviders(shopId)).length === 0) return false;
+  await enqueueJob(shopId, "subscribers-import", {}, { unique: true });
+  return true;
+}
+
+/* ------------------------------------------------------------------ */
 /* অ্যাডমিন পেজের জন্য                                                 */
 /* ------------------------------------------------------------------ */
 

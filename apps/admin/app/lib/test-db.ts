@@ -152,6 +152,11 @@ export class FakeTable {
   }
 
   findUnique = async (q: Query) => this.findFirst(q);
+  findUniqueOrThrow = async (q: Query) => {
+    const row = await this.findFirst(q);
+    if (!row) throw new Error(`No ${this.name} found`);
+    return row;
+  };
   findFirst = async (q: Query = {}) => {
     const row = this.select({ ...q, take: 1 })[0];
     return row ? this.out(row, q.include) : null;
