@@ -33,8 +33,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const toolId = String(form.get("toolId"));
   const enabled = form.get("enabled") === "true";
   try {
-    await saveTool(admin, { id: shop.id, plan: planOf(shop) }, toolId, { enabled });
-    return { ok: true as const, toolId, enabled };
+    const saved = await saveTool(admin, { id: shop.id, plan: planOf(shop) }, toolId, { enabled });
+    const pixelPending = saved.pixel === "meta-pending" || saved.pixel === "failed";
+    return { ok: true as const, toolId, enabled, pixelPending };
   } catch (error) {
     if (error instanceof ToolError) return { ok: false as const, toolId, error: error.code };
     throw error;
@@ -66,6 +67,9 @@ export default function ToolsPage() {
       <s-button slot="secondary-actions" href="/app/placement">
         {t("placement.title")}
       </s-button>
+      {fetcher.data?.ok && fetcher.data.pixelPending && (
+        <s-banner tone="warning">{t("tools.pixelPending")}</s-banner>
+      )}
       <s-section>
         <s-stack direction="inline" gap="base">
           <s-search-field

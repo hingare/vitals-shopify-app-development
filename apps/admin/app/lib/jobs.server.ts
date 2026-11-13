@@ -1,7 +1,17 @@
 import db from "../db.server";
+import { startDueCampaigns } from "./campaigns.server";
+import { queueWinbacks } from "./flows.server";
+import { processMessages, recoverStuckMessages } from "./messages.server";
+import { claimJob, recoverStuckJobs, runJob } from "./queue.server";
 import { measure, primaryDomainUrl, saveSnapshot } from "./speed.server";
 import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
+// এই ফাইলগুলো নিজেদের ব্যাকগ্রাউন্ড কাজ (registerJob) নথিভুক্ত করে, তাই সার্ভার চালুর সময়ই আনতে হয়
+import "./integrations.server";
+import "./push.server";
+import "./seo-alt.server";
+import "./stock-alerts.server";
+import "./subscribers.server";
 
 /**
  * ছোট ব্যাকগ্রাউন্ড কাজের ব্যবস্থা, ডাটাবেস দিয়ে (আলাদা Redis লাগে না)।
@@ -80,16 +90,55 @@ async function recoverStuck() {
   });
 }
 
+/** পুরনো, আর কাজে লাগে না এমন সারি মুছে ফেলে (ক্রেতার তথ্য অকারণে জমিয়ে রাখা হয় না) */
+export async function pruneMarketingData(now = new Date()) {
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
+  await db.abandonedCheckout.deleteMany({ where: { createdAt: { lt: daysAgo(30) } } });
+  await db.job.deleteMany({
+    where: { status: { in: ["done", "failed"] }, finishedAt: { lt: daysAgo(14) } },
+  });
+  // বার্তার ইতিহাস ১৮০ দিন (রিপোর্টের জন্য যথেষ্ট)
+  await db.message.deleteMany({ where: { createdAt: { lt: daysAgo(180) } } });
+}
+
 let running = 0;
+let runningJobs = 0;
+let sending = false;
 let lastHousekeeping = 0;
+let lastMinute = 0;
+let lastWinback = 0;
+
+/** প্রতিটা পালায় আলাদা try: একটা অংশ ভাঙলেও বাকিগুলো চলে */
+async function step(name: string, fn: () => Promise<unknown>) {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`[jobs] ${name} failed`, error);
+  }
+}
 
 async function tick() {
-  try {
-    if (Date.now() - lastHousekeeping > 60 * 60_000) {
-      lastHousekeeping = Date.now();
+  const now = Date.now();
+  if (now - lastHousekeeping > 60 * 60_000) {
+    lastHousekeeping = now;
+    await step("housekeeping", async () => {
       await recoverStuck();
+      await recoverStuckJobs();
+      await recoverStuckMessages();
       await pruneVisitorDays();
-    }
+      await pruneMarketingData();
+    });
+  }
+  if (now - lastMinute > 60_000) {
+    lastMinute = now;
+    await step("campaigns", () => startDueCampaigns());
+  }
+  if (now - lastWinback > 6 * 60 * 60_000) {
+    lastWinback = now;
+    await step("winback", () => queueWinbacks());
+  }
+
+  await step("speed", async () => {
     while (running < MAX_PARALLEL) {
       const job = await claim();
       if (!job) break;
@@ -98,8 +147,25 @@ async function tick() {
         running--;
       });
     }
-  } catch (error) {
-    console.error("[jobs] tick failed", error);
+  });
+
+  await step("queue", async () => {
+    while (runningJobs < MAX_PARALLEL) {
+      const job = await claimJob();
+      if (!job) break;
+      runningJobs++;
+      void runJob(job).finally(() => {
+        runningJobs--;
+      });
+    }
+  });
+
+  // ইমেইল: আগের ব্যাচ শেষ না হলে নতুন ব্যাচ ধরা হয় না
+  if (!sending) {
+    sending = true;
+    void step("messages", () => processMessages()).finally(() => {
+      sending = false;
+    });
   }
 }
 
@@ -113,5 +179,8 @@ export function startJobs() {
   if (globalThis.__appJobsStarted || process.env.DISABLE_JOBS === "true") return;
   globalThis.__appJobsStarted = true;
   lastHousekeeping = 0;
+  lastMinute = 0;
+  // সার্ভার চালুর সাথে সাথে নয়, একটু পরে (ডেভেলপমেন্টে বারবার restart হয়)
+  lastWinback = Date.now() - 6 * 60 * 60_000 + 5 * 60_000;
   setInterval(() => void tick(), TICK_MS).unref();
 }

@@ -5,6 +5,71 @@
 {% endcomment %}
 {%- assign app_config = app.metafields.app_config.tools.value -%}
 {%- if app_config and app_config.tools.size > 0 -%}
+  {%- comment -%}
+    Best Sellers Protection: কেউ ?sort_by=best-selling লিংকে এলে সাধারণ ক্রমে পাঠানো হয়।
+    এটা এখানে (লোডারের আগে) থাকে যাতে তালিকাটা যত কম সময় সম্ভব চোখে পড়ে; থিম পেজ নতুন করে লোড না
+    করে ক্রম বদলালে উইজেট এই একই ফাংশন (window.__APP_BSP__) ডাকে।
+    মার্চেন্ট নিজে কালেকশনের মূল ক্রম best-selling রাখলে কিছু করা হয় না।
+
+    অনন্ত ঘোরাঘুরি ঠেকানো: কিছু থিমে এমন কোড থাকে যা সাধারণ পেজ খুললেই best-selling-এ পাঠায়; সেখানে
+    আমরা ফেরত পাঠালে পেজ থামত না। তাই sessionStorage-এ ("app-bsp") মনে রাখা হয় শেষ কখন পাঠানো হলো আর
+    এই ট্যাবে মোট কতবার। পাঠানোর ৩০ সেকেন্ডের মধ্যে একই পেজের সাধারণ ঠিকানা থেকে (document.referrer)
+    আবার best-selling-এ আসা হলে সেটা থিমের কাজ ধরে নেওয়া হয়; তখন, বা এই ট্যাবে ৩ বার পাঠানো হয়ে গেলে,
+    মান "off" হয় আর এই ট্যাবে আর পাঠানো হয় না। sessionStorage বন্ধ থাকলে পাঠানোই হয় না।
+    নতুন পেজ আসা পর্যন্ত তালিকা আড়ালে থাকে; ৫ সেকেন্ডেও না এলে পেজ আবার দেখা যায়।
+    (স্ক্রিপ্টের ভেতরে মন্তব্য রাখা হয়নি, কারণ সেগুলো ক্রেতার ব্রাউজারে যেত।)
+  {%- endcomment -%}
+  {%- if request.page_type == 'collection' and collection.default_sort_by != 'best-selling' -%}
+    {%- for tool in app_config.tools -%}
+      {%- if tool.id == 'best-sellers-protection' and tool.settings.redirectVisits -%}
+        <script id="app-bsp">
+          (function () {
+            var KEY = 'app-bsp';
+            var sent = false;
+            function sorted(url) {
+              return url.searchParams.getAll('sort_by').indexOf('best-selling') >= 0;
+            }
+            function go() {
+              var url = new URL(location.href);
+              if (sent || !sorted(url)) return;
+              try {
+                var saved = (sessionStorage.getItem(KEY) || '').split(' ');
+                if (saved[0] === 'off') return;
+                var last = Number(saved[0]) || 0;
+                var total = Number(saved[1]) || 0;
+                var from = document.referrer ? new URL(document.referrer) : null;
+                var bounced =
+                  last > 0 &&
+                  Date.now() - last < 30000 &&
+                  from !== null &&
+                  from.origin + from.pathname === url.origin + url.pathname &&
+                  !sorted(from);
+                if (bounced || total >= 3) {
+                  sessionStorage.setItem(KEY, 'off');
+                  return;
+                }
+                sessionStorage.setItem(KEY, Date.now() + ' ' + (total + 1));
+              } catch (e) {
+                return;
+              }
+              sent = true;
+              url.searchParams.delete('sort_by');
+              url.searchParams.delete('page');
+              var root = document.documentElement;
+              root.style.visibility = 'hidden';
+              setTimeout(function () {
+                root.style.visibility = '';
+                sent = false;
+              }, 5000);
+              location.replace(url.toString());
+            }
+            window.__APP_BSP__ = go;
+            go();
+          })();
+        </script>
+      {%- endif -%}
+    {%- endfor -%}
+  {%- endif -%}
   <script>
     window.__APP_CONFIG__ = {
       assetBase: {{ 'loader.js' | asset_url | split: 'loader.js' | first | json }},
@@ -15,7 +80,9 @@
       shopCurrency: {{ shop.currency | json }},
       moneyFormat: {{ shop.money_format | strip_html | json }},
       marketsCurrencies: {{ shop.enabled_currencies.size | json }},
+      customerId: {{ customer.id | json }},
       country: {{ localization.country.iso_code | json }},
+      defaultSort: {{ collection.default_sort_by | json }},
       countries: [
         {%- for tool in app_config.tools -%}
           {%- if tool.id == 'geolocation-redirect' -%}

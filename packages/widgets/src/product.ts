@@ -46,6 +46,9 @@ export function discounted(cents: number, value: { percent?: number; amountEach?
 
 /** Add to cart-এর নিচে উইজেটগুলোর ক্রম (ফাইল যে ক্রমেই লোড হোক, সাজানো থাকে একই রকম) */
 const AFTER_FORM_ORDER = [
+  // স্টকে এলে জানানো আর জমিয়ে রাখার বাটন ফর্মের সবচেয়ে কাছে
+  "back-in-stock",
+  "wishlist",
   "shipping-info",
   "size-chart",
   "countdown-timer",

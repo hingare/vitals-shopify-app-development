@@ -9,6 +9,7 @@ import { canUseTool, z } from "@app/tool-sdk";
 import { authenticate } from "../shopify.server";
 import { ensureShop, planOf } from "../lib/shop.server";
 import { getToolStates, saveTool, ToolError } from "../lib/tools.server";
+import { TOOL_PAGES } from "../lib/tool-pages";
 import { useT } from "../lib/i18n";
 import { SettingsForm, type JsonSchema } from "../components/SettingsForm";
 import { previews } from "../components/previews";
@@ -25,6 +26,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     plan: tool.plan,
     allowed: plan !== null && canUseTool(tool, plan),
     nativeAlternative: tool.shopifyNativeAlternative ?? null,
+    page: TOOL_PAGES[tool.id] ?? null,
     enabled: state.enabled,
     settings: state.settings as Record<string, unknown>,
     schema: z.toJSONSchema(tool.settings, { io: "input" }) as JsonSchema,
@@ -36,8 +38,15 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const shop = await ensureShop(session.shop);
   const body = (await request.json()) as { enabled: boolean; settings: unknown };
   try {
-    await saveTool(admin, { id: shop.id, plan: planOf(shop) }, params.toolId ?? "", body);
-    return { ok: true as const };
+    const saved = await saveTool(
+      admin,
+      { id: shop.id, plan: planOf(shop) },
+      params.toolId ?? "",
+      body,
+    );
+    // সেভ হয়েছে, কিন্তু স্টোরের পিক্সেলে বদলটা এখনো পৌঁছায়নি (Facebook Pixels)
+    const pixelPending = saved.pixel === "meta-pending" || saved.pixel === "failed";
+    return { ok: true as const, pixelPending };
   } catch (error) {
     if (error instanceof ToolError)
       return { ok: false as const, error: error.code, message: error.message };
@@ -56,7 +65,10 @@ export default function ToolSettingsPage() {
   const saving = fetcher.state !== "idle";
 
   useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.ok) shopify.toast.show(t("tools.saved"));
+    if (fetcher.state === "idle" && fetcher.data?.ok) {
+      if (fetcher.data.pixelPending) shopify.toast.show(t("tools.pixelPending"), { isError: true });
+      else shopify.toast.show(t("tools.saved"));
+    }
     if (fetcher.state === "idle" && fetcher.data && !fetcher.data.ok) {
       shopify.toast.show(fetcher.data.message, { isError: true });
     }
@@ -81,6 +93,11 @@ export default function ToolSettingsPage() {
       >
         {t("tools.save")}
       </s-button>
+      {data.page && (
+        <s-button slot="secondary-actions" href={data.page}>
+          {t(`tools.page.${data.id}`)}
+        </s-button>
+      )}
 
       {data.nativeAlternative && (
         <s-banner tone="warning">

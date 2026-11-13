@@ -35,16 +35,16 @@ model Session {
 
 /// একটি ইনস্টল করা স্টোর
 model Shop {
-  id               String             @id @default(cuid())
-  domain           String             @unique
+  id               String              @id @default(cuid())
+  domain           String              @unique
   /// "starter" | "professional" | null (কোনো প্ল্যান নেই)
   plan             String?
   /// Shopify-র subscription id, যাতে প্ল্যান বদলালে মেলানো যায়
   subscriptionId   String?
-  installedAt      DateTime           @default(now())
+  installedAt      DateTime            @default(now())
   uninstalledAt    DateTime?
   /// Web Pixel ইভেন্ট পাঠানোর গোপন নয় এমন চাবি (কোন স্টোরের ইভেন্ট তা চেনার জন্য)
-  ingestKey        String?            @unique
+  ingestKey        String?             @unique
   /// Shopify-তে তৈরি web pixel-এর id ও যে URL-এ সে ইভেন্ট পাঠায়
   pixelId          String?
   pixelEndpoint    String?
@@ -54,8 +54,8 @@ model Shop {
   offerSettings    Json?
   /// থিমে উইজেট কোথায় বসবে, মার্চেন্ট নিজে ঠিক করলে (app/lib/placement.ts)
   placement        Json?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   tools            ToolSetting[]
   speedSnapshots   SpeedSnapshot[]
   speedJobs        SpeedJob[]
@@ -69,6 +69,27 @@ model Shop {
   recentSales      RecentSale[]
   offerStats       OfferDailyStat[]
   abStats          DailyAbStat[]
+  /// Web pixel-এ সর্বশেষ পাঠানো সেটিংস (বদলালে আবার পাঠানো হয়)
+  pixelSettings    String?
+  /// Web Push-এর VAPID চাবি (private অংশ এনক্রিপ্ট করা)
+  vapidPublicKey   String?
+  vapidPrivateKey  String?
+  /// ইমেইলের প্রেরকের নাম, reply-to, ঠিকানা (app/lib/email-settings.ts)
+  emailSettings    Json?
+  integrations     Integration[]
+  subscribers      Subscriber[]
+  messages         Message[]
+  emailCampaigns   EmailCampaign[]
+  emailFlows       EmailFlow[]
+  checkouts        AbandonedCheckout[]
+  stockAlerts      StockAlert[]
+  wheelSpins       WheelSpin[]
+  wishlistItems    WishlistItem[]
+  pushSubscribers  PushSubscription[]
+  pushCampaigns    PushCampaign[]
+  withdrawals      WithdrawalRequest[]
+  altTextChanges   AltTextChange[]
+  jobs             Job[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -301,4 +322,289 @@ model DailyAbStat {
   shop    Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, group, date])
+}
+
+/// বাইরের সার্ভিসের সংযোগ (Klaviyo, Mailchimp, Omnisend)।
+/// চাবি AES-256-GCM-এ এনক্রিপ্ট করা থাকে; স্টোরফ্রন্টে কখনো যায় না
+model Integration {
+  id         String    @id @default(cuid())
+  shopId     String
+  /// klaviyo | mailchimp | omnisend
+  provider   String
+  /// এনক্রিপ্ট করা JSON (app/lib/crypto.server.ts)
+  secret     String
+  /// গোপন নয় এমন সেটিংস: কোন টুলের গ্রাহক কোন লিস্টে যাবে, sender id ইত্যাদি
+  config     Json      @default("{}")
+  /// connected | error
+  status     String    @default("connected")
+  lastError  String?
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, provider])
+}
+
+/// মার্কেটিং ইমেইলের গ্রাহক। সম্মতির আসল উৎস Shopify-র customer; এটা তার দ্রুত কপি
+model Subscriber {
+  id             String    @id @default(cuid())
+  shopId         String
+  /// ছোট হাতের অক্ষরে
+  email          String
+  firstName      String?
+  /// subscribed | unsubscribed | bounced | complained
+  status         String    @default("subscribed")
+  /// shopify | popup | spin-wheel | back-in-stock | review
+  source         String    @default("shopify")
+  /// Shopify customer-এর সংখ্যা-id (জানা থাকলে)
+  customerId     String?
+  consentAt      DateTime  @default(now())
+  unsubscribedAt DateTime?
+  lastOrderAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  shop           Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, email])
+  @@index([shopId, status, createdAt])
+  @@index([shopId, customerId])
+}
+
+/// পাঠানো বার্তা (ইমেইল): লাইনে থাকা থেকে পৌঁছানো পর্যন্ত অবস্থা
+model Message {
+  id          String    @id @default(cuid())
+  shopId      String
+  /// এখন শুধু email (পরে অন্য মাধ্যম যোগ হলে এখানেই আলাদা হবে)
+  channel     String
+  /// campaign | flow | back-in-stock | withdrawal | test
+  kind        String
+  /// ক্যাম্পেইনের id বা flow-র নাম
+  refId       String?
+  /// ইমেইল ঠিকানা
+  recipient   String
+  /// একই বার্তা দুবার না পাঠাতে (যেমন "campaign:<id>:<email>")
+  dedupeKey   String?
+  /// বার্তা বানানোর তথ্য (subject, heading, body, button)
+  payload     Json
+  /// queued | sending | sent | delivered | failed | bounced | complained | skipped
+  status      String    @default("queued")
+  error       String?
+  attempts    Int       @default(0)
+  /// প্রোভাইডারের দেওয়া id (delivery webhook মেলাতে)
+  providerId  String?
+  sendAt      DateTime  @default(now())
+  /// পাঠানোর জন্য কখন তুলে নেওয়া হয়েছে (সার্ভার বন্ধ হলে আটকে থাকা বার্তা চিনতে)
+  lockedAt    DateTime?
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  openedAt    DateTime?
+  clickedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, dedupeKey])
+  @@index([status, sendAt])
+  @@index([shopId, channel, createdAt])
+  @@index([shopId, kind, refId])
+  @@index([shopId, recipient])
+  @@index([providerId])
+}
+
+/// একবারের ইমেইল ক্যাম্পেইন
+model EmailCampaign {
+  id          String    @id @default(cuid())
+  shopId      String
+  /// শুধু মার্চেন্টের জন্য নাম
+  name        String
+  /// subject, heading, body, button (app/lib/email-template.ts-এর schema)
+  content     Json
+  /// draft | scheduled | sending | sent
+  status      String    @default("draft")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  recipients  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([status, scheduledAt])
+}
+
+/// স্বয়ংক্রিয় ইমেইল (flow)। key: welcome | abandoned-checkout | review-request | winback
+model EmailFlow {
+  id           String   @id @default(cuid())
+  shopId       String
+  key          String
+  enabled      Boolean  @default(false)
+  /// ঘটনার কত মিনিট পরে পাঠাবে
+  delayMinutes Int
+  content      Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  shop         Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, key])
+}
+
+/// অসম্পূর্ণ চেকআউট (abandoned checkout ইমেইলের জন্য)। অর্ডার হলে চিহ্ন পড়ে; ৩০ দিন পরে মুছে যায়
+model AbandonedCheckout {
+  id               String    @id @default(cuid())
+  shopId           String
+  token            String
+  email            String
+  firstName        String?
+  /// ক্রেতাকে চেকআউটে ফেরানোর লিংক (Shopify-র দেওয়া)
+  recoveryUrl      String
+  total            Decimal   @db.Decimal(14, 2)
+  currency         String
+  /// ক্রেতা মার্কেটিং ইমেইলে রাজি কিনা
+  acceptsMarketing Boolean   @default(false)
+  completedAt      DateTime?
+  /// Shopify-র হিসাবে চেকআউট শেষ কবে বদলেছে (দেরিতে আসা পুরনো খবর চেনার জন্য)
+  sourceUpdatedAt  DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  shop             Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, token])
+  @@index([shopId, email])
+  @@index([createdAt])
+}
+
+/// Back in Stock: স্টকে ফিরলে জানানোর অনুরোধ
+model StockAlert {
+  id         String    @id @default(cuid())
+  shopId     String
+  productId  String
+  variantId  String
+  email      String
+  /// waiting | notified
+  status     String    @default("waiting")
+  createdAt  DateTime  @default(now())
+  notifiedAt DateTime?
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, variantId, email])
+  @@index([shopId, variantId, status])
+  /// products/update এলে: এই প্রোডাক্টের জন্য কেউ অপেক্ষায় আছে কিনা
+  @@index([shopId, productId, status])
+  @@index([shopId, email])
+}
+
+/// Spin the Wheel: কে কখন ঘুরিয়েছে আর কী পেয়েছে
+model WheelSpin {
+  id        String    @id @default(cuid())
+  shopId    String
+  email     String
+  /// কোন ঘরে থেমেছে (০ থেকে)
+  slice     Int
+  label     String
+  /// জেতা ডিসকাউন্ট কোড (না জিতলে null)
+  code      String?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, email, createdAt])
+}
+
+/// Wishlist। owner = "c:<customer id>" (লগইন করা ক্রেতা) বা "g:<র‍্যান্ডম id>" (অতিথি)
+model WishlistItem {
+  id        String   @id @default(cuid())
+  shopId    String
+  owner     String
+  productId String
+  handle    String
+  createdAt DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, owner, productId])
+  @@index([shopId, productId])
+}
+
+/// Web Push-এর গ্রাহক (ব্রাউজারের দেওয়া ঠিকানা ও চাবি; কোনো ব্যক্তিগত তথ্য নয়)
+model PushSubscription {
+  id        String   @id @default(cuid())
+  shopId    String
+  endpoint  String
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, endpoint])
+}
+
+/// পাঠানো push নোটিফিকেশন
+model PushCampaign {
+  id        String   @id @default(cuid())
+  shopId    String
+  title     String
+  body      String
+  url       String
+  /// queued | sending | sent
+  status    String   @default("queued")
+  sent      Int      @default(0)
+  failed    Int      @default(0)
+  clicks    Int      @default(0)
+  createdAt DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+}
+
+/// EU Withdrawal Button: চুক্তি প্রত্যাহারের অনুরোধ
+model WithdrawalRequest {
+  id          String   @id @default(cuid())
+  shopId      String
+  name        String
+  email       String
+  orderNumber String
+  details     String   @default("")
+  /// new | handled
+  status      String   @default("new")
+  createdAt   DateTime @default(now())
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+  @@index([shopId, email])
+}
+
+/// SEO Alt Tags: বদলানো alt লেখার আগের মান (আগের অবস্থায় ফেরানোর জন্য)
+model AltTextChange {
+  id        String   @id @default(cuid())
+  shopId    String
+  /// Shopify MediaImage gid
+  mediaId   String
+  productId String
+  oldAlt    String
+  newAlt    String
+  createdAt DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, mediaId])
+}
+
+/// সাধারণ ব্যাকগ্রাউন্ড কাজ (ক্যাম্পেইন পাঠানো, alt লেখা, সিঙ্ক)
+model Job {
+  id         String    @id @default(cuid())
+  shopId     String
+  kind       String
+  payload    Json      @default("{}")
+  /// pending | running | done | failed
+  status     String    @default("pending")
+  error      String?
+  attempts   Int       @default(0)
+  /// অগ্রগতি দেখানোর জন্য, যেমন {"done": 40, "total": 120}
+  progress   Json?
+  runAt      DateTime  @default(now())
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([status, runAt])
+  @@index([shopId, kind, createdAt])
 }
