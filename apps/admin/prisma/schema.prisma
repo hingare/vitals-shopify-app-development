@@ -90,6 +90,10 @@ model Shop {
   withdrawals      WithdrawalRequest[]
   altTextChanges   AltTextChange[]
   jobs             Job[]
+  /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
+  trialEndsAt      DateTime?
+  usage            UsageCounter[]
+  aiGenerations    AiGeneration[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -607,4 +611,51 @@ model Job {
 
   @@index([status, runAt])
   @@index([shopId, kind, createdAt])
+}
+
+/// মাসিক খরচের মিটার (UTC মাস, যেমন "2026-11")। AI-র খরচ মাইক্রো-ডলারে, রেকর্ডিং সংখ্যায়।
+/// সীমা app/lib/plans.ts-এ; সীমা পেরোলে কাজ থামে, কখনো বাড়তি বিল হয় না।
+model UsageCounter {
+  id        String   @id @default(cuid())
+  shopId    String
+  /// "ai" | "recordings"
+  meter     String
+  month     String
+  used      Int      @default(0)
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, meter, month])
+}
+
+/// AI দিয়ে বানানো প্রতিটা কাজ। ফল আগে মার্চেন্ট দেখেন, পছন্দ হলে স্টোরে বসে;
+/// আগের মান রাখা থাকে, তাই এক ক্লিকে ফেরানো যায় (app/lib/ai/generations.server.ts)।
+model AiGeneration {
+  id         String    @id @default(cuid())
+  shopId     String
+  /// টুলের id, যেমন "ai-descriptions"
+  toolId     String
+  /// কোন জিনিসের জন্য: Shopify gid (প্রোডাক্ট, ছবি) বা URL; না থাকলে null
+  targetId   String?
+  /// একসাথে চালানো অনেকগুলো কাজের দল (যেমন সব ছবির alt)
+  batchId    String?
+  /// queued | running | ready | failed | applied | undone | discarded
+  status     String    @default("queued")
+  input      Json      @default("{}")
+  output     Json?
+  /// স্টোরে বসানোর আগের মান (ফেরানোর জন্য)
+  previous   Json?
+  /// ত্রুটির ধরন (app/lib/ai/errors.ts), মার্চেন্টকে তার ভাষায় দেখানো হয়
+  error      String?
+  /// আসল খরচ, মাইক্রো-ডলারে (মাসিক মিটারে যোগ হয়েছে)
+  costMicros Int       @default(0)
+  model      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  appliedAt  DateTime?
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, toolId, createdAt])
+  @@index([shopId, targetId])
+  @@index([batchId])
 }

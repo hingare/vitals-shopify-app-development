@@ -34,6 +34,7 @@ export const en = {
   "tools.on": "On",
   "tools.off": "Off",
   "tools.configure": "Configure",
+  "tools.open": "Open",
   "tools.locked": "Professional plan",
   "tools.upgrade": "Upgrade to unlock",
   "tools.save": "Save",
@@ -749,6 +750,126 @@ export const en = {
   "field.redirectVisits": "Send visitors who open a best-selling link to the normal order",
   "help.redirectVisits":
     "A link that opens a collection sorted by best selling shows the normal order instead, including links in your own menus. The sort option is removed too while this is on.",
+
+  // ---- Stage 6: heavy tools, AI tools, AI visibility and SEO ----
+  "tool.visitor-recordings.name": "Visitor Recordings",
+  "tool.visitor-recordings.description":
+    "Watch replays of how shoppers move through your store. What they type is always hidden, visitors who decline analytics cookies are not recorded, and recording stops at your monthly limit.",
+  "field.samplePercent": "Percent of visitors to record",
+  "help.samplePercent": "Recording fewer visitors makes your monthly limit last longer.",
+  "field.minSeconds": "Skip visits shorter than (seconds)",
+  "field.maskText": "Hide all text on the page in recordings",
+  "help.maskText":
+    "What shoppers type is always hidden. Turn this on to hide every word on the page too.",
+  "field.recordMobile": "Record visitors on phones",
+  "field.excludePaths": "Pages not to record",
+  "help.excludePaths":
+    "Store paths separated by commas, like /pages/contact, /account. Checkout is never recorded.",
+  "tool.live-chat.name": "Live Chat",
+  "tool.live-chat.description":
+    "Chat with shoppers right in your store and answer from the Chat page in the app. When you're away, shoppers leave their email and get your reply there.",
+  "field.welcomeMessage": "Welcome message",
+  "field.offlineText": "Message when you're away",
+  "field.askEmail": "Ask for the shopper's email",
+  "option.always": "Always",
+  "option.offline": "Only when you're away",
+  "option.never": "Never",
+  "tool.instant-search.name": "Instant Search",
+  "tool.instant-search.description":
+    "Shows matching products, collections and pages while shoppers type in your store's search box.",
+  "field.placeholder": "Search box text",
+  "field.showPrices": "Show prices",
+  "field.showCollections": "Show collections",
+  "field.showPages": "Show pages",
+  "field.popularSearches": "Popular searches",
+  "help.popularSearches":
+    "Shown when the search box is still empty. Separate with commas, like t-shirts, summer sale.",
+  "tool.ai-seo-schema.name": "AI SEO Schema",
+  "tool.ai-seo-schema.description":
+    "Adds structured data about your products, ratings, brand and page paths, so Google and AI search read your store correctly and can show price, stock and stars in results.",
+  "field.productSchema": "Product data (price, stock, ratings)",
+  "field.organizationSchema": "Store and brand data (logo, social links)",
+  "field.breadcrumbSchema": "Page path (breadcrumbs)",
+  "field.returnDays": "Days customers have to return an item",
+  "help.returnDays": "Shown with your products in Google. 0 leaves the return policy out.",
+  "field.returnFees": "Return shipping",
+  "option.free": "Free returns",
+  "option.customer-pays": "Customer pays return shipping",
+  "field.removeThemeDuplicates": "Remove the same data if your theme already adds it",
+  "help.removeThemeDuplicates":
+    "Many themes add their own product data. Two different copies can confuse search engines, so this keeps only the app's copy.",
+  "tool.llms-txt.name": "llms.txt for AI search",
+  "tool.llms-txt.description":
+    "Publishes a short guide to your store at /llms.txt, so AI assistants like ChatGPT, Claude, Gemini and Grok understand what you sell.",
+  "field.storeSummary": "About your store",
+  "help.storeSummary":
+    "A few sentences on what you sell and who it's for. Leave empty to use your store description from Shopify.",
+  "field.productLimit": "How many products to list",
+  "field.includeCollections": "List collections",
+  "field.includePolicies": "List store policies (shipping, returns, privacy)",
+  "field.includePages": "List pages",
+  "field.fullVersion": "Also publish /llms-full.txt with product descriptions",
+  "tool.seo-meta-templates.name": "SEO Meta Templates",
+  "tool.seo-meta-templates.description":
+    "Fills in empty search titles and descriptions of products and collections from a pattern. Text you wrote yourself is never changed, and you can undo it.",
+  "field.productTitle": "Product search title",
+  "help.productTitle": "Use {product}, {vendor}, {type}, {price} and {shop}.",
+  "field.productDescription": "Product search description",
+  "help.productDescription":
+    "Use {product}, {description}, {vendor}, {type}, {price} and {shop}. {description} is the start of the product description.",
+  "field.collectionTitle": "Collection search title",
+  "help.collectionTitle": "Use {collection} and {shop}.",
+  "field.collectionDescription": "Collection search description",
+  "help.collectionDescription": "Use {collection}, {description} and {shop}.",
+  "field.autoFillNew": "Fill in new products and collections automatically",
+  "tool.ai-alt-text.name": "AI Alt Text",
+  "tool.ai-alt-text.description":
+    "AI looks at each product photo and writes alt text that describes what is in it. You review the text before it is saved.",
+  "tool.ai-descriptions.name": "AI Product Descriptions",
+  "tool.ai-descriptions.description":
+    "Writes product descriptions, and search titles if you want, with AI. You see a preview first and choose what to save.",
+  "tool.ai-product-faq.name": "AI Product FAQ",
+  "tool.ai-product-faq.description":
+    "Questions and answers on product pages, written with AI from the product details and checked by you. Also adds FAQ data for search engines.",
+  "field.faqSchema": "Add FAQ data for search engines",
+  "tool.ai-review-summary.name": "AI Review Summary",
+  "tool.ai-review-summary.description":
+    "A short summary of what customers say, with the good and the bad, shown above your product reviews. Updated when new reviews come in.",
+  "field.minReviews": "Reviews needed before a summary is shown",
+  "field.autoRefresh": "Update the summary when new reviews come in",
+  "tool.ai-background-remover.name": "AI Background Remover",
+  "tool.ai-background-remover.description":
+    "Removes the background of product photos and puts them on clean white or transparent.",
+  "tool.ai-image-enhancer.name": "AI Image Enhancer",
+  "tool.ai-image-enhancer.description":
+    "Makes product photos sharper and larger, or extends them to a new size and shape.",
+  "tool.ai-photoshoots.name": "AI Photoshoots",
+  "tool.ai-photoshoots.description":
+    "Puts your product in new scenes, like a studio, a kitchen or outdoors, without a real photoshoot.",
+  "tool.ai-image-to-video.name": "AI Image to Video",
+  "tool.ai-image-to-video.description":
+    "Turns a product photo into a short moving video for your store and social media.",
+  "tool.ai-video-ads.name": "AI Video Ads",
+  "tool.ai-video-ads.description":
+    "Makes short video ads from your product photos, with ad text to go with them.",
+  "tool.ai-page-builder.name": "AI Page Builder",
+  "tool.ai-page-builder.description":
+    "Describe a page and AI builds it. It is saved as a hidden draft in your store's Pages until you publish it.",
+  "tool.ai-product-importer.name": "AI Product Importer",
+  "tool.ai-product-importer.description":
+    "Paste a link to a product page from your supplier or another site of yours, and AI creates a draft product from it.",
+  "tool.ai-page-audit.name": "AI Page Audit",
+  "tool.ai-page-audit.description":
+    "Checks a page of your store and lists what to fix to sell more and show up better in search.",
+  "tool.ai-marketing-plan.name": "AI Marketing Plan",
+  "tool.ai-marketing-plan.description":
+    "A 30-day marketing plan for your store, made from your products and sales.",
+  "tool.ai-social-posts.name": "AI Social Post Writer",
+  "tool.ai-social-posts.description":
+    "Writes posts about your products for Facebook, Instagram, TikTok and X.",
+  "tool.ai-viral-campaign.name": "AI Viral Campaign",
+  "tool.ai-viral-campaign.description":
+    "Ideas for a campaign people want to share: the hook, the rules, the posts and the emails.",
 
   // ---- Marketing (email) ----
   "nav.marketing": "Marketing",

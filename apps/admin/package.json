@@ -26,6 +26,12 @@
     "node": ">=22.12"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@app/brand": "workspace:*",
+    "@app/i18n": "workspace:*",
+    "@app/integrations": "workspace:*",
+    "@app/tool-sdk": "workspace:*",
+    "@app/tools": "workspace:*",
     "@prisma/client": "^6.19.0",
     "@react-router/dev": "7.18.2",
     "@react-router/fs-routes": "7.18.2",
@@ -40,11 +46,7 @@
     "react-dom": "^18.3.1",
     "react-router": "7.18.2",
     "vite-tsconfig-paths": "^6.0.4",
-    "@app/brand": "workspace:*",
-    "@app/tool-sdk": "workspace:*",
-    "@app/i18n": "workspace:*",
-    "@app/integrations": "workspace:*",
-    "@app/tools": "workspace:*"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@shopify/api-codegen-preset": "^2.0.0",

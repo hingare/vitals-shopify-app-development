@@ -37,6 +37,19 @@ describe("defineTool", () => {
     expect(() => defineTool({ ...stickyAtc, id: "StickyATC" })).toThrow(/kebab-case/);
   });
 
+  it("allows the always-on switchless mode only for admin tools", () => {
+    expect(() => defineTool({ ...stickyAtc, id: "on-store", alwaysOn: true })).toThrow(/admin/);
+    const writer = defineTool({
+      ...stickyAtc,
+      id: "ai-writer",
+      delivery: "admin",
+      alwaysOn: true,
+      settings: z.object({}),
+    });
+    expect(writer.alwaysOn).toBe(true);
+    expect(stickyAtc.alwaysOn).toBe(false);
+  });
+
   it("rejects settings without defaults", () => {
     expect(() =>
       defineTool({ ...stickyAtc, id: "bad-tool", settings: z.object({ title: z.string() }) }),
