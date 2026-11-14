@@ -66,10 +66,24 @@ export function cleanEmail(value: unknown): string | null {
 
 /** স্টোরফ্রন্ট থেকে আসা JSON body (ভুল হলে null) */
 export async function readJson(request: Request, maxBytes = 16 * 1024): Promise<unknown> {
-  const text = await request.text();
-  if (text.length > maxBytes) return null;
+  // বড় body পুরোটা মেমরিতে তোলার আগেই থামে: আগে ঘোষিত আকার, তারপর পড়তে পড়তে গোনা
+  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return null;
+  const reader = request.body?.getReader();
+  if (!reader) return null;
+  const parts: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    parts.push(value);
+  }
   try {
-    return JSON.parse(text);
+    return JSON.parse(Buffer.concat(parts).toString("utf8"));
   } catch {
     return null;
   }

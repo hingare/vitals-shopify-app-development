@@ -7,6 +7,9 @@ import { readEmailSettings } from "./email-template";
 import { enqueueEmail } from "./messages.server";
 import { enqueueJob, registerJob } from "./queue.server";
 import { cleanEmail, enabledSettings, type ShopRef } from "./tool-state.server";
+import { MESSAGE_MAX } from "./chat";
+
+export { MESSAGE_MAX };
 
 /**
  * Live Chat: ক্রেতা স্টোরে লেখেন, মার্চেন্ট অ্যাপের Chat পাতা থেকে উত্তর দেন।
@@ -18,7 +21,6 @@ import { cleanEmail, enabledSettings, type ShopRef } from "./tool-state.server";
  */
 export type ChatSettings = z.output<typeof liveChat.settings>;
 
-export const MESSAGE_MAX = 1000;
 /** মার্চেন্ট এর মধ্যে Chat পাতা খোলা রাখলে অনলাইন ধরা হয় */
 export const ONLINE_MS = 90_000;
 const PRESENCE_WRITE_MS = 30_000;

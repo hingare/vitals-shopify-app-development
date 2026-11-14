@@ -11,4 +11,5 @@ export const TOOL_PAGES: Record<string, string> = {
   "ai-seo-schema": "/app/seo",
   "seo-meta-templates": "/app/seo",
   "live-chat": "/app/chat",
+  "visitor-recordings": "/app/recordings",
 };

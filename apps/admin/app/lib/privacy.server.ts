@@ -1,4 +1,5 @@
 import db from "../db.server";
+import { customerRecordings, deleteCustomerRecordings } from "./recordings.server";
 import { cleanEmail } from "./tool-state.server";
 
 /**
@@ -8,7 +9,9 @@ import { cleanEmail } from "./tool-state.server";
  * - redactCustomer: সেই ক্রেতার সব তথ্য মোছা (Shopify-র customers/redact)।
  *
  * নতুন কোনো টেবিলে ক্রেতার ইমেইল, নাম বা customer id রাখলে এই ফাইলের দুই ফাংশনেই যোগ করতে হবে।
- * স্টোরের সব তথ্য মোছা (shop/redact) আলাদা: Shop সারি মুছলে বাকি সব টেবিল cascade-এ মুছে যায়।
+ * স্টোরের সব তথ্য মোছা (shop/redact) আলাদা: Shop সারি মুছলে বাকি সব টেবিল cascade-এ মুছে যায়
+ * (শুধু Visitor Recordings-এর স্টোরেজের ফাইল আগে আলাদা করে মুছতে হয়: deleteShopRecordings)।
+ * Visitor Recordings: লগইন করা ক্রেতার রেকর্ডিং তাঁর customer id দিয়ে চেনা যায়; অতিথির রেকর্ডিংয়ে কাউকে চেনার কিছু নেই।
  *
  * যা এখানে নেই, কারণ তাতে ক্রেতাকে চেনার কিছু নেই: PushSubscription (শুধু ব্রাউজারের দেওয়া ঠিকানা ও চাবি),
  * অতিথির wishlist (র‍্যান্ডম id), আর দিনের মোট হিসাবের টেবিলগুলো।
@@ -106,6 +109,7 @@ export async function customerData(shopId: string, ref: CustomerRef) {
       customerId ? db.wishlistItem.findMany({ where: { shopId, owner: `c:${customerId}` } }) : [],
     ]);
   const chats = await chatsOf(shopId, emails, customerId);
+  const recordings = customerId ? await customerRecordings(shopId, customerId) : [];
   const chatMessages = chats.length
     ? await db.chatMessage.findMany({
         where: { conversationId: { in: chats.map((row) => row.id) } },
@@ -196,6 +200,7 @@ export async function customerData(shopId: string, ref: CustomerRef) {
           at: iso(message.createdAt),
         })),
     })),
+    recordings: recordings.map((row) => ({ ...row, recordedAt: iso(row.recordedAt) })),
   };
 }
 
@@ -212,7 +217,8 @@ export function hasCustomerData(data: CustomerData): boolean {
       data.wheelSpins.length +
       data.withdrawals.length +
       data.wishlist.length +
-      data.chats.length >
+      data.chats.length +
+      data.recordings.length >
     0
   );
 }
@@ -277,7 +283,8 @@ export async function redactCustomer(shopId: string, ref: CustomerRef) {
     const wishlist = await db.wishlistItem.deleteMany({
       where: { shopId, owner: `c:${customerId}` },
     });
-    counts.deleted += wishlist.count;
+    // রেকর্ডিংয়ের ফাইলও স্টোরেজ থেকে মোছে
+    counts.deleted += wishlist.count + (await deleteCustomerRecordings(shopId, customerId));
   }
   const chats = await chatsOf(shopId, emails, customerId);
   if (chats.length > 0) {

@@ -329,6 +329,31 @@ function build() {
       [["shopId", "visitorKey"]],
     ),
     chatMessage: table("chatmsg", () => ({})),
+    recording: table(
+      "rec",
+      () => ({
+        customerId: null,
+        device: "desktop",
+        width: null,
+        height: null,
+        entryPath: "/",
+        pages: [],
+        pageViews: 0,
+        clicks: 0,
+        durationMs: 0,
+        firstEventAt: null,
+        lastEventAt: null,
+        chunks: 0,
+        bytes: 0,
+        rawBytes: 0,
+        parts: 0,
+        storedBytes: 0,
+        stopped: null,
+        lastChunkAt: new Date(),
+      }),
+      [["shopId", "keyHash"]],
+    ),
+    recordingChunk: table("recchunk", () => ({}), [["recordingId", "seq"]]),
     usageCounter: table("usage", () => ({ used: 0 }), [["shopId", "meter", "month"]]),
     aiGeneration: table("gen", () => ({
       targetId: null,
@@ -357,6 +382,11 @@ function build() {
 }
 
 export const fakeDb = build();
+/** আসল Prisma-র মতো কয়েকটা কাজ একসাথে (নকলে শুধু ক্রমে চালানো); তালিকায় দেখায় না, তাই টেবিলের মতো গোনা হয় না */
+Object.defineProperty(fakeDb, "$transaction", {
+  value: async (ops: Promise<unknown>[]) => Promise.all(ops),
+  enumerable: false,
+});
 
 export function resetFakeDb() {
   for (const table of Object.values(fakeDb)) table.reset();

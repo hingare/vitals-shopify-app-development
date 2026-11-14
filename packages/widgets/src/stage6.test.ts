@@ -7,13 +7,16 @@ import {
   splitList,
   suggestUrl,
 } from "./tools/instant-search";
+import { newKey } from "./keys";
+import { mergeMessages, needsEmail, unreadSince, type ChatMessage } from "./tools/live-chat";
 import {
-  mergeMessages,
-  needsEmail,
-  newKey,
-  unreadSince,
-  type ChatMessage,
-} from "./tools/live-chat";
+  canonicalPath,
+  cleanHref,
+  excluded,
+  gzipBase64,
+  readState,
+  sampled,
+} from "./tools/visitor-recordings";
 
 describe("AI SEO Schema duplicates", () => {
   const all = {
@@ -187,5 +190,52 @@ describe("Live Chat", () => {
     expect(unreadSince(messages, null)).toBe(2);
     expect(unreadSince(messages, "2026-11-14T10:01:00.000Z")).toBe(1);
     expect(unreadSince(messages, "2026-11-14T10:02:00.000Z")).toBe(0);
+  });
+});
+
+describe("Visitor Recordings", () => {
+  it("picks about the share of visits the merchant chose", () => {
+    expect(sampled(50, 0.49)).toBe(true);
+    expect(sampled(50, 0.5)).toBe(false);
+    expect(sampled(100, 0.999)).toBe(true);
+    expect(sampled(1, 0.02)).toBe(false);
+  });
+
+  it("never records account, password or app pages, in any language, and skips the merchant's paths", () => {
+    expect(canonicalPath("/fr/account/login", "/fr/")).toBe("/account/login");
+    expect(canonicalPath("/fr", "/fr/")).toBe("/");
+    expect(canonicalPath("/products/a", "/")).toBe("/products/a");
+    for (const path of ["/account", "/account/orders/1", "/password", "/apps/app-tools/track"]) {
+      expect(excluded(path, "")).toBe(true);
+    }
+    expect(excluded("/accounts-of-a-brand", "")).toBe(false);
+    expect(excluded("/pages/contact", "/pages/contact, /blogs/news/")).toBe(true);
+    expect(excluded("/blogs/news/a-post", "/pages/contact, /blogs/news/")).toBe(true);
+    expect(excluded("/pages/contact-us", "/pages/contact")).toBe(false);
+    expect(excluded("/products/a", "products, /")).toBe(false);
+  });
+
+  it("keeps page addresses but drops their query and hash", () => {
+    expect(cleanHref("https://shop.example/products/a?email=x@y.z#top")).toBe(
+      "https://shop.example/products/a",
+    );
+    expect(cleanHref("not a url")).toBe("");
+  });
+
+  it("continues the same recording across pages until the visit goes quiet for 30 minutes", () => {
+    const state = { k: "a".repeat(43), n: 3, t0: 1_000, t: 2_000 };
+    expect(readState(JSON.stringify(state), 2_000 + 29 * 60_000)).toEqual(state);
+    expect(readState(JSON.stringify(state), 2_000 + 31 * 60_000)).toBeNull();
+    expect(readState(JSON.stringify({ ...state, k: "short" }), 2_000)).toBeNull();
+    expect(readState(JSON.stringify({ ...state, n: -1 }), 2_000)).toBeNull();
+    expect(readState("{broken", 2_000)).toBeNull();
+    expect(readState(null, 2_000)).toBeNull();
+  });
+
+  it("gzips what it sends, the way the server unzips it", async () => {
+    const { gunzipSync } = await import("node:zlib");
+    const text = JSON.stringify([{ type: 4, timestamp: 1, data: { href: "https://s.example/" } }]);
+    const data = await gzipBase64(text);
+    expect(gunzipSync(Buffer.from(data, "base64")).toString("utf8")).toBe(text);
   });
 });

@@ -43,7 +43,11 @@ export interface AltContext {
  * ফাঁকা মানের পাশের বিভাজক বাদ যায়, অচেনা {নাম} ফাঁকা ধরা হয় (text-template.ts দেখুন)।
  */
 export function renderAlt(template: string, context: AltContext): string {
-  return renderTemplate(template, context as unknown as Record<string, string | undefined>, ALT_MAX);
+  return renderTemplate(
+    template,
+    context as unknown as Record<string, string | undefined>,
+    ALT_MAX,
+  );
 }
 
 interface MediaNode {

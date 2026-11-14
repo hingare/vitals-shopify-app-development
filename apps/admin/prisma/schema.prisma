@@ -92,6 +92,7 @@ model Shop {
   seoMetaChanges   SeoMetaChange[]
   reviewSummaries  ReviewSummary[]
   chats            ChatConversation[]
+  recordings       Recording[]
   /// Live Chat: মার্চেন্ট শেষ কখন অ্যাপের Chat পাতা খোলা রেখেছিলেন (এর ১.৫ মিনিটের মধ্যে হলে "অনলাইন")
   chatSeenAt       DateTime?
   jobs             Job[]
@@ -751,4 +752,54 @@ model ChatMessage {
   conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
+}
+
+/// Visitor Recordings: একটা ট্যাবের একটা ভিজিট (একাধিক পাতা)। রেকর্ড নিজে স্টোরেজে (R2) থাকে,
+/// কয়েক মিনিট চুপ থাকার পর জমা অংশগুলো এক ফাইলে যায় (part); তার আগে RecordingChunk-এ থাকে।
+model Recording {
+  id           String           @id @default(cuid())
+  shopId       String
+  /// ব্রাউজারের গোপন চাবির sha256 (চাবি নিজে কখনো রাখা হয় না)
+  keyHash      String
+  customerId   String?
+  /// "desktop" | "mobile"
+  device       String           @default("desktop")
+  width        Int?
+  height       Int?
+  entryPath    String           @default("/")
+  pages        String[]         @default([])
+  pageViews    Int              @default(0)
+  clicks       Int              @default(0)
+  durationMs   Int              @default(0)
+  firstEventAt DateTime?
+  lastEventAt  DateTime?
+  /// জমা নেওয়া অংশের হিসাব (gzip আর খোলা অবস্থায়), সীমা মেলাতে
+  chunks       Int              @default(0)
+  bytes        Int              @default(0)
+  rawBytes     Int              @default(0)
+  /// স্টোরেজে কয়টা ফাইল আর তাদের মোট আকার
+  parts        Int              @default(0)
+  storedBytes  Int              @default(0)
+  /// "full" হলে আর অংশ নেওয়া হয় না
+  stopped      String?
+  lastChunkAt  DateTime         @default(now())
+  createdAt    DateTime         @default(now())
+  shop         Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  staged       RecordingChunk[]
+
+  @@unique([shopId, keyHash])
+  @@index([shopId, createdAt])
+  @@index([createdAt])
+}
+
+/// স্টোরেজে যাওয়ার আগে জমা থাকা অংশ (gzip করা JSON)
+model RecordingChunk {
+  id          String    @id @default(cuid())
+  recordingId String
+  seq         Int
+  data        Bytes
+  createdAt   DateTime  @default(now())
+  recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@unique([recordingId, seq])
 }

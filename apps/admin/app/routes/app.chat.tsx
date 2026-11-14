@@ -14,16 +14,14 @@ import {
   listConversations,
   markPresence,
   merchantReply,
-  MESSAGE_MAX,
   openConversation,
   setConversationStatus,
   unreadTotal,
   type ChatView,
 } from "../lib/chat.server";
+import { ago, minutesSince } from "../lib/ago";
+import { MESSAGE_MAX } from "../lib/chat";
 import { useT } from "../lib/i18n";
-
-const minutesSince = (date: Date | string, now: Date) =>
-  Math.max(0, Math.floor((now.getTime() - new Date(date).getTime()) / 60_000));
 
 /**
  * Live Chat-এর Chat পাতা: ক্রেতাদের কথোপকথন আর উত্তর দেওয়া। পাতা খোলা থাকলে নতুন বার্তা নিজে থেকে আসে,
@@ -90,13 +88,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 type T = ReturnType<typeof useT>;
-
-function ago(t: T, minutes: number) {
-  if (minutes < 1) return t("chat.ago.now");
-  if (minutes < 60) return t("chat.ago.minutes", { n: minutes });
-  if (minutes < 1440) return t("chat.ago.hours", { n: Math.floor(minutes / 60) });
-  return t("chat.ago.days", { n: Math.floor(minutes / 1440) });
-}
 
 const shopperName = (t: T, email: string | null, id: string) =>
   email ?? t("chat.anonymous", { id: id.slice(-4).toUpperCase() });

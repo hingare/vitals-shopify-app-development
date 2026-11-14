@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { track } from "../analytics";
 import { bottomOffset, isMobile, store } from "../dom";
 import { widgetT, type WidgetString } from "../i18n";
+import { newKey } from "../keys";
 import { proxyPost } from "../proxy";
 import type { StoreConfig, ToolContext } from "../types";
 import { inputStyle, type Colors } from "../ui";
@@ -45,15 +46,6 @@ interface Thread {
   online: boolean;
   messages: ChatMessage[];
   hasEmail: boolean;
-}
-
-/** ৩২ বাইটের র‍্যান্ডম চাবি (URL-নিরাপদ base64, ৪৩ অক্ষর) */
-export function newKey(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
 }
 
 /** নতুন বার্তা আগেরগুলোর সাথে মেশায়: একই বার্তা একবার, সময়ের ক্রমে */

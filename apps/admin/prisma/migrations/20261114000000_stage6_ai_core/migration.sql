@@ -98,6 +98,45 @@ CREATE TABLE "ChatMessage" (
     CONSTRAINT "ChatMessage_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "Recording" (
+    "id" TEXT NOT NULL,
+    "shopId" TEXT NOT NULL,
+    "keyHash" TEXT NOT NULL,
+    "customerId" TEXT,
+    "device" TEXT NOT NULL DEFAULT 'desktop',
+    "width" INTEGER,
+    "height" INTEGER,
+    "entryPath" TEXT NOT NULL DEFAULT '/',
+    "pages" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "pageViews" INTEGER NOT NULL DEFAULT 0,
+    "clicks" INTEGER NOT NULL DEFAULT 0,
+    "durationMs" INTEGER NOT NULL DEFAULT 0,
+    "firstEventAt" TIMESTAMP(3),
+    "lastEventAt" TIMESTAMP(3),
+    "chunks" INTEGER NOT NULL DEFAULT 0,
+    "bytes" INTEGER NOT NULL DEFAULT 0,
+    "rawBytes" INTEGER NOT NULL DEFAULT 0,
+    "parts" INTEGER NOT NULL DEFAULT 0,
+    "storedBytes" INTEGER NOT NULL DEFAULT 0,
+    "stopped" TEXT,
+    "lastChunkAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Recording_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RecordingChunk" (
+    "id" TEXT NOT NULL,
+    "recordingId" TEXT NOT NULL,
+    "seq" INTEGER NOT NULL,
+    "data" BYTEA NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RecordingChunk_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "SeoMetaChange_shopId_resourceId_field_key" ON "SeoMetaChange"("shopId", "resourceId", "field");
 
@@ -125,6 +164,18 @@ CREATE UNIQUE INDEX "ChatConversation_shopId_visitorKey_key" ON "ChatConversatio
 -- CreateIndex
 CREATE INDEX "ChatMessage_conversationId_createdAt_idx" ON "ChatMessage"("conversationId", "createdAt");
 
+-- CreateIndex
+CREATE INDEX "Recording_shopId_createdAt_idx" ON "Recording"("shopId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "Recording_createdAt_idx" ON "Recording"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Recording_shopId_keyHash_key" ON "Recording"("shopId", "keyHash");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RecordingChunk_recordingId_seq_key" ON "RecordingChunk"("recordingId", "seq");
+
 -- AddForeignKey
 ALTER TABLE "SeoMetaChange" ADD CONSTRAINT "SeoMetaChange_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -142,4 +193,10 @@ ALTER TABLE "ChatConversation" ADD CONSTRAINT "ChatConversation_shopId_fkey" FOR
 
 -- AddForeignKey
 ALTER TABLE "ChatMessage" ADD CONSTRAINT "ChatMessage_conversationId_fkey" FOREIGN KEY ("conversationId") REFERENCES "ChatConversation"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Recording" ADD CONSTRAINT "Recording_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RecordingChunk" ADD CONSTRAINT "RecordingChunk_recordingId_fkey" FOREIGN KEY ("recordingId") REFERENCES "Recording"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

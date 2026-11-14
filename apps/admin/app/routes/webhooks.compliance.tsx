@@ -2,6 +2,8 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { redactCustomer } from "../lib/privacy.server";
+import { deleteShopRecordings } from "../lib/recordings.server";
+import { retryWebhook } from "../lib/tool-state.server";
 
 /**
  * GDPR বাধ্যতামূলক webhook (App Store-এর শর্ত)।
@@ -10,7 +12,7 @@ import { redactCustomer } from "../lib/privacy.server";
  *   প্রত্যাহারের বিবৃতি ইত্যাদি); রিভিউ থাকে, তবে নাম-ইমেইল ছাড়া।
  * - customers/data_request: মার্চেন্ট অ্যাডমিনের Subscribers পেজ থেকে ক্রেতার ইমেইল দিয়ে সব তথ্য নামিয়ে
  *   ক্রেতাকে দেন, তাই এখানে শুধু লগ রাখি (লগে ক্রেতার কোনো তথ্য লেখা হয় না)।
- * - shop/redact (আনইনস্টলের ৪৮ ঘণ্টা পরে): স্টোরের সব ডেটা মুছে ফেলি।
+ * - shop/redact (আনইনস্টলের ৪৮ ঘণ্টা পরে): স্টোরের সব ডেটা মুছে ফেলি (রেকর্ডিংয়ের ফাইলসহ)।
  * HMAC যাচাই authenticate.webhook করে; ভুল হলে 401 দেয়।
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -34,10 +36,20 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
       break;
     }
-    case "SHOP_REDACT":
+    case "SHOP_REDACT": {
+      const record = await db.shop.findUnique({ where: { domain: shop }, select: { id: true } });
+      // Visitor Recordings-এর স্টোরেজের ফাইল cascade-এ মোছে না, তাই আগে; না পারলে Shopify পরে আবার পাঠায়
+      if (record) {
+        try {
+          await deleteShopRecordings(record.id);
+        } catch (error) {
+          return retryWebhook("shop/redact", error);
+        }
+      }
       await db.session.deleteMany({ where: { shop } });
       await db.shop.deleteMany({ where: { domain: shop } }); // সব টেবিল cascade-এ মুছে যায়
       break;
+    }
   }
   return new Response();
 };

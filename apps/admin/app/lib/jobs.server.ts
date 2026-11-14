@@ -1,6 +1,7 @@
 import db from "../db.server";
 import { startDueCampaigns } from "./campaigns.server";
 import { pruneChats } from "./chat.server";
+import { pruneRecordings } from "./recordings.server";
 import { queueWinbacks } from "./flows.server";
 import { processMessages, recoverStuckMessages } from "./messages.server";
 import { claimJob, recoverStuckJobs, runJob } from "./queue.server";
@@ -106,6 +107,8 @@ export async function pruneMarketingData(now = new Date()) {
   await db.message.deleteMany({ where: { createdAt: { lt: daysAgo(180) } } });
   // Live Chat: ১৮০ দিন নতুন বার্তা না আসা কথোপকথন
   await pruneChats(now);
+  // Visitor Recordings: ৩০ দিনের পুরনো রেকর্ডিং আর তার ফাইল
+  await pruneRecordings(now);
 }
 
 let running = 0;

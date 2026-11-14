@@ -22,6 +22,27 @@ describe("signV4", () => {
     );
   });
 
+  // AWS S3-এর ডকুমেন্টের উদাহরণ (GET Object): R2-তে ফাইল রাখা-পড়া এভাবেই সই হয়
+  it("matches the S3 GET Object example, with a payload hash given up front", () => {
+    const empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    const headers = signV4({
+      method: "GET",
+      url: "https://examplebucket.s3.amazonaws.com/test.txt",
+      headers: { Range: "bytes=0-9", "x-amz-content-sha256": empty },
+      payloadHash: empty,
+      region: "us-east-1",
+      service: "s3",
+      accessKeyId: "AKIAIOSFODNN7EXAMPLE",
+      secretAccessKey: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+      now: new Date("2013-05-24T00:00:00Z"),
+    });
+    expect(headers.authorization).toBe(
+      "AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20130524/us-east-1/s3/aws4_request, " +
+        "SignedHeaders=host;range;x-amz-content-sha256;x-amz-date, " +
+        "Signature=f0e8bdb87c964420e857bd35b5d6ed310bd44f0170aba48dd91039c6036bdb41",
+    );
+  });
+
   it("signs the body, so a changed body gets a different signature", () => {
     const base = {
       method: "POST",
