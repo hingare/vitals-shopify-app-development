@@ -7,6 +7,13 @@ import {
   splitList,
   suggestUrl,
 } from "./tools/instant-search";
+import {
+  mergeMessages,
+  needsEmail,
+  newKey,
+  unreadSince,
+  type ChatMessage,
+} from "./tools/live-chat";
 
 describe("AI SEO Schema duplicates", () => {
   const all = {
@@ -133,5 +140,52 @@ describe("Instant Search", () => {
     expect(pushRecent(["a"], "   ")).toEqual(["a"]);
     expect(readRecent('["a", 2, "b"]')).toEqual(["a", "b"]);
     expect(readRecent("{broken")).toEqual([]);
+  });
+});
+
+describe("Live Chat", () => {
+  const msg = (id: string, from: ChatMessage["from"], at: string): ChatMessage => ({
+    id,
+    from,
+    body: id,
+    at,
+  });
+
+  it("makes a long random key the server accepts", () => {
+    const a = newKey();
+    expect(a).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(newKey()).not.toBe(a);
+  });
+
+  it("adds new messages once and keeps them in time order", () => {
+    const first = [msg("a", "visitor", "2026-11-14T10:00:00.000Z")];
+    expect(mergeMessages(first, [])).toBe(first);
+    const merged = mergeMessages(first, [
+      msg("c", "store", "2026-11-14T10:02:00.000Z"),
+      msg("a", "visitor", "2026-11-14T10:00:00.000Z"),
+      msg("b", "store", "2026-11-14T10:01:00.000Z"),
+    ]);
+    expect(merged.map((m) => m.id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("asks for an email only when the merchant's setting needs one", () => {
+    expect(needsEmail("always", true, false)).toBe(true);
+    expect(needsEmail("always", true, true)).toBe(false);
+    expect(needsEmail("offline", true, false)).toBe(false);
+    expect(needsEmail("offline", false, false)).toBe(true);
+    // অনলাইন কিনা জানার আগে চাওয়া হয় না
+    expect(needsEmail("offline", null, false)).toBe(false);
+    expect(needsEmail("never", false, false)).toBe(false);
+  });
+
+  it("counts store replies the shopper has not seen yet", () => {
+    const messages = [
+      msg("a", "visitor", "2026-11-14T10:00:00.000Z"),
+      msg("b", "store", "2026-11-14T10:01:00.000Z"),
+      msg("c", "store", "2026-11-14T10:02:00.000Z"),
+    ];
+    expect(unreadSince(messages, null)).toBe(2);
+    expect(unreadSince(messages, "2026-11-14T10:01:00.000Z")).toBe(1);
+    expect(unreadSince(messages, "2026-11-14T10:02:00.000Z")).toBe(0);
   });
 });

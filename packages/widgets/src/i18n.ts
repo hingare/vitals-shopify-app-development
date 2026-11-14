@@ -127,6 +127,13 @@ const strings = {
     searchPages: "Pages",
     searchNone: 'No results for "{q}"',
     searchAll: 'See all results for "{q}"',
+    chatOnline: "We're online",
+    chatAway: "We're away right now",
+    chatEmailNeeded: "Please enter your email so we can reply.",
+    chatEmailInvalid: "Please enter a valid email address.",
+    chatEmailNote: "We use your email only to reply to you.",
+    chatPlaceholder: "Write a message…",
+    chatSend: "Send",
   },
 } satisfies Record<string, Record<string, string>>;
 

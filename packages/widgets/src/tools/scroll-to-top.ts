@@ -30,7 +30,7 @@ export function mount({ config, settings }: ToolContext) {
     const visible = scrollY > s.showAfter;
     button.style.display = visible ? "flex" : "none";
     if (!visible) return;
-    const chat = document.querySelector<HTMLElement>("#app-chat-button a");
+    const chat = document.querySelector<HTMLElement>("#app-chat-button a, #app-live-chat > button");
     const sameCorner = chat?.style[side] !== undefined && chat.style[side] !== "";
     button.style.bottom = `${20 + bottomOffset() + (sameCorner ? 64 : 0)}px`;
   };
