@@ -92,6 +92,8 @@ model Shop {
   jobs             Job[]
   /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
   trialEndsAt      DateTime?
+  /// সব AI টুলের জন্য ব্র্যান্ডের সুর, ক্রেতা, ভাষা (app/lib/ai/brand.ts)
+  aiSettings       Json?
   usage            UsageCounter[]
   aiGenerations    AiGeneration[]
 }
@@ -639,6 +641,8 @@ model AiGeneration {
   targetId   String?
   /// একসাথে চালানো অনেকগুলো কাজের দল (যেমন সব ছবির alt)
   batchId    String?
+  /// তালিকায় দেখানোর নাম, যেমন প্রোডাক্টের নাম
+  label      String?
   /// queued | running | ready | failed | applied | undone | discarded
   status     String    @default("queued")
   input      Json      @default("{}")

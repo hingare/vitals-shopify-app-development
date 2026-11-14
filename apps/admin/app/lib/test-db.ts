@@ -312,6 +312,7 @@ function build() {
     aiGeneration: table("gen", () => ({
       targetId: null,
       batchId: null,
+      label: null,
       status: "queued",
       input: {},
       output: null,

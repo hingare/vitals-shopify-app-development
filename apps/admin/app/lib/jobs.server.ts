@@ -7,6 +7,7 @@ import { measure, primaryDomainUrl, saveSnapshot } from "./speed.server";
 import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
 // এই ফাইলগুলো নিজেদের ব্যাকগ্রাউন্ড কাজ (registerJob) নথিভুক্ত করে, তাই সার্ভার চালুর সময়ই আনতে হয়
+import "./ai/tasks.server";
 import "./integrations.server";
 import "./push.server";
 import "./seo-alt.server";
@@ -19,6 +20,8 @@ import "./subscribers.server";
  */
 const TICK_MS = 3_000;
 const MAX_PARALLEL = 2;
+/** একসাথে কতগুলো AI কাজ (বেশিরভাগ সময় বাইরের API-র উত্তরের অপেক্ষা, তাই সার্ভারে চাপ কম) */
+const MAX_AI_PARALLEL = 4;
 const STUCK_MS = 5 * 60_000;
 const MAX_ATTEMPTS = 2;
 
@@ -103,6 +106,7 @@ export async function pruneMarketingData(now = new Date()) {
 
 let running = 0;
 let runningJobs = 0;
+let runningAiJobs = 0;
 let sending = false;
 let lastHousekeeping = 0;
 let lastMinute = 0;
@@ -156,6 +160,17 @@ async function tick() {
       runningJobs++;
       void runJob(job).finally(() => {
         runningJobs--;
+      });
+    }
+  });
+
+  await step("ai", async () => {
+    while (runningAiJobs < MAX_AI_PARALLEL) {
+      const job = await claimJob("ai");
+      if (!job) break;
+      runningAiJobs++;
+      void runJob(job).finally(() => {
+        runningAiJobs--;
       });
     }
   });

@@ -1,5 +1,6 @@
 -- AlterTable
-ALTER TABLE "Shop" ADD COLUMN     "trialEndsAt" TIMESTAMP(3);
+ALTER TABLE "Shop" ADD COLUMN     "aiSettings" JSONB,
+ADD COLUMN     "trialEndsAt" TIMESTAMP(3);
 
 -- CreateTable
 CREATE TABLE "UsageCounter" (
@@ -20,6 +21,7 @@ CREATE TABLE "AiGeneration" (
     "toolId" TEXT NOT NULL,
     "targetId" TEXT,
     "batchId" TEXT,
+    "label" TEXT,
     "status" TEXT NOT NULL DEFAULT 'queued',
     "input" JSONB NOT NULL DEFAULT '{}',
     "output" JSONB,
