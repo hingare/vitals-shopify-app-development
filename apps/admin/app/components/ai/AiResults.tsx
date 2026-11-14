@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useAppBridge } from "@shopify/app-bridge-react";
 import type { GenerationView } from "../../lib/ai/studio.server";
 import { useT } from "../../lib/i18n";
+import { CopyButton } from "../CopyButton";
 
 /**
  * AI-র ফল দেখা আর বদলানো। স্টোরে বসানোর টুলগুলোতে (বর্ণনা, alt, FAQ, পেজ, প্রোডাক্ট) মার্চেন্ট লেখা বদলে
@@ -13,47 +13,6 @@ export type ResultAction = Record<string, unknown> & { intent: string };
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 const list = <T,>(value: unknown): T[] => (Array.isArray(value) ? (value as T[]) : []);
-
-async function copyText(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    // অ্যাডমিনের ফ্রেমে clipboard বন্ধ থাকলে পুরনো পথ
-    try {
-      const area = document.createElement("textarea");
-      area.value = text;
-      area.style.position = "fixed";
-      area.style.opacity = "0";
-      document.body.appendChild(area);
-      area.select();
-      const ok = document.execCommand("copy");
-      area.remove();
-      return ok;
-    } catch {
-      return false;
-    }
-  }
-}
-
-function CopyButton({ text }: { text: string }) {
-  const t = useT();
-  const shopify = useAppBridge();
-  return (
-    <s-button
-      variant="tertiary"
-      onClick={() =>
-        void copyText(text).then((ok) =>
-          shopify.toast.show(t(ok ? "ai.results.copied" : "ai.results.copyFailed"), {
-            isError: !ok,
-          }),
-        )
-      }
-    >
-      {t("ai.results.copy")}
-    </s-button>
-  );
-}
 
 interface ViewProps {
   input: Output;

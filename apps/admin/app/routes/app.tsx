@@ -36,6 +36,7 @@ export default function App() {
         <s-link href="/app/recordings">{t("nav.recordings")}</s-link>
         <s-link href="/app/marketing">{t("nav.marketing")}</s-link>
         <s-link href="/app/integrations">{t("nav.integrations")}</s-link>
+        <s-link href="/app/assistants">{t("nav.assistants")}</s-link>
         <s-link href="/app/analytics">{t("nav.analytics")}</s-link>
         <s-link href="/app/speed">{t("nav.speed")}</s-link>
         <s-link href="/app/plans">{t("nav.plans")}</s-link>

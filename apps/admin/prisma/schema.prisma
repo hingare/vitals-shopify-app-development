@@ -102,6 +102,10 @@ model Shop {
   aiSettings       Json?
   usage            UsageCounter[]
   aiGenerations    AiGeneration[]
+  /// AI সহকারীর (MCP) ঠিকানায় স্টোর চেনার এলোমেলো id: <APP_URL>/mcp/<mcpId>
+  mcpId            String?             @unique
+  mcpGrants        McpGrant[]
+  mcpActions       McpAction[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -805,4 +809,96 @@ model RecordingChunk {
   recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
 
   @@unique([recordingId, seq])
+}
+
+/// AI সহকারী (ChatGPT, Claude, Gemini ...) যে OAuth ক্লায়েন্ট হিসেবে নিজেকে নথিভুক্ত করে (app/lib/mcp/oauth.server.ts)
+model McpClient {
+  id           String    @id @default(cuid())
+  /// OAuth client_id: আমাদের বানানো (নথিভুক্তিতে), বা ক্লায়েন্টের নিজের https ঠিকানা (metadata document)
+  clientId     String    @unique
+  /// "dcr" | "cimd"
+  kind         String
+  name         String
+  redirectUris String[]
+  /// "none" | "client_secret_post" | "client_secret_basic"
+  authMethod   String    @default("none")
+  secretHash   String?
+  logoUri      String?
+  /// metadata document শেষ কবে পড়া হয়েছে (দিনে একবার নতুন করে পড়া হয়)
+  fetchedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+/// মার্চেন্টের সম্মতির অপেক্ষায় থাকা OAuth অনুরোধ; সম্মতির পর এক-বারের code
+model McpAuthRequest {
+  id            String   @id @default(cuid())
+  clientId      String
+  redirectUri   String
+  state         String?
+  codeChallenge String
+  scopes        String[]
+  resource      String
+  shopId        String?
+  codeHash      String?  @unique
+  /// pending (সম্মতির অপেক্ষায়) | approved | denied | issued (code দেওয়া হয়েছে) | used | closed
+  status        String   @default("pending")
+  /// code থেকে যে সংযোগ তৈরি হলো (একই code আবার এলে সেটা বাতিল করা হয়)
+  grantId       String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// স্টোরের সাথে একটা AI সহকারীর সংযোগ: OAuth দিয়ে (টোকেন বদলায়) বা মার্চেন্টের বানানো চাবি দিয়ে
+model McpGrant {
+  id              String    @id @default(cuid())
+  shopId          String
+  /// "oauth" | "key"
+  kind            String
+  clientId        String?
+  name            String
+  /// "read" আর চাইলে "write" (পরিবর্তনের অনুরোধ; প্রতিটা মার্চেন্ট নিজে অনুমোদন করেন)
+  scopes          String[]
+  resource        String?
+  /// টোকেন আর চাবির শুধু SHA-256 রাখা হয়
+  accessHash      String?   @unique
+  accessExpiresAt DateTime?
+  refreshHash     String?   @unique
+  /// আগের refresh token (বদলের পরপর আবার এলে, নেটওয়ার্কের গোলমাল ধরে নিয়ে অল্প সময় চলে)
+  refreshPrevHash String?   @unique
+  refreshedAt     DateTime?
+  /// চাবির শেষ চারটা অক্ষর (মার্চেন্ট চিনতে পারেন)
+  keyHint         String?
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+}
+
+/// AI সহকারীর চাওয়া পরিবর্তন: মার্চেন্ট অ্যাপে অনুমোদন করলে তবেই হয়
+model McpAction {
+  id        String    @id @default(cuid())
+  shopId    String
+  grantId   String?
+  /// কোন সহকারী চাইল (সংযোগ মুছে গেলেও ইতিহাসে নাম থাকে)
+  assistant String
+  tool      String
+  input     Json
+  /// দেখানোর জন্য নাম ইত্যাদি (যেমন অফারের নাম), চাওয়ার সময়ের
+  details   Json      @default("{}")
+  /// pending | running | done | failed | rejected | expired
+  status    String    @default("pending")
+  error     String?
+  expiresAt DateTime
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, status, createdAt])
+  @@index([createdAt])
 }

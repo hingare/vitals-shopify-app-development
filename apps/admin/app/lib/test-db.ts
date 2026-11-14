@@ -237,8 +237,14 @@ export class FakeTable {
 function build() {
   const shop = new FakeTable(
     "shop",
-    () => ({ plan: "professional", uninstalledAt: null, emailSettings: null, chatSeenAt: null }),
-    [["domain"]],
+    () => ({
+      plan: "professional",
+      uninstalledAt: null,
+      emailSettings: null,
+      chatSeenAt: null,
+      mcpId: null,
+    }),
+    [["domain"], ["mcpId"]],
   );
   const shopOf = (row: Row) => shop.rows.find((s) => s.id === row.shopId) ?? null;
   const table = (name: string, defaults: () => Row, unique: string[][] = []) =>
@@ -301,6 +307,7 @@ function build() {
     pushSubscription: table("pushsub", () => ({}), [["shopId", "endpoint"]]),
     pushCampaign: table("push", () => ({ status: "queued", sent: 0, failed: 0, clicks: 0 })),
     withdrawalRequest: table("wd", () => ({ details: "", status: "new" })),
+    offer: table("offer", () => ({ active: true, config: {}, updatedAt: new Date() })),
     review: table("review", () => ({
       productId: null,
       title: null,
@@ -370,6 +377,39 @@ function build() {
       model: null,
       mediaKeys: [],
       appliedAt: null,
+    })),
+    mcpClient: table(
+      "mcpclient",
+      () => ({ authMethod: "none", secretHash: null, logoUri: null, fetchedAt: null }),
+      [["clientId"]],
+    ),
+    mcpAuthRequest: table(
+      "mcpreq",
+      () => ({ state: null, shopId: null, codeHash: null, status: "pending", grantId: null }),
+      [["codeHash"]],
+    ),
+    mcpGrant: table(
+      "grant",
+      () => ({
+        clientId: null,
+        resource: null,
+        accessHash: null,
+        accessExpiresAt: null,
+        refreshHash: null,
+        refreshPrevHash: null,
+        refreshedAt: null,
+        keyHint: null,
+        lastUsedAt: null,
+        revokedAt: null,
+      }),
+      [["accessHash"], ["refreshHash"], ["refreshPrevHash"]],
+    ),
+    mcpAction: table("mcpaction", () => ({
+      grantId: null,
+      details: {},
+      status: "pending",
+      error: null,
+      decidedAt: null,
     })),
     job: table("job", () => ({
       payload: {},

@@ -1152,6 +1152,7 @@ export const en = {
   // ---- Marketing (email) ----
   "nav.marketing": "Marketing",
   "nav.integrations": "Integrations",
+  "nav.assistants": "AI assistants",
   "marketing.title": "Marketing",
   "marketing.toolOff": "Email Marketing is turned off, so no emails are sent.",
   "marketing.toolOff.action": "Turn it on",
@@ -1356,6 +1357,10 @@ export const en = {
   "integrations.syncDone": "{done} subscribers sent.",
   "integrations.syncFailed": "The sync stopped: {error}",
   "integrations.saved": "Saved",
+  "integrations.assistants": "AI assistants",
+  "integrations.assistantsHelp":
+    "Let ChatGPT, Claude, Gemini or Grok read your store's reports and ask for changes that you approve.",
+  "integrations.assistantsOpen": "Connect an assistant",
 
   // ---- SEO Alt Tags ----
   "seoAlt.title": "SEO Alt Tags",
@@ -1702,6 +1707,134 @@ export const en = {
   "recordings.speed": "Play at {n} times speed",
   "recordings.skipQuiet": "Skip quiet moments",
   "recordings.pagesVisited": "Pages visited",
+  "assistants.title": "AI assistants",
+  "assistants.intro":
+    "Connect ChatGPT, Claude, Gemini or Grok to your store. They can read your reports, features, offers and reviews, and ask for changes that you approve here. Shoppers' emails and full names are never shared.",
+  "assistants.needsPro": "Connecting AI assistants is part of the Professional plan.",
+  "assistants.upgrade": "See plans",
+  "assistants.address": "Your store's assistant address",
+  "assistants.addressHelp":
+    "Paste this address into your assistant. It then asks you to allow access here in your Shopify admin.",
+  "assistants.pending": "Waiting for your approval",
+  "assistants.pendingHelp": "Nothing changes until you approve. Requests expire after 7 days.",
+  "assistants.approve": "Approve",
+  "assistants.reject": "Reject",
+  "assistants.askedBy": "Asked by {name}, {when}",
+  "assistants.fromLink": "From your link",
+  "assistants.approved": "Done. The change is live.",
+  "assistants.rejected": "Request rejected",
+  "assistants.focusDone":
+    "The request from your link was already handled. You can find it under Recent requests.",
+  "assistants.error.not_found": "This request no longer exists.",
+  "assistants.error.decided": "This request was already handled.",
+  "assistants.error.expired": "This request expired. Ask the assistant again.",
+  "assistants.error.failed": "The change failed: {message}",
+  "assistants.error.unknown": "Something went wrong. Reload the page and try again.",
+  "assistants.how": "How to connect",
+  "assistants.howPick": "Your assistant",
+  "assistants.guide.chatgpt": "ChatGPT",
+  "assistants.guide.claude": "Claude",
+  "assistants.guide.gemini": "Gemini CLI",
+  "assistants.guide.grok": "Grok",
+  "assistants.guide.other": "Other assistants",
+  "assistants.guide.chatgpt.1":
+    "In ChatGPT, open Plugins, choose the add button, then Add custom MCP server.",
+  "assistants.guide.chatgpt.2": "Paste your store's assistant address and choose OAuth to sign in.",
+  "assistants.guide.chatgpt.3":
+    "ChatGPT opens your Shopify admin. Check the request and choose Allow.",
+  "assistants.guide.claude.1":
+    "In Claude, open Settings, then Connectors, and add a custom connector.",
+  "assistants.guide.claude.2": "Paste your store's assistant address and add it.",
+  "assistants.guide.claude.3":
+    "Claude opens your Shopify admin. Check the request and choose Allow.",
+  "assistants.guide.gemini.1": "In a terminal, run: gemini mcp add --transport http {name} {url}",
+  "assistants.guide.gemini.2":
+    "Start Gemini CLI. If it asks you to sign in, run /mcp auth {name}; your Shopify admin opens. Check the request and choose Allow.",
+  "assistants.guide.gemini.3":
+    'Prefer a key? Create one below and add --header "Authorization: Bearer YOUR_KEY" to the command instead.',
+  "assistants.guide.grok.1": "On grok.com, open Connectors, choose New Connector, then Custom.",
+  "assistants.guide.grok.2":
+    "Paste your store's assistant address and sign in when Grok asks. Your Shopify admin opens; choose Allow.",
+  "assistants.guide.grok.3":
+    "Using the xAI API? Add the address as a remote MCP tool and put an access key from below in its authorization field.",
+  "assistants.guide.other.1":
+    "Any assistant that supports remote MCP servers over HTTP can connect.",
+  "assistants.guide.other.2":
+    "If it can sign in with OAuth, paste the address and allow access in your Shopify admin.",
+  "assistants.guide.other.3":
+    "If it only takes a token, create an access key below and send it as Authorization: Bearer YOUR_KEY.",
+  "assistants.connected": "Connected assistants",
+  "assistants.connectedEmpty": "No assistant is connected yet.",
+  "assistants.col.name": "Assistant",
+  "assistants.col.access": "Access",
+  "assistants.col.lastUsed": "Last used",
+  "assistants.kind.oauth": "Signed in",
+  "assistants.kind.key": "Access key ending in {hint}",
+  "assistants.verified": "Verified: {host}",
+  "assistants.access.read": "Read",
+  "assistants.access.write": "Read and ask for changes",
+  "assistants.never": "Never",
+  "assistants.disconnect": "Disconnect",
+  "assistants.confirmDisconnect": "Disconnect {name}? It stops working right away.",
+  "assistants.disconnected": "Disconnected",
+  "assistants.keys": "Access keys",
+  "assistants.keysHelp":
+    "For assistants that can't sign in, like the xAI API or your own scripts. Send the key as Authorization: Bearer YOUR_KEY. Anyone with the key can read your store's reports, so keep it secret.",
+  "assistants.keyName": "Key name",
+  "assistants.keyNameHelp": "So you can recognise it later, like Grok API",
+  "assistants.keyWrite": "Allow change requests (each one still waits for your approval)",
+  "assistants.createKey": "Create key",
+  "assistants.keyCreated": "Copy this key now. You won't see it again.",
+  "assistants.keyTooMany": "You can have up to 10 keys. Disconnect one first.",
+  "assistants.recent": "Recent requests",
+  "assistants.recentEmpty": "No requests yet.",
+  "assistants.status.pending": "Waiting",
+  "assistants.status.running": "Working",
+  "assistants.status.done": "Done",
+  "assistants.status.failed": "Failed",
+  "assistants.status.rejected": "Rejected",
+  "assistants.status.expired": "Expired",
+  "assistants.do.featureOn": "Turn on {name}",
+  "assistants.do.featureOff": "Turn off {name}",
+  "assistants.do.offerOn": "Turn on the offer “{name}”",
+  "assistants.do.offerOff": "Turn off the offer “{name}”",
+  "assistants.do.reviewPublish": "Publish the {rating}-star review by {author}",
+  "assistants.do.reviewReject": "Hide the {rating}-star review by {author}",
+  "assistants.do.reviewReply": "Reply to the {rating}-star review by {author}: “{reply}”",
+  "assistants.connect.title": "Connect an AI assistant",
+  "assistants.connect.heading": "{name} wants to connect to your store",
+  "assistants.connect.verified": "Verified: this request comes from {host}.",
+  "assistants.connect.unverified":
+    "{name} chose this name itself, so we can't confirm who made it.",
+  "assistants.connect.returnTo": "After you choose, you go back to {host}.",
+  "assistants.connect.warning":
+    "Only allow this if you started connecting from your assistant just now.",
+  "assistants.connect.read": "See your reports and settings",
+  "assistants.connect.readHelp":
+    "Sales and visitor numbers, features, offers, reviews (without shoppers' emails), AI search visibility and email stats.",
+  "assistants.connect.write": "Ask for changes",
+  "assistants.connect.writeHelp":
+    "Turn features and offers on or off, and publish, hide or answer reviews. Each change waits for your approval on the AI assistants page.",
+  "assistants.connect.allow": "Allow",
+  "assistants.connect.deny": "Don't allow",
+  "assistants.connect.continue": "Continue to {host}",
+  "assistants.connect.redirecting": "Taking you back to your assistant…",
+  "assistants.connect.problem.not_found":
+    "This connection request wasn't found. Start connecting again from your assistant.",
+  "assistants.connect.problem.expired":
+    "This connection request expired. Start connecting again from your assistant.",
+  "assistants.connect.problem.used": "This connection request was already answered.",
+  "assistants.connect.problem.other_store":
+    "This connection request is for another store. Open the link in that store's admin.",
+  "oauth.title": "Connect an AI assistant",
+  "oauth.store.heading": "Which store should {name} connect to?",
+  "oauth.store.label": "Store address",
+  "oauth.store.help": "Your myshopify.com address, like example.myshopify.com",
+  "oauth.store.continue": "Continue",
+  "oauth.store.invalid": "Enter your store's myshopify.com address.",
+  "oauth.error.heading": "Can't connect",
+  "oauth.expired":
+    "This request expired or was already used. Start connecting again from your assistant.",
 } as const;
 
 export type MessageKey = keyof typeof en;

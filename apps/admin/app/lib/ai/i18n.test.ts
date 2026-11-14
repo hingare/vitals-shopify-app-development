@@ -50,6 +50,7 @@ describe("AI page translations", () => {
       "../../components/ai/MediaForms.tsx",
       "../../components/ai/AiResults.tsx",
       "../../components/ai/CreditsSummary.tsx",
+      "../../components/CopyButton.tsx",
       "../../routes/app.ai.$toolId.tsx",
     ];
     const keys = new Set<string>();
