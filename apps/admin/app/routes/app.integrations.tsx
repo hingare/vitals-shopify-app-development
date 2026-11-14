@@ -300,6 +300,14 @@ export default function IntegrationsPage() {
 
   return (
     <s-page heading={t("integrations.title")}>
+      <s-section heading={t("integrations.assistants")}>
+        <s-stack direction="block" gap="base">
+          <s-paragraph>{t("integrations.assistantsHelp")}</s-paragraph>
+          <s-stack direction="inline">
+            <s-button href="/app/assistants">{t("integrations.assistantsOpen")}</s-button>
+          </s-stack>
+        </s-stack>
+      </s-section>
       <s-section heading={t("integrations.emailTools")}>
         <s-paragraph>{t("integrations.emailToolsHelp")}</s-paragraph>
       </s-section>

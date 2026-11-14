@@ -1,7 +1,7 @@
 import { createHash, createHmac } from "node:crypto";
 
 /**
- * AWS Signature Version 4 (Amazon SES-এ ইমেইল পাঠাতে লাগে)।
+ * AWS Signature Version 4 (Amazon SES-এ ইমেইল পাঠাতে আর R2/S3-তে ফাইল রাখতে লাগে)।
  * AWS SDK পুরোটা না এনে শুধু সই করার অংশ: কোনো বাড়তি প্যাকেজ নেই।
  * AWS-এর ডকুমেন্টের উদাহরণ দিয়ে টেস্ট করা (sigv4.test.ts)।
  */
@@ -15,6 +15,8 @@ export interface SigV4Input {
   accessKeyId: string;
   secretAccessKey: string;
   sessionToken?: string;
+  /** body-র sha256 (hex) আগে থেকে জানা থাকলে, যেমন বাইনারি ফাইল (S3/R2) */
+  payloadHash?: string;
   now?: Date;
 }
 
@@ -62,7 +64,7 @@ export function signV4(input: SigV4Input): Record<string, string> {
     query,
     canonicalHeaders,
     signedHeaders,
-    sha256(body),
+    input.payloadHash ?? sha256(body),
   ].join("\n");
 
   const scope = `${date}/${input.region}/${input.service}/aws4_request`;

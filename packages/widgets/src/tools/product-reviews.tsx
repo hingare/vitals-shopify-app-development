@@ -26,11 +26,21 @@ interface Review {
   images: string[];
 }
 
+/** AI Review Summary (টুল চালু থাকলে প্রথম পাতার সাথে আসে) */
+interface AiSummary {
+  heading: string;
+  text: string;
+  pros: string[];
+  cons: string[];
+  reviewCount: number;
+}
+
 interface Page {
   summary: { average: number; count: number; distribution: number[] };
   page: number;
   hasMore: boolean;
   reviews: Review[];
+  aiSummary?: AiSummary;
 }
 
 type T = (key: WidgetString) => string;
@@ -50,6 +60,46 @@ function Stars({ value, color, size = 16 }: { value: number; color: string; size
     <span aria-hidden="true" style={{ color, fontSize: `${size}px`, letterSpacing: "1px" }}>
       {[1, 2, 3, 4, 5].map((i) => (i <= Math.round(value) ? "★" : "☆")).join("")}
     </span>
+  );
+}
+
+function SummaryList({ label, items, mark }: { label: string; items: string[]; mark: string }) {
+  if (items.length === 0) return null;
+  return (
+    <div style={{ marginTop: "12px" }}>
+      <strong>{label}</strong>
+      <ul style={{ margin: "4px 0 0", padding: 0, listStyle: "none" }}>
+        {items.map((item) => (
+          <li key={item} style={{ display: "flex", gap: "8px", padding: "2px 0" }}>
+            <span aria-hidden="true">{mark}</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** "ক্রেতারা যা বলছেন": প্রকাশিত রিভিউ থেকে AI-র লেখা, আর সেটা যে AI-র লেখা তা স্পষ্ট করে বলা */
+function AiSummaryBox({ summary, t }: { summary: AiSummary; t: T }) {
+  return (
+    <div
+      class="app-review-summary"
+      style={{
+        margin: "16px 0",
+        padding: "16px",
+        borderRadius: "8px",
+        border: "1px solid rgba(0,0,0,.1)",
+      }}
+    >
+      <h3 style={{ margin: "0 0 8px", fontSize: "1.05em" }}>{summary.heading}</h3>
+      <p style={{ margin: 0 }}>{summary.text}</p>
+      <SummaryList label={t("customersLike")} items={summary.pros} mark="✓" />
+      <SummaryList label={t("customersDislike")} items={summary.cons} mark="–" />
+      <p style={{ margin: "12px 0 0", fontSize: "0.85em", opacity: 0.75 }}>
+        {t("aiSummaryNote").replace("{n}", String(summary.reviewCount))}
+      </p>
+    </div>
   );
 }
 
@@ -282,7 +332,8 @@ function Reviews({ productId, settings, t }: { productId: string; settings: Sett
       const res = await fetch(`${ENDPOINT}?product=${productId}&page=${page}`);
       if (res.ok) {
         const json = (await res.json()) as Page;
-        setData(json);
+        // সারাংশ শুধু প্রথম পাতার সাথে আসে; "আরও দেখুন" চাপলেও থেকে যায়
+        setData((prev) => (page === 1 ? json : { ...json, aiSummary: prev?.aiSummary }));
         setReviews((prev) => (page === 1 ? json.reviews : [...prev, ...json.reviews]));
       }
     } catch {
@@ -348,6 +399,7 @@ function Reviews({ productId, settings, t }: { productId: string; settings: Sett
           }}
         />
       )}
+      {data?.aiSummary && <AiSummaryBox summary={data.aiSummary} t={t} />}
       <ul style={{ padding: 0, margin: "16px 0 0" }}>
         {reviews.map((r) => (
           <ReviewItem key={r.id} review={r} color={color} t={t} />

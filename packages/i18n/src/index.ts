@@ -34,7 +34,22 @@ export function translate(
   return template.replace(/\{(\w+)\}/g, (_, name: string) => String(vars[name] ?? `{${name}}`));
 }
 
-export function createT(locale: Locale) {
-  return (key: MessageKey | string, vars?: Record<string, string | number>) =>
-    translate(locale, key, vars);
+export type TFunction = (
+  key: MessageKey | string,
+  vars?: Record<string, string | number>,
+) => string;
+
+const translators = new Map<Locale, TFunction>();
+
+/**
+ * প্রতিটা ভাষার জন্য একটাই ফাংশন ফেরত দেয়। React-এর useEffect-এ `t` থাকলে প্রতি রেন্ডারে নতুন ফাংশন
+ * হলে effect বারবার চলত (যেমন "সেভ হয়েছে" বার্তা প্রতিবার টাইপ করার সময় আবার দেখাত)।
+ */
+export function createT(locale: Locale): TFunction {
+  let t = translators.get(locale);
+  if (!t) {
+    t = (key, vars) => translate(locale, key, vars);
+    translators.set(locale, t);
+  }
+  return t;
 }

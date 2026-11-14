@@ -24,7 +24,12 @@
   },
   "pnpm": {
     "overrides": {
-      "qs": "^6.16.0"
+      "qs": "^6.16.0",
+      "rrweb-snapshot": "2.2.0",
+      "rrdom": "2.2.0",
+      "@rrweb/types": "2.2.0",
+      "@rrweb/utils": "2.2.0",
+      "rrweb": "2.2.0"
     },
     "onlyBuiltDependencies": [
       "@prisma/client",

@@ -39,3 +39,24 @@ export function tierFromSubscriptionName(name: string | null | undefined): Plan 
  * ইমেইলের টুলগুলো শুধু Professional-এ, তাই Starter-এ ০। সংখ্যা বদলাতে হলে শুধু এখানে।
  */
 export const EMAIL_MONTHLY_CAP: Record<Plan, number> = { starter: 0, professional: 10_000 };
+
+/**
+ * AI-র মাসিক বাজেট, মাইক্রো-ডলারে (১০ লাখ = $১)। মার্চেন্ট দেখেন "ক্রেডিট": ১ ক্রেডিট = $০.০১ AI খরচ।
+ * বাজেট শেষ হলে AI টুল মাসের বাকি দিন থামে; কোনো বাড়তি বিল হয় না। বদলাতে হলে শুধু এখানে।
+ */
+export const AI_MONTHLY_MICROS: Record<Plan, number> = { starter: 0, professional: 3_000_000 };
+/** ফ্রি ট্রায়ালে AI বাজেট ছোট, যাতে বিল শুরুর আগেই পুরো মাসের খরচ না হয় */
+export const AI_TRIAL_MICROS = 500_000;
+export const MICROS_PER_CREDIT = 10_000;
+
+/** মাসে কতগুলো ভিজিটর রেকর্ডিং রাখা যায় (সীমায় পৌঁছালে রেকর্ড থামে) */
+export const RECORDINGS_MONTHLY_CAP: Record<Plan, number> = { starter: 0, professional: 2_000 };
+/**
+ * একটা রেকর্ডিংয়ের সবচেয়ে বেশি সম্ভাব্য স্টোরেজ খরচ (মাইক্রো-ডলারে)। recordings.server.ts-এর সীমা ধরে R2-র দামে:
+ * সর্বোচ্চ ৪MB × ৩০ দিন ($০.০১৫/GB-মাস) ≈ ৫৯, সর্বোচ্চ ৪টা লেখা ($৪.৫০/১০ লাখ) ≈ ১৮, কয়েকবার দেখা ≈ ৪;
+ * মোট ≈ ৮১, তাই ১০০। গড় রেকর্ডিং (~১০০-৩০০KB, একটা লেখা) এর অনেক কম। plans.test.ts এটা দিয়ে খরচের সীমা মেলায়।
+ */
+export const RECORDING_COST_MICROS = 100;
+
+/** Stage 6-এর শর্ত: Professional স্টোর প্রতি AI আর স্টোরেজের খরচ প্ল্যানের দামের এই অংশের নিচে */
+export const COST_CEILING_SHARE = 0.3;

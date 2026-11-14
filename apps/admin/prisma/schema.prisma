@@ -89,7 +89,23 @@ model Shop {
   pushCampaigns    PushCampaign[]
   withdrawals      WithdrawalRequest[]
   altTextChanges   AltTextChange[]
+  seoMetaChanges   SeoMetaChange[]
+  reviewSummaries  ReviewSummary[]
+  chats            ChatConversation[]
+  recordings       Recording[]
+  /// Live Chat: মার্চেন্ট শেষ কখন অ্যাপের Chat পাতা খোলা রেখেছিলেন (এর ১.৫ মিনিটের মধ্যে হলে "অনলাইন")
+  chatSeenAt       DateTime?
   jobs             Job[]
+  /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
+  trialEndsAt      DateTime?
+  /// সব AI টুলের জন্য ব্র্যান্ডের সুর, ক্রেতা, ভাষা (app/lib/ai/brand.ts)
+  aiSettings       Json?
+  usage            UsageCounter[]
+  aiGenerations    AiGeneration[]
+  /// AI সহকারীর (MCP) ঠিকানায় স্টোর চেনার এলোমেলো id: <APP_URL>/mcp/<mcpId>
+  mcpId            String?             @unique
+  mcpGrants        McpGrant[]
+  mcpActions       McpAction[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -587,6 +603,22 @@ model AltTextChange {
   @@unique([shopId, mediaId])
 }
 
+/// SEO Meta Templates: কোন প্রোডাক্ট বা কালেকশনের ফাঁকা SEO ঘরে কী বসানো হলো (আগের মান সবসময় ফাঁকা)।
+/// ফেরানোর সময় Shopify-তে এখনো এই লেখাই থাকলে তবেই ফাঁকা করা হয়।
+model SeoMetaChange {
+  id         String   @id @default(cuid())
+  shopId     String
+  /// Shopify Product বা Collection gid
+  resourceId String
+  /// "title" বা "description"
+  field      String
+  newValue   String
+  createdAt  DateTime @default(now())
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, resourceId, field])
+}
+
 /// সাধারণ ব্যাকগ্রাউন্ড কাজ (ক্যাম্পেইন পাঠানো, alt লেখা, সিঙ্ক)
 model Job {
   id         String    @id @default(cuid())
@@ -607,4 +639,266 @@ model Job {
 
   @@index([status, runAt])
   @@index([shopId, kind, createdAt])
+}
+
+/// মাসিক খরচের মিটার (UTC মাস, যেমন "2026-11")। AI-র খরচ মাইক্রো-ডলারে, রেকর্ডিং সংখ্যায়।
+/// সীমা app/lib/plans.ts-এ; সীমা পেরোলে কাজ থামে, কখনো বাড়তি বিল হয় না।
+model UsageCounter {
+  id        String   @id @default(cuid())
+  shopId    String
+  /// "ai" | "recordings"
+  meter     String
+  month     String
+  used      Int      @default(0)
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, meter, month])
+}
+
+/// AI দিয়ে বানানো প্রতিটা কাজ। ফল আগে মার্চেন্ট দেখেন, পছন্দ হলে স্টোরে বসে;
+/// আগের মান রাখা থাকে, তাই এক ক্লিকে ফেরানো যায় (app/lib/ai/generations.server.ts)।
+model AiGeneration {
+  id         String    @id @default(cuid())
+  shopId     String
+  /// টুলের id, যেমন "ai-descriptions"
+  toolId     String
+  /// কোন জিনিসের জন্য: Shopify gid (প্রোডাক্ট, ছবি) বা URL; না থাকলে null
+  targetId   String?
+  /// একসাথে চালানো অনেকগুলো কাজের দল (যেমন সব ছবির alt)
+  batchId    String?
+  /// তালিকায় দেখানোর নাম, যেমন প্রোডাক্টের নাম
+  label      String?
+  /// queued | running | ready | failed | applied | undone | discarded
+  status     String    @default("queued")
+  input      Json      @default("{}")
+  output     Json?
+  /// স্টোরে বসানোর আগের মান (ফেরানোর জন্য)
+  previous   Json?
+  /// ত্রুটির ধরন (app/lib/ai/errors.ts), মার্চেন্টকে তার ভাষায় দেখানো হয়
+  error      String?
+  /// আসল খরচ, মাইক্রো-ডলারে (মাসিক মিটারে যোগ হয়েছে)
+  costMicros Int       @default(0)
+  model      String?
+  /// ছবি ও ভিডিওর AI কাজে আমাদের স্টোরেজে রাখা ফাইলের নাম (মোছার জন্য; ৩০ দিন পরে মুছে খালি হয়)
+  mediaKeys  String[]  @default([])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  appliedAt  DateTime?
+  shop       Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, toolId, createdAt])
+  @@index([shopId, targetId])
+  @@index([batchId])
+  @@index([createdAt])
+}
+
+/// AI Review Summary: প্রোডাক্টের প্রকাশিত রিভিউর সারাংশ (স্টোরে রিভিউ উইজেটের উপরে দেখায়)
+model ReviewSummary {
+  id          String   @id @default(cuid())
+  shopId      String
+  /// Shopify প্রোডাক্টের সংখ্যা-id (রিভিউর মতো, gid ছাড়া)
+  productId   String
+  text        String
+  /// ক্রেতারা যা পছন্দ করেন (সর্বোচ্চ ৩টা লেখা)
+  pros        Json
+  /// যা নিয়ে অভিযোগ (সর্বোচ্চ ৩টা লেখা)
+  cons        Json
+  /// কতগুলো প্রকাশিত রিভিউ থেকে লেখা; নতুন রিভিউ জমলে আবার লেখার জন্য মেলানো হয়
+  reviewCount Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, productId])
+}
+
+/// Live Chat-এর একটা কথোপকথন: একজন ক্রেতার ব্রাউজার = একটা কথোপকথন (app/lib/chat.server.ts)
+model ChatConversation {
+  id            String        @id @default(cuid())
+  shopId        String
+  /// ক্রেতার ব্রাউজারে রাখা গোপন চাবির sha256; চাবি ছাড়া কেউ কথোপকথন পড়তে পারে না
+  visitorKey    String
+  /// ক্রেতা নিজে দিলে (উত্তর ইমেইলে পাঠানোর জন্য)
+  email         String?
+  /// লগইন করা ক্রেতার Shopify customer id (Shopify-র সই করা অনুরোধ থেকে, ব্রাউজার বানাতে পারে না)
+  customerId    String?
+  /// কোন পাতা থেকে লিখেছেন (শুধু পথ, যেমন /products/linen-shirt)
+  pagePath      String?
+  /// স্টোরের যে ভাষায় লিখেছেন (উত্তরের ইমেইল সেই ভাষায়)
+  locale        String        @default("en")
+  /// "open" | "closed"
+  status        String        @default("open")
+  /// মার্চেন্ট এখনো পড়েননি এমন ক্রেতার বার্তা
+  unread        Int           @default(0)
+  /// শেষ বার্তার শুরুটুকু আর কে লিখেছেন (তালিকায় দেখানোর জন্য)
+  preview       String        @default("")
+  lastAuthor    String        @default("visitor")
+  lastMessageAt DateTime      @default(now())
+  /// ক্রেতা শেষ কবে চ্যাট খুলে দেখেছেন; এর পরের উত্তর ইমেইলে যায়
+  visitorSeenAt DateTime?
+  /// শেষ কবে ক্রেতাকে উত্তরের ইমেইল আর মার্চেন্টকে খবরের ইমেইল গেছে (একই বার্তা দুবার যায় না)
+  emailedAt     DateTime?
+  alertedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages      ChatMessage[]
+
+  @@unique([shopId, visitorKey])
+  @@index([shopId, lastMessageAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  /// "visitor" | "merchant"
+  author         String
+  body           String
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+/// Visitor Recordings: একটা ট্যাবের একটা ভিজিট (একাধিক পাতা)। রেকর্ড নিজে স্টোরেজে (R2) থাকে,
+/// কয়েক মিনিট চুপ থাকার পর জমা অংশগুলো এক ফাইলে যায় (part); তার আগে RecordingChunk-এ থাকে।
+model Recording {
+  id           String           @id @default(cuid())
+  shopId       String
+  /// ব্রাউজারের গোপন চাবির sha256 (চাবি নিজে কখনো রাখা হয় না)
+  keyHash      String
+  customerId   String?
+  /// "desktop" | "mobile"
+  device       String           @default("desktop")
+  width        Int?
+  height       Int?
+  entryPath    String           @default("/")
+  pages        String[]         @default([])
+  pageViews    Int              @default(0)
+  clicks       Int              @default(0)
+  durationMs   Int              @default(0)
+  firstEventAt DateTime?
+  lastEventAt  DateTime?
+  /// জমা নেওয়া অংশের হিসাব (gzip আর খোলা অবস্থায়), সীমা মেলাতে
+  chunks       Int              @default(0)
+  bytes        Int              @default(0)
+  rawBytes     Int              @default(0)
+  /// স্টোরেজে কয়টা ফাইল আর তাদের মোট আকার
+  parts        Int              @default(0)
+  storedBytes  Int              @default(0)
+  /// "full" হলে আর অংশ নেওয়া হয় না
+  stopped      String?
+  lastChunkAt  DateTime         @default(now())
+  createdAt    DateTime         @default(now())
+  shop         Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  staged       RecordingChunk[]
+
+  @@unique([shopId, keyHash])
+  @@index([shopId, createdAt])
+  @@index([createdAt])
+}
+
+/// স্টোরেজে যাওয়ার আগে জমা থাকা অংশ (gzip করা JSON)
+model RecordingChunk {
+  id          String    @id @default(cuid())
+  recordingId String
+  seq         Int
+  data        Bytes
+  createdAt   DateTime  @default(now())
+  recording   Recording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  @@unique([recordingId, seq])
+}
+
+/// AI সহকারী (ChatGPT, Claude, Gemini ...) যে OAuth ক্লায়েন্ট হিসেবে নিজেকে নথিভুক্ত করে (app/lib/mcp/oauth.server.ts)
+model McpClient {
+  id           String    @id @default(cuid())
+  /// OAuth client_id: আমাদের বানানো (নথিভুক্তিতে), বা ক্লায়েন্টের নিজের https ঠিকানা (metadata document)
+  clientId     String    @unique
+  /// "dcr" | "cimd"
+  kind         String
+  name         String
+  redirectUris String[]
+  /// "none" | "client_secret_post" | "client_secret_basic"
+  authMethod   String    @default("none")
+  secretHash   String?
+  logoUri      String?
+  /// metadata document শেষ কবে পড়া হয়েছে (দিনে একবার নতুন করে পড়া হয়)
+  fetchedAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
+/// মার্চেন্টের সম্মতির অপেক্ষায় থাকা OAuth অনুরোধ; সম্মতির পর এক-বারের code
+model McpAuthRequest {
+  id            String   @id @default(cuid())
+  clientId      String
+  redirectUri   String
+  state         String?
+  codeChallenge String
+  scopes        String[]
+  resource      String
+  shopId        String?
+  codeHash      String?  @unique
+  /// pending (সম্মতির অপেক্ষায়) | approved | denied | issued (code দেওয়া হয়েছে) | used | closed
+  status        String   @default("pending")
+  /// code থেকে যে সংযোগ তৈরি হলো (একই code আবার এলে সেটা বাতিল করা হয়)
+  grantId       String?
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// স্টোরের সাথে একটা AI সহকারীর সংযোগ: OAuth দিয়ে (টোকেন বদলায়) বা মার্চেন্টের বানানো চাবি দিয়ে
+model McpGrant {
+  id              String    @id @default(cuid())
+  shopId          String
+  /// "oauth" | "key"
+  kind            String
+  clientId        String?
+  name            String
+  /// "read" আর চাইলে "write" (পরিবর্তনের অনুরোধ; প্রতিটা মার্চেন্ট নিজে অনুমোদন করেন)
+  scopes          String[]
+  resource        String?
+  /// টোকেন আর চাবির শুধু SHA-256 রাখা হয়
+  accessHash      String?   @unique
+  accessExpiresAt DateTime?
+  refreshHash     String?   @unique
+  /// আগের refresh token (বদলের পরপর আবার এলে, নেটওয়ার্কের গোলমাল ধরে নিয়ে অল্প সময় চলে)
+  refreshPrevHash String?   @unique
+  refreshedAt     DateTime?
+  /// চাবির শেষ চারটা অক্ষর (মার্চেন্ট চিনতে পারেন)
+  keyHint         String?
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  shop            Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, createdAt])
+}
+
+/// AI সহকারীর চাওয়া পরিবর্তন: মার্চেন্ট অ্যাপে অনুমোদন করলে তবেই হয়
+model McpAction {
+  id        String    @id @default(cuid())
+  shopId    String
+  grantId   String?
+  /// কোন সহকারী চাইল (সংযোগ মুছে গেলেও ইতিহাসে নাম থাকে)
+  assistant String
+  tool      String
+  input     Json
+  /// দেখানোর জন্য নাম ইত্যাদি (যেমন অফারের নাম), চাওয়ার সময়ের
+  details   Json      @default("{}")
+  /// pending | running | done | failed | rejected | expired
+  status    String    @default("pending")
+  error     String?
+  expiresAt DateTime
+  decidedAt DateTime?
+  createdAt DateTime  @default(now())
+  shop      Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@index([shopId, status, createdAt])
+  @@index([createdAt])
 }

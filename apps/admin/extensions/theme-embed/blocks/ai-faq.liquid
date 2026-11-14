@@ -1,0 +1,27 @@
+{% comment %}
+  AI FAQ: প্রোডাক্টের প্রশ্ন-উত্তর কোথায় বসবে তা মার্চেন্ট থিম এডিটরে ঠিক করেন। টুল চালু না থাকলে কিছু দেখায় না।
+  এই ব্লক না থাকলে app embed প্রোডাক্ট সেকশনের পরে বসায় (tool-ai-product-faq.js)।
+{% endcomment %}
+{%- liquid
+  assign faq_settings = nil
+  for tool in app.metafields.app_config.tools.value.tools
+    if tool.id == 'ai-product-faq'
+      assign faq_settings = tool.settings
+    endif
+  endfor
+-%}
+<div data-app-ai-faq-block>
+  {%- if faq_settings -%}
+    {%- render 'ai-faq', faq: product.metafields['$app'].ai_faq.value, s: faq_settings -%}
+  {%- endif -%}
+</div>
+
+{% schema %}
+{
+  "name": "t:blocks.ai_faq.name",
+  "target": "section",
+  "enabled_on": { "templates": ["product"] },
+  "stylesheet": "sections.css",
+  "settings": []
+}
+{% endschema %}
