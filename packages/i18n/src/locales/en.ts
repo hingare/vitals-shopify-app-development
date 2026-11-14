@@ -878,6 +878,9 @@ export const en = {
   "ai.notConfigured": "AI tools are not available right now. Please try again later.",
   "ai.needsProfessional": "AI tools are part of the Professional plan.",
   "ai.notReady": "This tool is coming soon.",
+  "ai.faqOff":
+    "Saved questions show on product pages once AI Product FAQ is turned on. You can also place the AI FAQ block in your theme editor.",
+  "ai.faqOffAction": "Turn it on",
   "ai.comingSoon": "Coming soon",
   "ai.group.write": "Write",
   "ai.group.grow": "Grow",

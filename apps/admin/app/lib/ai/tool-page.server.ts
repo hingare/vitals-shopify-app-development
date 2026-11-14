@@ -47,8 +47,13 @@ export async function toolPageData(shop: AiShop, admin: GraphqlClient, toolId: s
   if (!tool || !isStudioTool(toolId)) throw new Response("Not found", { status: 404 });
   const plan = shop.plan === "starter" || shop.plan === "professional" ? shop.plan : null;
   const allowed = plan !== null && canUseTool(tool, plan);
+  // FAQ স্টোরে দেখাতে টুলটা চালু থাকতে হয় (থিমের ব্লক বা embed); বন্ধ থাকলে পেজে মনে করিয়ে দেওয়া হয়
+  const storefrontOff =
+    toolId === "ai-product-faq" &&
+    !(await db.toolSetting.findFirst({ where: { shopId: shop.id, toolId, enabled: true } }));
   return {
     id: toolId,
+    storefrontOff,
     ready: Boolean(aiTaskFor(toolId)),
     allowed,
     configured: aiConfigured(),

@@ -52,7 +52,11 @@ export async function currentImageAlt(
   return data.node ? (data.node.alt ?? "") : null;
 }
 
-/** অ্যাপের নিজের metafield ($app:ai), থিমের ব্লক Liquid দিয়ে পড়ে */
+/**
+ * অ্যাপের নিজের metafield ($app নামস্থান, শুধু এই অ্যাপ লিখতে পারে), থিমের ব্লক Liquid দিয়ে পড়ে।
+ * কোন key কী তা shopify.app.toml-এ ঘোষণা করা থাকে (যেমন product.metafields.app.ai_faq)।
+ */
+const APP_NAMESPACE = "$app";
 export async function setAppMetafield(
   admin: GraphqlClient,
   ownerId: string,
@@ -67,7 +71,7 @@ export async function setAppMetafield(
     }`,
     {
       metafields: [
-        { ownerId, namespace: "$app:ai", key, type: "json", value: JSON.stringify(value) },
+        { ownerId, namespace: APP_NAMESPACE, key, type: "json", value: JSON.stringify(value) },
       ],
     },
   );
@@ -83,7 +87,7 @@ export async function readAppMetafield(
     admin,
     `#graphql
     query AiMetafieldRead($id: ID!, $key: String!) {
-      node(id: $id) { ... on Product { metafield(namespace: "$app:ai", key: $key) { jsonValue } } }
+      node(id: $id) { ... on Product { metafield(namespace: "$app", key: $key) { jsonValue } } }
     }`,
     { id: ownerId, key },
   );
@@ -97,7 +101,7 @@ export async function deleteAppMetafield(admin: GraphqlClient, ownerId: string, 
     mutation AiMetafieldDelete($metafields: [MetafieldIdentifierInput!]!) {
       metafieldsDelete(metafields: $metafields) { userErrors { field message } }
     }`,
-    { metafields: [{ ownerId, namespace: "$app:ai", key }] },
+    { metafields: [{ ownerId, namespace: APP_NAMESPACE, key }] },
   );
   check(data.metafieldsDelete?.userErrors, "metafieldsDelete");
 }

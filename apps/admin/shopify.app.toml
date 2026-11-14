@@ -137,3 +137,12 @@ include_config_on_deploy = true
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
+# ---- অ্যাপের নিজের metafield (নামস্থান $app: শুধু এই অ্যাপ লেখে, অন্য অ্যাপ বা থিম বদলাতে পারে না) ----
+# AI Product FAQ-এর প্রশ্ন-উত্তর; থিমের "AI FAQ" ব্লক Liquid দিয়ে পড়ে (product.metafields["$app"].ai_faq)।
+# মার্চেন্ট অ্যাডমিনে দেখতে পান, বদলান অ্যাপের AI Studio থেকে (যাতে আগের মানে ফেরানো যায়)।
+[product.metafields.app.ai_faq]
+type = "json"
+name = "AI FAQ"
+description = "Questions and answers shown by the AI FAQ block"
+access.admin = "merchant_read"

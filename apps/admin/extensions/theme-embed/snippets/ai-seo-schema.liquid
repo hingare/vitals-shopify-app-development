@@ -1,0 +1,141 @@
+{%- comment -%}
+  AI SEO Schema: Google আর AI সার্চের জন্য JSON-LD, সার্ভারেই লেখা (JS ছাড়া ক্রলাররাও পড়ে)।
+  প্রতিটা মান json ফিল্টার দিয়ে যায়, তাই দোকানের লেখায় " বা </script> থাকলেও JSON ভাঙে না, স্ক্রিপ্টও ঢোকে না।
+  data-app-schema চিহ্ন দিয়ে আমাদের schema চেনা যায় (থিমের একই schema সরানোর সময় এগুলো থাকে)।
+  প্যারামিটার: s = টুলের সেটিংস, reviews_on = রিভিউ টুল চালু কিনা।
+{%- endcomment -%}
+{%- assign home = request.origin | append: routes.root_url -%}
+{%- if s.organizationSchema and request.page_type == 'index' -%}
+  <script type="application/ld+json" data-app-schema>
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": {{ request.origin | append: '/#organization' | json }},
+          "name": {{ shop.name | json }},
+          "url": {{ home | json }}
+          {%- if shop.brand.logo -%}
+            ,"logo": {{ shop.brand.logo | image_url: width: 600 | prepend: 'https:' | json }}
+          {%- endif -%}
+          {%- if shop.brand.short_description != blank -%}
+            ,"description": {{ shop.brand.short_description | json }}
+          {%- endif -%}
+        },
+        {
+          "@type": "WebSite",
+          "@id": {{ request.origin | append: '/#website' | json }},
+          "name": {{ shop.name | json }},
+          "url": {{ home | json }},
+          "publisher": { "@id": {{ request.origin | append: '/#organization' | json }} }
+        }
+      ]
+    }
+  </script>
+{%- endif -%}
+{%- if s.productSchema and request.page_type == 'product' and product -%}
+  {%- assign product_url = request.origin | append: product.url -%}
+  {%- assign first_variant = product.selected_or_first_available_variant -%}
+  {%- assign rating_count = product.metafields.reviews.rating_count.value | default: 0 -%}
+  {%- if s.returnDays > 0 -%}
+    {%- capture return_policy -%}
+      ,"hasMerchantReturnPolicy": {
+        "@type": "MerchantReturnPolicy",
+        "applicableCountry": {{ localization.country.iso_code | json }},
+        "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+        "merchantReturnDays": {{ s.returnDays | json }},
+        "returnMethod": "https://schema.org/ReturnByMail",
+        "returnFees": {% if s.returnFees == 'customer-pays' %}"https://schema.org/ReturnFeesCustomerResponsibility"{% else %}"https://schema.org/FreeReturn"{% endif %}
+      }
+    {%- endcapture -%}
+  {%- endif -%}
+  <script type="application/ld+json" data-app-schema>
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      "@id": {{ product_url | append: '#product' | json }},
+      "name": {{ product.title | json }},
+      "url": {{ product_url | json }}
+      {%- assign description = product.description | replace: '</p>', '</p> ' | replace: '</li>', '</li> ' | replace: '<br>', ' ' | strip_html | strip_newlines | strip -%}
+      {%- if description != blank -%}
+        ,"description": {{ description | truncate: 5000 | json }}
+      {%- endif -%}
+      {%- if product.images.size > 0 -%}
+        ,"image": [
+          {%- for image in product.images limit: 10 -%}
+            {{ image | image_url: width: 1200 | prepend: 'https:' | json }}{%- unless forloop.last -%},{%- endunless -%}
+          {%- endfor -%}
+        ]
+      {%- endif -%}
+      {%- if product.vendor != blank -%}
+        ,"brand": { "@type": "Brand", "name": {{ product.vendor | json }} }
+      {%- endif -%}
+      {%- if first_variant.sku != blank -%}
+        ,"sku": {{ first_variant.sku | json }}
+      {%- endif -%}
+      {%- if reviews_on and rating_count > 0 -%}
+        ,"aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": {{ product.metafields.reviews.rating.value.rating | json }},
+          "bestRating": 5,
+          "worstRating": 1,
+          "reviewCount": {{ rating_count | json }}
+        }
+      {%- endif -%}
+      ,"offers": [
+        {%- for variant in product.variants limit: 50 -%}
+          {
+            "@type": "Offer",
+            "url": {{ request.origin | append: variant.url | json }},
+            "price": {{ variant.price | divided_by: 100.0 | json }},
+            "priceCurrency": {{ cart.currency.iso_code | json }},
+            {%- if variant.available == false -%}
+              "availability": "https://schema.org/OutOfStock"
+            {%- elsif variant.inventory_management == 'shopify' and variant.inventory_quantity <= 0 -%}
+              "availability": "https://schema.org/BackOrder"
+            {%- else -%}
+              "availability": "https://schema.org/InStock"
+            {%- endif -%}
+            {%- if product.variants.size > 1 -%}
+              ,"name": {{ product.title | append: ' - ' | append: variant.title | json }}
+            {%- endif -%}
+            {%- if variant.sku != blank -%}
+              ,"sku": {{ variant.sku | json }}
+            {%- endif -%}
+            {%- assign code = variant.barcode | strip -%}
+            {%- assign other = code | remove: '0' | remove: '1' | remove: '2' | remove: '3' | remove: '4' | remove: '5' | remove: '6' | remove: '7' | remove: '8' | remove: '9' -%}
+            {%- if code != blank and other == blank -%}
+              {%- case code.size -%}
+                {%- when 8, 12, 13, 14 -%}
+                  ,"gtin": {{ code | json }}
+              {%- endcase -%}
+            {%- endif -%}
+            {{- return_policy -}}
+          }{%- unless forloop.last -%},{%- endunless -%}
+        {%- endfor -%}
+      ]
+    }
+  </script>
+{%- endif -%}
+{%- if s.breadcrumbSchema -%}
+  {%- if request.page_type == 'product' or request.page_type == 'collection' -%}
+    <script type="application/ld+json" data-app-schema>
+      {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": {{ shop.name | json }}, "item": {{ home | json }} }
+          {%- assign position = 1 -%}
+          {%- if collection -%}
+            {%- assign position = position | plus: 1 -%}
+            ,{ "@type": "ListItem", "position": {{ position }}, "name": {{ collection.title | json }}, "item": {{ request.origin | append: collection.url | json }} }
+          {%- endif -%}
+          {%- if request.page_type == 'product' and product -%}
+            {%- assign position = position | plus: 1 -%}
+            ,{ "@type": "ListItem", "position": {{ position }}, "name": {{ product.title | json }}, "item": {{ request.origin | append: product.url | json }} }
+          {%- endif -%}
+        ]
+      }
+    </script>
+  {%- endif -%}
+{%- endif -%}

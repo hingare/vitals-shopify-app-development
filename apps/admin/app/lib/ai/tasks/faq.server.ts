@@ -11,7 +11,7 @@ import { merchantNotes, notes, productGid, systemPrompt } from "./common.server"
  * AI Product FAQ: প্রোডাক্টের তথ্য থেকে প্রশ্ন-উত্তর। বসালে প্রোডাক্টের metafield ($app:ai.faq)-এ যায়,
  * থিমের "AI FAQ" ব্লক সেটা সার্ভারেই দেখায় আর FAQ schema দেয় (Google ও AI সার্চ পড়ে)।
  */
-export const FAQ_KEY = "faq";
+export const FAQ_KEY = "ai_faq";
 
 const input = z.object({
   productId: productGid,

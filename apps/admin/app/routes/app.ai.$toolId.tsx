@@ -92,6 +92,11 @@ export default function AiToolPage() {
         </s-banner>
       )}
       {data.allowed && !data.ready && <s-banner tone="info">{t("ai.notReady")}</s-banner>}
+      {data.allowed && data.storefrontOff && (
+        <s-banner tone="info">
+          {t("ai.faqOff")} <s-link href={`/app/tools/${data.id}`}>{t("ai.faqOffAction")}</s-link>
+        </s-banner>
+      )}
       {data.allowed && outOfCredits && (
         <s-banner tone="critical">{t("ai.credits.outBanner")}</s-banner>
       )}
