@@ -17,7 +17,13 @@ export interface ProductContext {
   seoDescription: string;
   options: Array<{ name: string; values: string[] }>;
   price: { min: string; max: string; currency: string } | null;
-  images: Array<{ id: string; url: string; alt: string }>;
+  images: Array<{
+    id: string;
+    url: string;
+    alt: string;
+    width: number | null;
+    height: number | null;
+  }>;
 }
 
 const PRODUCT_QUERY = `#graphql
@@ -38,7 +44,7 @@ const PRODUCT_QUERY = `#graphql
       }
       media(first: 20) {
         nodes {
-          ... on MediaImage { id alt image { url } }
+          ... on MediaImage { id alt image { url width height } }
         }
       }
     }
@@ -59,7 +65,13 @@ interface ProductResponse {
       minVariantPrice: { amount: string; currencyCode: string };
       maxVariantPrice: { amount: string; currencyCode: string };
     } | null;
-    media: { nodes: Array<{ id?: string; alt?: string | null; image?: { url: string } | null }> };
+    media: {
+      nodes: Array<{
+        id?: string;
+        alt?: string | null;
+        image?: { url: string; width?: number | null; height?: number | null } | null;
+      }>;
+    };
   } | null;
 }
 
@@ -90,7 +102,17 @@ export async function loadProduct(admin: GraphqlClient, id: string): Promise<Pro
         }
       : null,
     images: product.media.nodes.flatMap((m) =>
-      m.id && m.image ? [{ id: m.id, url: m.image.url, alt: m.alt ?? "" }] : [],
+      m.id && m.image
+        ? [
+            {
+              id: m.id,
+              url: m.image.url,
+              alt: m.alt ?? "",
+              width: m.image.width ?? null,
+              height: m.image.height ?? null,
+            },
+          ]
+        : [],
     ),
   };
 }

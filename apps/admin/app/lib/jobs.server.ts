@@ -1,6 +1,7 @@
 import db from "../db.server";
 import { startDueCampaigns } from "./campaigns.server";
 import { pruneChats } from "./chat.server";
+import { pruneAiMedia } from "./ai/media/files.server";
 import { pruneRecordings } from "./recordings.server";
 import { queueWinbacks } from "./flows.server";
 import { processMessages, recoverStuckMessages } from "./messages.server";
@@ -109,6 +110,8 @@ export async function pruneMarketingData(now = new Date()) {
   await pruneChats(now);
   // Visitor Recordings: ৩০ দিনের পুরনো রেকর্ডিং আর তার ফাইল
   await pruneRecordings(now);
+  // AI-র বানানো ছবি ও ভিডিও: ৩০ দিন পরে আমাদের স্টোরেজ থেকে মোছে (প্রোডাক্টে বসানোগুলো Shopify-তে থাকে)
+  await pruneAiMedia(now);
 }
 
 let running = 0;

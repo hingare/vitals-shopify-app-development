@@ -49,6 +49,8 @@ function test(value: unknown, cond: unknown): boolean {
         return typeof value === "string" && value.includes(arg as string);
       case "startsWith":
         return typeof value === "string" && value.startsWith(arg as string);
+      case "isEmpty":
+        return Array.isArray(value) && (value.length === 0) === arg;
       default:
         throw new Error(`test-db: unsupported operator "${op}"`);
     }
@@ -366,6 +368,7 @@ function build() {
       error: null,
       costMicros: 0,
       model: null,
+      mediaKeys: [],
       appliedAt: null,
     })),
     job: table("job", () => ({

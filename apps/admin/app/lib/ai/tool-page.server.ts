@@ -17,15 +17,70 @@ import {
   undoGeneration,
   type AiShop,
 } from "./generations.server";
+import { falConfigured } from "./media/fal.server";
+import { mediaStorageReady } from "./media/files.server";
+import {
+  AD_COPY_ESTIMATE,
+  BACKGROUND_PRICE,
+  EXPAND_PRICE,
+  PRODUCT_SHOT_PRICE,
+  UPSCALE_MAX_MICROS,
+  alreadyShape,
+  upscaleAllowed,
+  videoPrice,
+  type ExpandShape,
+  type MediaPrices,
+} from "./media/models";
 import { loadProduct, smallImage } from "./product.server";
-import { AI_TOOL_GROUPS, aiCredits, generationList } from "./studio.server";
-import { productGid } from "./tasks/common.server";
+import { AI_TOOL_GROUPS, aiCredits, generationList, toCredits } from "./studio.server";
+import { imageGid, productGid } from "./tasks/common.server";
 import { startReviewSummaries } from "./tasks/review-summary.server";
 
 /** AI পেজের প্রতিটা টুলের নিজস্ব পাতা (/app/ai/<id>): শুরু করা, ফল দেখা, বসানো, ফেরানো */
 const STUDIO_TOOLS = new Set<string>(Object.values(AI_TOOL_GROUPS).flat());
 
 export const isStudioTool = (toolId: string) => STUDIO_TOOLS.has(toolId);
+
+/** ছবি ও ভিডিওর টুল: fal.ai আর ফাইল রাখার জায়গা লাগে */
+const MEDIA_TOOLS = new Set<string>(AI_TOOL_GROUPS.media);
+
+/** টুলটা চালানোর মতো সব চাবি আর জায়গা আছে কিনা */
+export function toolConfigured(toolId: string): boolean {
+  if (!MEDIA_TOOLS.has(toolId)) return aiConfigured();
+  const media = falConfigured() && mediaStorageReady();
+  // বিজ্ঞাপনের লেখা Claude লেখে
+  return toolId === "ai-video-ads" ? media && aiConfigured() : media;
+}
+
+/** ছবি ও ভিডিওর টুলের দাম, ক্রেডিটে (ফর্মে শুরুর আগেই দেখানো হয়) */
+export function mediaPrices(toolId: string): MediaPrices | null {
+  const video = (extra: number) => {
+    const short = videoPrice("short");
+    const long = videoPrice("long");
+    if (!short || !long) return null;
+    return {
+      credits: { short: toCredits(short.micros + extra), long: toCredits(long.micros + extra) },
+      seconds: { short: short.seconds, long: long.seconds },
+    };
+  };
+  switch (toolId) {
+    case "ai-background-remover":
+      return { credits: { image: toCredits(BACKGROUND_PRICE) }, seconds: null };
+    case "ai-image-enhancer":
+      return {
+        credits: { upscale: toCredits(UPSCALE_MAX_MICROS), expand: toCredits(EXPAND_PRICE) },
+        seconds: null,
+      };
+    case "ai-photoshoots":
+      return { credits: { image: toCredits(PRODUCT_SHOT_PRICE) }, seconds: null };
+    case "ai-image-to-video":
+      return video(0);
+    case "ai-video-ads":
+      return video(AD_COPY_ESTIMATE);
+    default:
+      return null;
+  }
+}
 
 /** যেসব AI টুলের ফল স্টোরে দেখাতে টুলটা চালু থাকতে হয় */
 const STOREFRONT_TOOLS = new Set(["ai-product-faq", "ai-review-summary"]);
@@ -60,7 +115,8 @@ export async function toolPageData(shop: AiShop, admin: GraphqlClient, toolId: s
     storefrontOff,
     ready: Boolean(aiTaskFor(toolId)),
     allowed,
-    configured: aiConfigured(),
+    configured: toolConfigured(toolId),
+    media: mediaPrices(toolId),
     credits: await aiCredits(shop),
     storeUrl: toolId === "ai-page-audit" && allowed ? await primaryUrl(admin) : "",
     generations: allowed ? await generationList(shop.id, toolId) : [],
@@ -92,6 +148,65 @@ export async function startAltText(shop: AiShop, admin: GraphqlClient, raw: unkn
   return images.length;
 }
 
+const mediaStart = z
+  .object({ productId: productGid, mediaIds: z.array(imageGid).min(1).max(10) })
+  .passthrough();
+
+/**
+ * ছবি ও ভিডিওর কাজ শুরু: বাছা প্রতিটা ছবির জন্য আলাদা কাজ (এক ব্যাচে)। পটভূমি সরানোয় একসাথে কয়েকটা ছবি
+ * নেওয়া যায়, বাকিগুলোয় একটা। শুরুর আগে মোট আনুমানিক খরচের মতো ক্রেডিট বাকি আছে কিনা দেখা হয়।
+ */
+export async function startMediaBatch(
+  shop: AiShop,
+  admin: GraphqlClient,
+  toolId: string,
+  raw: unknown,
+) {
+  assertToolAllowed(shop, toolId);
+  const task = aiTaskFor(toolId);
+  if (!task) throw new AiError("failed", `No AI task for ${toolId}`);
+  const parsed = mediaStart.safeParse(raw);
+  if (!parsed.success) throw new AiError("invalid", parsed.error.message);
+  const { productId, mediaIds, ...options } = parsed.data;
+  const ids = [...new Set(mediaIds)];
+  if (toolId !== "ai-background-remover" && ids.length > 1) {
+    throw new AiError("invalid", "Choose one image");
+  }
+  const product = await loadProduct(admin, productId);
+  const images = ids.map((id) => product.images.find((image) => image.id === id));
+  const inputs: unknown[] = [];
+  let estimate = 0;
+  for (const image of images) {
+    if (!image) throw new AiError("not_found", "Image");
+    const input = task.input.safeParse({
+      ...options,
+      productId: product.id,
+      mediaId: image.id,
+      imageUrl: smallImage(image.url, 240),
+    });
+    if (!input.success) throw new AiError("invalid", input.error.message);
+    if (toolId === "ai-image-enhancer") {
+      const { mode, shape } = input.data as { mode: string; shape: ExpandShape };
+      if (mode === "upscale" ? !upscaleAllowed(image) : alreadyShape(image, shape)) {
+        throw new AiError("invalid", "Nothing to change in this image");
+      }
+    }
+    inputs.push(input.data);
+    estimate += task.estimateMicros?.(input.data) ?? 0;
+  }
+  await assertCanStart(shop, toolId, estimate);
+  const batchId = randomUUID();
+  for (const [index, image] of images.entries()) {
+    if (!image) continue;
+    await startGeneration(shop, toolId, inputs[index], {
+      targetId: image.id,
+      batchId,
+      label: `${product.title} · #${product.images.indexOf(image) + 1}`,
+    });
+  }
+  return images.length;
+}
+
 const actionBody = z.discriminatedUnion("intent", [
   z.object({
     intent: z.literal("start"),
@@ -119,11 +234,11 @@ const done = (intent: string, count = 1, failed = 0): ToolActionResult => ({
   failed,
 });
 
-/** নতুন কাজ শুরুর আগে: API চাবি আছে কিনা আর এ মাসে ক্রেডিট বাকি আছে কিনা */
-async function assertCanStart(shop: AiShop) {
-  if (!aiConfigured()) throw new AiError("not_configured");
+/** নতুন কাজ শুরুর আগে: চাবি আছে কিনা আর এ মাসে ক্রেডিট বাকি আছে কিনা (জানা থাকলে আনুমানিক খরচের মতো) */
+async function assertCanStart(shop: AiShop, toolId: string, needMicros = 1) {
+  if (!toolConfigured(toolId)) throw new AiError("not_configured");
   const usage = await readUsage(shop, "ai");
-  if (usage.left <= 0) throw new AiError("budget");
+  if (usage.left <= 0 || usage.left < needMicros) throw new AiError("budget");
 }
 
 export async function handleToolAction(
@@ -140,7 +255,11 @@ export async function handleToolAction(
   try {
     switch (body.intent) {
       case "start": {
-        await assertCanStart(shop);
+        if (MEDIA_TOOLS.has(toolId)) {
+          const count = await startMediaBatch(shop, admin, toolId, body.input);
+          return done(body.intent, count);
+        }
+        await assertCanStart(shop, toolId);
         if (toolId === "ai-alt-text" || toolId === "ai-review-summary") {
           const count =
             toolId === "ai-alt-text"
@@ -158,7 +277,13 @@ export async function handleToolAction(
           where: { id: body.id, shopId: shop.id, toolId, status: "failed" },
         });
         if (!row) throw new AiError("not_found");
-        await assertCanStart(shop);
+        const task = aiTaskFor(toolId);
+        const input = task?.input.safeParse(row.input);
+        await assertCanStart(
+          shop,
+          toolId,
+          input?.success ? (task?.estimateMicros?.(input.data) ?? 1) : 1,
+        );
         await startGeneration(shop, toolId, row.input, {
           targetId: row.targetId,
           batchId: row.batchId,

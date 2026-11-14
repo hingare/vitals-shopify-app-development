@@ -60,6 +60,8 @@ interface ViewProps {
   output: Output;
   editable: boolean;
   onChange: (output: Output) => void;
+  /** ছবি ও ভিডিওর টুলে ফাইলগুলোর সই করা ঠিকানা */
+  media?: GenerationView["media"];
 }
 
 function DescriptionView({ input, output, editable, onChange }: ViewProps) {
@@ -594,7 +596,174 @@ function ImportView({ output, editable, onChange }: ViewProps) {
   );
 }
 
+type MediaFileView = NonNullable<GenerationView["media"]>["files"][number];
+
+/** স্বচ্ছ পটভূমি বোঝাতে ছবির পেছনে দাবার ছক */
+const CHECKERBOARD = {
+  backgroundColor: "#ffffff",
+  backgroundImage:
+    "linear-gradient(45deg, #e3e3e3 25%, transparent 25%), linear-gradient(-45deg, #e3e3e3 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e3e3e3 75%), linear-gradient(-45deg, transparent 75%, #e3e3e3 75%)",
+  backgroundSize: "16px 16px",
+  backgroundPosition: "0 0, 0 8px, 8px -8px, -8px 0",
+} as const;
+
+/** প্রিভিউর মাপ: ২৮০×৩২০-এর ভেতরে, ছবির অনুপাত ঠিক রেখে */
+function previewSize(width: number | null, height: number | null) {
+  if (!width || !height) return { width: 280, height: 280 };
+  const scale = Math.min(280 / width, 320 / height, 1);
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
+const fileSize = (bytes: number) =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.ceil(bytes / 1024)} KB`;
+
+function MediaPreview({ file, alt }: { file: MediaFileView; alt: string }) {
+  if (file.type === "video") {
+    return (
+      <video
+        src={file.url}
+        controls
+        playsInline
+        muted
+        preload="metadata"
+        aria-label={alt}
+        style={{
+          display: "block",
+          width: 320,
+          maxWidth: "100%",
+          borderRadius: 8,
+          background: "#000",
+        }}
+      />
+    );
+  }
+  const size = previewSize(file.width, file.height);
+  return (
+    <img
+      src={file.url}
+      alt={alt}
+      loading="lazy"
+      width={size.width}
+      height={size.height}
+      style={{
+        display: "block",
+        maxWidth: "100%",
+        height: "auto",
+        borderRadius: 8,
+        border: "1px solid #e3e3e3",
+        ...CHECKERBOARD,
+      }}
+    />
+  );
+}
+
+/** Video Ads-এর সাথে লেখা বিজ্ঞাপনের লেখা: প্রতিটা অংশ আলাদা করে কপি করা যায় */
+function AdCopyView({ copy }: { copy: Output }) {
+  const t = useT();
+  const hashtags = list<string>(copy.hashtags)
+    .map((tag) => `#${tag}`)
+    .join(" ");
+  const parts = [
+    { label: "ai.media.hook", text: str(copy.hook) },
+    { label: "ai.media.headline", text: str(copy.headline) },
+    { label: "ai.media.primaryText", text: str(copy.primaryText) },
+    { label: "ai.media.hashtags", text: hashtags },
+  ].filter((part) => part.text);
+  return (
+    <s-stack direction="block" gap="small-200">
+      <s-stack direction="inline" gap="small-200" alignItems="center">
+        <s-heading>{t("ai.media.adCopy")}</s-heading>
+        <CopyButton text={parts.map((part) => part.text).join("\n\n")} />
+      </s-stack>
+      {parts.map((part) => (
+        <s-stack key={part.label} direction="block" gap="small-100">
+          <s-stack direction="inline" gap="small-200" alignItems="center">
+            <s-text type="strong">{t(part.label)}</s-text>
+            <CopyButton text={part.text} />
+          </s-stack>
+          <s-text>{part.text}</s-text>
+        </s-stack>
+      ))}
+      {str(copy.cta) && (
+        <s-text>
+          <s-text type="strong">{t("ai.media.cta")}:</s-text> {t(`ai.option.${str(copy.cta)}`)}
+        </s-text>
+      )}
+    </s-stack>
+  );
+}
+
+/**
+ * ছবি ও ভিডিওর ফল: আগের ছবির পাশে নতুনগুলো। কয়েকটা হলে মার্চেন্ট বাছেন কোনগুলো প্রোডাক্টে যাবে।
+ * ফাইল ৩০ দিন রাখা হয়; তারপর শুধু "মেয়াদ শেষ" দেখায় (প্রোডাক্টে যোগ করা ফাইল Shopify-তে থেকেই যায়)।
+ */
+function MediaView({ input, output, editable, onChange, media }: ViewProps) {
+  const t = useT();
+  if (!media) return <></>;
+  if (media.expired) return <s-banner tone="warning">{t("ai.media.expired")}</s-banner>;
+  const before = str(input.imageUrl);
+  const selected = list<number>(output.selected);
+  const several = media.files.length > 1;
+  const video = media.files.some((file) => file.type === "video");
+  const copy = output.copy && typeof output.copy === "object" ? (output.copy as Output) : null;
+  const toggle = (index: number, on: boolean) =>
+    onChange({
+      ...output,
+      selected: on
+        ? [...selected.filter((i) => i !== index), index].sort((a, b) => a - b)
+        : selected.filter((i) => i !== index),
+    });
+  return (
+    <s-stack direction="block" gap="base">
+      <s-stack direction="inline" gap="base" alignItems="start">
+        {before && (
+          <s-stack direction="block" gap="small-200">
+            <s-thumbnail src={before} alt={t("ai.media.before")} size="large" />
+            <s-text color="subdued">{t("ai.media.before")}</s-text>
+          </s-stack>
+        )}
+        {media.files.map((file, index) => (
+          <s-stack key={file.name} direction="block" gap="small-200">
+            <MediaPreview file={file} alt={t("ai.media.result", { n: index + 1 })} />
+            <s-stack direction="inline" gap="small-200" alignItems="center">
+              {several && editable && (
+                <s-checkbox
+                  label={t("ai.media.useThis")}
+                  checked={selected.includes(index)}
+                  onChange={(e) => toggle(index, e.currentTarget.checked)}
+                />
+              )}
+              {several && !editable && selected.includes(index) && (
+                <s-badge tone="success">{t("ai.media.added")}</s-badge>
+              )}
+              <s-text color="subdued">
+                {file.width && file.height ? `${file.width} × ${file.height} · ` : ""}
+                {fileSize(file.bytes)}
+              </s-text>
+              <s-link href={file.download} download={file.name}>
+                {t("ai.media.download")}
+              </s-link>
+            </s-stack>
+          </s-stack>
+        ))}
+      </s-stack>
+      {several && editable && selected.length === 0 && (
+        <s-text tone="caution">{t("ai.media.pickOne")}</s-text>
+      )}
+      {video && <s-text color="subdued">{t("ai.media.checkVideo")}</s-text>}
+      {copy && <AdCopyView copy={copy} />}
+    </s-stack>
+  );
+}
+
 const VIEWS: Record<string, (props: ViewProps) => React.JSX.Element> = {
+  "ai-background-remover": MediaView,
+  "ai-image-enhancer": MediaView,
+  "ai-photoshoots": MediaView,
+  "ai-image-to-video": MediaView,
+  "ai-video-ads": MediaView,
   "ai-descriptions": DescriptionView,
   "ai-alt-text": AltView,
   "ai-product-faq": FaqView,
@@ -619,15 +788,33 @@ const STATUS_TONE = {
   discarded: "neutral",
 } as const;
 
+const MEDIA_TOOLS = [
+  "ai-background-remover",
+  "ai-image-enhancer",
+  "ai-photoshoots",
+  "ai-image-to-video",
+  "ai-video-ads",
+];
+const VIDEO_TOOLS = ["ai-image-to-video", "ai-video-ads"];
+const forMedia = (key: string) => Object.fromEntries(MEDIA_TOOLS.map((id) => [id, key]));
+
 const APPLY_LABEL: Record<string, string> = {
   "ai-page-builder": "ai.results.applyPage",
   "ai-product-importer": "ai.results.applyProduct",
+  ...forMedia("ai.results.applyMedia"),
 };
 
 const APPLIED_NOTE: Record<string, string> = {
   "ai-review-summary": "ai.results.appliedSummary",
   "ai-page-builder": "ai.results.appliedPage",
   "ai-product-importer": "ai.results.appliedProduct",
+  ...forMedia("ai.results.appliedMedia"),
+};
+
+/** কাজ চলার সময়ের কথা: ছবি আর ভিডিওতে বেশি সময় লাগে */
+const WORKING_NOTE: Record<string, string> = {
+  ...forMedia("ai.results.workingImage"),
+  ...Object.fromEntries(VIDEO_TOOLS.map((id) => [id, "ai.results.workingVideo"])),
 };
 
 function ResultCard({
@@ -650,6 +837,9 @@ function ResultCard({
   const working = ["queued", "running", "applying", "undoing"].includes(status);
   const output = draft ?? generation.output;
   const editable = generation.canApply && (status === "ready" || status === "undone");
+  // ছবি ও ভিডিও: মেয়াদ শেষ হলে বা একটাও বাছা না থাকলে বসানো যায় না
+  const media = generation.media;
+  const applyBlocked = media ? media.expired || list<number>(output?.selected).length === 0 : false;
   const View = VIEWS[toolId];
   const id = generation.id;
   return (
@@ -671,7 +861,7 @@ function ResultCard({
         {working && (
           <s-stack direction="inline" gap="small-200" alignItems="center">
             <s-spinner size="base" accessibilityLabel={t(`ai.status.${status}`)} />
-            <s-text color="subdued">{t("ai.results.working")}</s-text>
+            <s-text color="subdued">{t(WORKING_NOTE[toolId] ?? "ai.results.working")}</s-text>
           </s-stack>
         )}
         {status === "failed" && (
@@ -681,15 +871,21 @@ function ResultCard({
           <s-banner tone="success">{t(APPLIED_NOTE[toolId])}</s-banner>
         )}
         {!working && status !== "failed" && output && View && (
-          <View input={generation.input} output={output} editable={editable} onChange={onDraft} />
+          <View
+            input={generation.input}
+            output={output}
+            editable={editable}
+            onChange={onDraft}
+            media={media}
+          />
         )}
 
         {!working && (
           <s-stack direction="inline" gap="small-200">
-            {editable && (
+            {editable && !media?.expired && (
               <s-button
                 variant="primary"
-                {...(busy ? { disabled: true } : {})}
+                {...(busy || applyBlocked ? { disabled: true } : {})}
                 onClick={() =>
                   onAction({ intent: "apply", id, ...(draft ? { output: draft } : {}) })
                 }

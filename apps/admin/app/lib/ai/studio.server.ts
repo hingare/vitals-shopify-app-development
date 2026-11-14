@@ -7,6 +7,8 @@ import { readUsage, type UsageShop } from "../usage.server";
 import { aiConfigured } from "./claude.server";
 import { brandSchema, readBrand } from "./brand";
 import { aiTaskFor, recentGenerations } from "./generations.server";
+import { extForMime, signMediaPath } from "./media/files.server";
+import { mediaOutput } from "./media/output";
 
 /** AI পেজে টুলগুলোর দল আর ক্রম */
 export const AI_TOOL_GROUPS = {
@@ -100,6 +102,33 @@ export function adminLinkFor(row: {
   return productId ? `shopify://admin/products/${productId}` : null;
 }
 
+/**
+ * ছবি ও ভিডিওর ফল দেখানোর জন্য সই করা ঠিকানা (কয়েক ঘণ্টা চলে; পেজ নতুন করে খুললে নতুন ঠিকানা)।
+ * ৩০ দিন পেরিয়ে ফাইল মুছে গেলে শুধু "মেয়াদ শেষ"।
+ */
+export function mediaViews(row: { id: string; toolId: string; output: unknown }) {
+  if (!(AI_TOOL_GROUPS.media as readonly string[]).includes(row.toolId) || !row.output) return null;
+  const parsed = mediaOutput.safeParse(row.output);
+  if (!parsed.success) return null;
+  if (parsed.data.expired) return { expired: true, files: [] };
+  const tool = row.toolId.replace(/^ai-/, "");
+  return {
+    expired: false,
+    files: parsed.data.files.map((file, index) => {
+      const name = `${tool}-${row.id.slice(-6)}-${index + 1}.${extForMime(file.mime)}`;
+      return {
+        type: file.type,
+        name,
+        url: signMediaPath(file.key),
+        download: signMediaPath(file.key, { download: name }),
+        width: file.width,
+        height: file.height,
+        bytes: file.bytes,
+      };
+    }),
+  };
+}
+
 export async function generationList(shopId: string, toolId: string) {
   const rows = await recentGenerations(shopId, toolId, 30);
   return rows.map((row) => ({
@@ -114,6 +143,7 @@ export async function generationList(shopId: string, toolId: string) {
     canApply: Boolean(aiTaskFor(row.toolId)?.apply),
     canUndo: Boolean(aiTaskFor(row.toolId)?.undo),
     adminLink: adminLinkFor(row),
+    media: mediaViews(row),
   }));
 }
 

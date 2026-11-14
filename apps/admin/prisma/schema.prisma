@@ -676,6 +676,8 @@ model AiGeneration {
   /// আসল খরচ, মাইক্রো-ডলারে (মাসিক মিটারে যোগ হয়েছে)
   costMicros Int       @default(0)
   model      String?
+  /// ছবি ও ভিডিওর AI কাজে আমাদের স্টোরেজে রাখা ফাইলের নাম (মোছার জন্য; ৩০ দিন পরে মুছে খালি হয়)
+  mediaKeys  String[]  @default([])
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   appliedAt  DateTime?
@@ -684,6 +686,7 @@ model AiGeneration {
   @@index([shopId, toolId, createdAt])
   @@index([shopId, targetId])
   @@index([batchId])
+  @@index([createdAt])
 }
 
 /// AI Review Summary: প্রোডাক্টের প্রকাশিত রিভিউর সারাংশ (স্টোরে রিভিউ উইজেটের উপরে দেখায়)

@@ -42,6 +42,7 @@ CREATE TABLE "AiGeneration" (
     "error" TEXT,
     "costMicros" INTEGER NOT NULL DEFAULT 0,
     "model" TEXT,
+    "mediaKeys" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "appliedAt" TIMESTAMP(3),
@@ -151,6 +152,9 @@ CREATE INDEX "AiGeneration_shopId_targetId_idx" ON "AiGeneration"("shopId", "tar
 
 -- CreateIndex
 CREATE INDEX "AiGeneration_batchId_idx" ON "AiGeneration"("batchId");
+
+-- CreateIndex
+CREATE INDEX "AiGeneration_createdAt_idx" ON "AiGeneration"("createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "ReviewSummary_shopId_productId_key" ON "ReviewSummary"("shopId", "productId");

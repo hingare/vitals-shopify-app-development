@@ -113,6 +113,7 @@ export default function AiToolPage() {
             busy={busy}
             disabled={!canStart}
             storeUrl={data.storeUrl}
+            media={data.media}
             onStart={(request) => send({ intent: "start", ...request })}
           />
         </s-stack>

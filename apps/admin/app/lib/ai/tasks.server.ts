@@ -4,6 +4,7 @@ import "./tasks/alt-text.server";
 import "./tasks/descriptions.server";
 import "./tasks/faq.server";
 import "./tasks/importer.server";
+import "./tasks/media.server";
 import "./tasks/page-builder.server";
 import "./tasks/review-summary.server";
 import "./tasks/writers.server";

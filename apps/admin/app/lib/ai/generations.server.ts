@@ -4,7 +4,7 @@ import { registry } from "@app/tools";
 import type { z } from "zod";
 import db from "../../db.server";
 import { offlineAdmin } from "../admin-client.server";
-import { enqueueJob, registerJob, type JobContext } from "../queue.server";
+import { enqueueJob, registerJob, type JobContext, type JobResult } from "../queue.server";
 import type { GraphqlClient } from "../tools.server";
 import { AiError, asAiError } from "./errors";
 
@@ -41,6 +41,10 @@ export interface AiTaskContext<I> {
   admin: GraphqlClient;
   input: I;
   targetId: string | null;
+  /** কাজের id (ছবি ও ভিডিওর কাজ নিজের ফাইলের নাম এটা দিয়ে রাখে) */
+  generationId?: string;
+  /** লম্বা কাজের আগের পালায় রেখে যাওয়া অবস্থা (প্রথম পালায় null) */
+  pending?: Record<string, unknown> | null;
 }
 
 export interface AiRunResult<O> {
@@ -49,13 +53,29 @@ export interface AiRunResult<O> {
   model: string;
 }
 
+/**
+ * লম্বা কাজ (বাইরের সার্ভিসে ছবি বা ভিডিও বানানো) ফলের বদলে এটা ফেরত দিতে পারে: লাইন অবস্থাটা রেখে
+ * `delayMs` পরে আবার `run` ডাকে, `pending`-এ সেই অবস্থা দিয়ে। এর মধ্যে কোনো কর্মী আটকে থাকে না।
+ */
+export interface AiPendingResult {
+  pending: Record<string, unknown>;
+  delayMs: number;
+  /** এই পালায় যা খরচ হয়ে গেছে (যেমন বিজ্ঞাপনের লেখা), ফলের পাশে দেখানোর জন্য */
+  costMicros?: number;
+}
+
+export const isPendingResult = (value: unknown): value is AiPendingResult =>
+  Boolean(value && typeof value === "object" && "pending" in value);
+
 export interface AiTask<I = unknown, O = unknown> {
   toolId: string;
   /** মার্চেন্টের দেওয়া ইনপুট */
   input: z.ZodType<I>;
   /** ফলের আকার: মার্চেন্ট বদলে দিলে বসানোর আগে এটা দিয়েই মেলানো হয় */
   output: z.ZodType<O>;
-  run(context: AiTaskContext<I>): Promise<AiRunResult<O>>;
+  run(context: AiTaskContext<I>): Promise<AiRunResult<O> | AiPendingResult>;
+  /** শুরুর আগে আনুমানিক খরচ (মাইক্রো-ডলারে), এ মাসে এত ক্রেডিট বাকি আছে কিনা দেখতে */
+  estimateMicros?(input: I): number;
   /**
    * ফল তৈরি হলেই নিজে থেকে স্টোরে বসে (মার্চেন্ট পরে বদলাতে বা ফেরাতে পারেন)। শুধু সেই টুলে, যেখানে
    * মার্চেন্ট টুল চালু করেই এটা চেয়েছেন (যেমন রিভিউর সারাংশ)।
@@ -64,6 +84,13 @@ export interface AiTask<I = unknown, O = unknown> {
   /** ফল স্টোরে বসায় আর আগের মান ফেরত দেয় (ফেরানোর জন্য) */
   apply?(context: AiTaskContext<I> & { output: O }): Promise<unknown>;
   undo?(context: AiTaskContext<I> & { output: O; previous: unknown }): Promise<void>;
+  /**
+   * লম্বা কাজ শেষ পর্যন্ত ব্যর্থ হলে একবার: বাইরের কাজ বাতিল আর নিশ্চিতভাবে না-হওয়া কাজের ধরে রাখা
+   * টাকা ফেরত। শুধু আগের পালার রেখে যাওয়া অবস্থা থাকলে ডাকা হয়।
+   */
+  abandon?(context: { shop: AiShop; pending: Record<string, unknown> }): Promise<void>;
+  /** কাজ ফেলে দিলে তার নিজের জিনিস (যেমন রাখা ফাইল) মোছা */
+  release?(generationId: string): Promise<void>;
 }
 
 const tasks = new Map<string, AiTask>();
@@ -114,13 +141,32 @@ async function setStatus(id: string, data: Prisma.AiGenerationUpdateInput) {
   await db.aiGeneration.update({ where: { id }, data });
 }
 
-export async function runGenerationJob(job: JobContext) {
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+
+/** লম্বা কাজ থামলে বাইরের কাজ বাতিল আর টাকার হিসাব মেলানো; এর ত্রুটি কাজের ফলকে বদলায় না */
+async function abandonPending(
+  task: AiTask | undefined,
+  shop: AiShop | null,
+  pending: Record<string, unknown> | null,
+) {
+  if (!task?.abandon || !shop || !pending) return;
+  await task
+    .abandon({ shop, pending })
+    .catch((error: unknown) => console.warn(`[ai] ${task.toolId} abandon failed`, error));
+}
+
+export async function runGenerationJob(job: JobContext): Promise<JobResult> {
   const id = String(job.payload.generationId ?? "");
+  const pending = asRecord(job.payload.pending);
   const generation = await db.aiGeneration.findUnique({ where: { id } });
   if (!generation || !["queued", "running"].includes(generation.status)) return;
   const shop = await db.shop.findUnique({ where: { id: generation.shopId } });
   const task = tasks.get(generation.toolId);
   if (!shop || shop.uninstalledAt || !task) {
+    await abandonPending(task, shop, pending);
     await setStatus(id, { status: "failed", error: "failed" });
     return;
   }
@@ -134,7 +180,19 @@ export async function runGenerationJob(job: JobContext) {
       admin,
       input: generation.input,
       targetId: generation.targetId,
+      generationId: id,
+      pending,
     });
+    if (isPendingResult(result)) {
+      if (result.costMicros) {
+        await setStatus(id, { costMicros: { increment: result.costMicros } });
+      }
+      return {
+        again: true,
+        payload: { generationId: id, pending: result.pending },
+        delayMs: result.delayMs,
+      };
+    }
     await setStatus(id, {
       status: "ready",
       output: result.output as Prisma.InputJsonValue,
@@ -151,13 +209,15 @@ export async function runGenerationJob(job: JobContext) {
   } catch (error) {
     const aiError = asAiError(error);
     if (aiError.retryable && job.attempts < MAX_AI_ATTEMPTS) {
-      await setStatus(id, { status: "queued" });
+      // বাইরের কাজ চলতে থাকলে অবস্থা "চলছে"-ই থাকে
+      await setStatus(id, { status: pending ? "running" : "queued" });
       // লাইন নিজেই একটু পরে আবার চালায়
       throw aiError;
     }
     if (aiError.code === "failed") {
       console.error(`[ai] ${generation.toolId} failed`, aiError.message);
     }
+    await abandonPending(task, shop, pending);
     await setStatus(id, { status: "failed", error: aiError.code });
   }
 }
@@ -203,6 +263,7 @@ export async function applyGeneration(
       admin,
       input: generation.input,
       targetId: generation.targetId,
+      generationId: id,
       output: parsed.data,
     });
     await setStatus(id, {
@@ -228,6 +289,7 @@ export async function undoGeneration(shop: AiShop, admin: GraphqlClient, id: str
       admin,
       input: generation.input,
       targetId: generation.targetId,
+      generationId: id,
       output: generation.output,
       previous: generation.previous,
     });
@@ -240,8 +302,11 @@ export async function undoGeneration(shop: AiShop, admin: GraphqlClient, id: str
 
 /** দেখা ফল ফেলে দেওয়া (তালিকা থেকে সরে যায়); বসানো ফল আগে ফেরাতে হয় */
 export async function discardGeneration(shop: AiShop, id: string) {
-  await owned(shop, id);
+  const { task } = await owned(shop, id);
   await claim(id, ["ready", "failed", "undone"], "discarded");
+  await task
+    .release?.(id)
+    .catch((error: unknown) => console.warn(`[ai] ${task.toolId} release failed`, error));
 }
 
 export function recentGenerations(shopId: string, toolId: string, take = 20) {

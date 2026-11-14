@@ -2,6 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { redactCustomer } from "../lib/privacy.server";
+import { deleteShopAiMedia } from "../lib/ai/media/files.server";
 import { deleteShopRecordings } from "../lib/recordings.server";
 import { retryWebhook } from "../lib/tool-state.server";
 
@@ -38,10 +39,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     }
     case "SHOP_REDACT": {
       const record = await db.shop.findUnique({ where: { domain: shop }, select: { id: true } });
-      // Visitor Recordings-এর স্টোরেজের ফাইল cascade-এ মোছে না, তাই আগে; না পারলে Shopify পরে আবার পাঠায়
+      // Visitor Recordings আর AI-র ছবি ও ভিডিওর স্টোরেজের ফাইল cascade-এ মোছে না, তাই আগে;
+      // না পারলে Shopify পরে আবার পাঠায়
       if (record) {
         try {
           await deleteShopRecordings(record.id);
+          await deleteShopAiMedia(record.id);
         } catch (error) {
           return retryWebhook("shop/redact", error);
         }
