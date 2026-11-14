@@ -75,6 +75,30 @@ export async function saveBrand(shopId: string, value: unknown) {
   return true;
 }
 
+const numericId = (gid: unknown) =>
+  typeof gid === "string" ? (/\/(\d+)$/.exec(gid)?.[1] ?? null) : null;
+
+/** কাজটা যে জিনিস নিয়ে (বা বসানোর পর যা তৈরি হলো), Shopify অ্যাডমিনে সেটা খোলার ঠিকানা */
+export function adminLinkFor(row: {
+  toolId: string;
+  status: string;
+  input: unknown;
+  previous: unknown;
+}): string | null {
+  const input = (row.input ?? {}) as Record<string, unknown>;
+  const previous = (row.previous ?? {}) as Record<string, unknown>;
+  if (row.toolId === "ai-product-importer") {
+    const id = row.status === "applied" ? numericId(previous.productId) : null;
+    return id ? `shopify://admin/products/${id}` : null;
+  }
+  if (row.toolId === "ai-page-builder") {
+    const id = row.status === "applied" ? numericId(previous.pageId) : null;
+    return id ? `shopify://admin/pages/${id}` : null;
+  }
+  const productId = numericId(input.productId);
+  return productId ? `shopify://admin/products/${productId}` : null;
+}
+
 export async function generationList(shopId: string, toolId: string) {
   const rows = await recentGenerations(shopId, toolId, 30);
   return rows.map((row) => ({
@@ -88,6 +112,7 @@ export async function generationList(shopId: string, toolId: string) {
     createdAt: row.createdAt.toISOString(),
     canApply: Boolean(aiTaskFor(row.toolId)?.apply),
     canUndo: Boolean(aiTaskFor(row.toolId)?.undo),
+    adminLink: adminLinkFor(row),
   }));
 }
 

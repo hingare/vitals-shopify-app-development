@@ -26,7 +26,11 @@ registerAiTask({
   async run({ input }) {
     runs++;
     if (failWith) throw failWith;
-    return { output: { text: `Copy for ${input.productId}` }, costMicros: 120, model: "test-model" };
+    return {
+      output: { text: `Copy for ${input.productId}` },
+      costMicros: 120,
+      model: "test-model",
+    };
   },
   async apply({ input, output }) {
     const previous = store[input.productId] ?? "";
@@ -58,7 +62,8 @@ beforeEach(() => {
   failWith = null;
   for (const key of Object.keys(store)) delete store[key];
   store.p1 = "Old copy";
-  pro.id = db.shop.seed({ domain: pro.domain, plan: "professional", uninstalledAt: null }).id as string;
+  pro.id = db.shop.seed({ domain: pro.domain, plan: "professional", uninstalledAt: null })
+    .id as string;
 });
 
 describe("AI generations", () => {

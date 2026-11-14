@@ -7,4 +7,5 @@ export const TOOL_PAGES: Record<string, string> = {
   "push-notifications": "/app/marketing/push",
   "seo-alt-tags": "/app/seo-alt",
   "eu-withdrawal": "/app/withdrawals",
+  "ai-product-faq": "/app/ai/ai-product-faq",
 };

@@ -11,7 +11,12 @@ import { imageGid, productGid, systemPrompt } from "./common.server";
  * AI Alt Text: প্রোডাক্টের ছবি দেখে বর্ণনামূলক alt লেখে। মার্চেন্ট দেখে তারপর বসান;
  * আগের alt রাখা থাকে, আর ফেরানোর সময় পরে বদলানো alt ছোঁয়া হয় না।
  */
-const input = z.object({ productId: productGid, mediaId: imageGid });
+const input = z.object({
+  productId: productGid,
+  mediaId: imageGid,
+  // শুধু অ্যাডমিনে ছোট ছবি দেখানোর জন্য; AI-কে পাঠানো হয় Shopify থেকে নতুন করে আনা ছবি
+  imageUrl: z.string().trim().max(2_000).optional(),
+});
 export const altOutput = z.object({ alt: z.string().trim().min(1).max(512) });
 const answer = z.object({ alt: z.string() });
 

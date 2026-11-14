@@ -9,7 +9,7 @@ export interface Credits {
 }
 
 /** এই মাসের AI ক্রেডিট: কত খরচ হলো, কত বাকি, কবে আবার ভরবে */
-export function CreditsSummary({ credits }: { credits: Credits }) {
+export function CreditsSummary({ credits, slot }: { credits: Credits; slot?: "aside" }) {
   const t = useT();
   const resets = new Date(credits.resetsAt).toLocaleDateString(undefined, {
     day: "numeric",
@@ -17,13 +17,15 @@ export function CreditsSummary({ credits }: { credits: Credits }) {
   });
   const share = credits.limit > 0 ? credits.used / credits.limit : 1;
   return (
-    <s-section heading={t("ai.credits.title")}>
+    <s-section heading={t("ai.credits.title")} {...(slot ? { slot } : {})}>
       <s-stack direction="block" gap="small-200">
         <s-stack direction="inline" gap="small-200" alignItems="center">
           <s-heading>
             {t("ai.credits.used", { used: credits.used, limit: credits.limit })}
           </s-heading>
-          {credits.limit > 0 && share >= 1 && <s-badge tone="critical">{t("ai.credits.out")}</s-badge>}
+          {credits.limit > 0 && share >= 1 && (
+            <s-badge tone="critical">{t("ai.credits.out")}</s-badge>
+          )}
           {credits.limit > 0 && share >= 0.8 && share < 1 && (
             <s-badge tone="warning">{t("ai.credits.low")}</s-badge>
           )}

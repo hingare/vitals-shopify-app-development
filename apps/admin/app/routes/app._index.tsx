@@ -30,11 +30,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .catch(() => "USD"),
   ]);
   const handle = session.shop.replace(".myshopify.com", "");
+  // AI টুলগুলো চালু/বন্ধ করার নয় (সবসময় খোলা), তাই গোনায় আসে না
+  const switchable = tools.filter((t) => !t.tool.alwaysOn);
   return {
     plan,
     embedEnabled,
-    enabledCount: tools.filter((t) => t.enabled).length,
-    totalTools: tools.length,
+    enabledCount: switchable.filter((t) => t.enabled).length,
+    totalTools: switchable.length,
     baselineScore: speed.baseline?.score ?? null,
     latestScore: speed.latest?.score ?? null,
     stats,

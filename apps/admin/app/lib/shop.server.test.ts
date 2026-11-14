@@ -4,7 +4,7 @@ process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 5).toString("base64");
 
 vi.mock("../db.server", async () => ({ default: (await import("./test-db")).fakeDb }));
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
-const { ensureShop } = await import("./shop.server");
+const { ensureShop, trialEnd } = await import("./shop.server");
 
 beforeEach(() => resetFakeDb());
 
@@ -51,5 +51,16 @@ describe("ensureShop", () => {
     await ensureShop("tom.myshopify.com");
     expect(db.shop.rows[0]?.uninstalledAt).toBeNull();
     expect(db.job.rows).toHaveLength(0);
+  });
+});
+
+describe("trialEnd", () => {
+  it("adds the trial days to the subscription start, and is empty without a trial", () => {
+    expect(trialEnd({ trialDays: 7, createdAt: "2026-11-01T12:00:00Z" })?.toISOString()).toBe(
+      "2026-11-08T12:00:00.000Z",
+    );
+    expect(trialEnd({ trialDays: 0, createdAt: "2026-11-01T12:00:00Z" })).toBeNull();
+    expect(trialEnd({ trialDays: 7, createdAt: "not a date" })).toBeNull();
+    expect(trialEnd(undefined)).toBeNull();
   });
 });

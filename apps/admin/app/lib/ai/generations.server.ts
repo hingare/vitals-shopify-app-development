@@ -15,16 +15,19 @@ import { AiError, asAiError } from "./errors";
  * AI ডাকটা ব্যাকগ্রাউন্ডে চলে ("ai:<id>" কাজ, আলাদা লাইনে), তাই পেজ আটকে থাকে না আর সার্ভার
  * বন্ধ হলেও কাজ হারায় না। স্টোরে বসানো আর ফেরানো হয় মার্চেন্টের ক্লিকে, তাঁর নিজের অনুরোধে।
  */
-export type GenerationStatus =
-  | "queued"
-  | "running"
-  | "ready"
-  | "applying"
-  | "applied"
-  | "undoing"
-  | "undone"
-  | "failed"
-  | "discarded";
+export const GENERATION_STATUSES = [
+  "queued",
+  "running",
+  "ready",
+  "applying",
+  "applied",
+  "undoing",
+  "undone",
+  "failed",
+  "discarded",
+] as const;
+
+export type GenerationStatus = (typeof GENERATION_STATUSES)[number];
 
 export interface AiShop {
   id: string;

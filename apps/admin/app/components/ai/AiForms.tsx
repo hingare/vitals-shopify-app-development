@@ -181,7 +181,10 @@ function DescriptionsForm({ busy, disabled, onStart }: FormProps) {
         disabled={disabled || !product}
         onClick={() =>
           product &&
-          onStart({ input: { productId: product.id, length, includeSeo, notes }, label: product.title })
+          onStart({
+            input: { productId: product.id, length, includeSeo, notes },
+            label: product.title,
+          })
         }
       />
     </s-stack>
@@ -204,7 +207,8 @@ function AltTextForm({ busy, disabled, onStart }: FormProps) {
         busy={busy}
         disabled={disabled || !product}
         onClick={() =>
-          product && onStart({ input: { productId: product.id, onlyMissing }, label: product.title })
+          product &&
+          onStart({ input: { productId: product.id, onlyMissing }, label: product.title })
         }
       />
     </s-stack>
@@ -231,7 +235,8 @@ function FaqForm({ busy, disabled, onStart }: FormProps) {
         busy={busy}
         disabled={disabled || !product}
         onClick={() =>
-          product && onStart({ input: { productId: product.id, count, notes }, label: product.title })
+          product &&
+          onStart({ input: { productId: product.id, count, notes }, label: product.title })
         }
       />
     </s-stack>
@@ -260,7 +265,12 @@ function SocialForm({ busy, disabled, onStart }: FormProps) {
         value={topic}
         onChange={(e) => setTopic(e.currentTarget.value)}
       />
-      <Checks label={t("ai.form.platforms")} value={platforms} options={PLATFORMS} onChange={setPlatforms} />
+      <Checks
+        label={t("ai.form.platforms")}
+        value={platforms}
+        options={PLATFORMS}
+        onChange={setPlatforms}
+      />
       <Choice
         label={t("ai.form.goal")}
         value={goal}
@@ -304,7 +314,12 @@ function PlanForm({ busy, disabled, onStart }: FormProps) {
         options={["none", "small", "medium"] as const}
         onChange={setBudget}
       />
-      <Checks label={t("ai.form.channels")} value={channels} options={CHANNELS} onChange={setChannels} />
+      <Checks
+        label={t("ai.form.channels")}
+        value={channels}
+        options={CHANNELS}
+        onChange={setChannels}
+      />
       <Notes value={notes} onChange={setNotes} />
       <StartButton
         busy={busy}
@@ -373,7 +388,12 @@ function PageBuilderForm({ busy, disabled, onStart }: FormProps) {
   const [notes, setNotes] = useState("");
   return (
     <s-stack direction="block" gap="base">
-      <Choice label={t("ai.form.pageType")} value={pageType} options={PAGE_TYPES} onChange={setPageType} />
+      <Choice
+        label={t("ai.form.pageType")}
+        value={pageType}
+        options={PAGE_TYPES}
+        onChange={setPageType}
+      />
       <s-text-field
         label={t("ai.form.pageTopic")}
         details={t("ai.form.pageTopicHelp")}

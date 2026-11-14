@@ -67,7 +67,10 @@ export default function AiStudioPage() {
                   <s-text color="subdued">{t(`tool.${tool.id}.description`)}</s-text>
                 </s-stack>
                 {tool.allowed ? (
-                  <s-button href={`/app/ai/${tool.id}`} {...(!tool.ready ? { disabled: true } : {})}>
+                  <s-button
+                    href={`/app/ai/${tool.id}`}
+                    {...(!tool.ready ? { disabled: true } : {})}
+                  >
                     {t("tools.open")}
                   </s-button>
                 ) : (

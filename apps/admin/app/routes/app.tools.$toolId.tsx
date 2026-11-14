@@ -15,9 +15,11 @@ import { SettingsForm, type JsonSchema } from "../components/SettingsForm";
 import { previews } from "../components/previews";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { redirect, session } = await authenticate.admin(request);
   const tool = registry.get(params.toolId ?? "");
   if (!tool) throw new Response("Not found", { status: 404 });
+  // AI টুলের সেটিংস নেই; কাজ হয় AI Studio-র পেজে
+  if (tool.alwaysOn) throw redirect(`/app/ai/${tool.id}`);
   const shop = await ensureShop(session.shop);
   const plan = planOf(shop);
   const state = (await getToolStates(shop.id)).find((s) => s.tool.id === tool.id)!;

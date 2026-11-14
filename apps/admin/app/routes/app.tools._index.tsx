@@ -20,6 +20,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       id: tool.id,
       category: tool.category,
       plan: tool.plan,
+      alwaysOn: tool.alwaysOn,
       enabled,
       allowed: plan !== null && canUseTool(tool, plan),
     })),
@@ -117,10 +118,17 @@ export default function ToolsPage() {
                 <s-text color="subdued">{t(`tool.${tool.id}.description`)}</s-text>
               </s-stack>
               <s-stack direction="inline" gap="base" alignItems="center">
-                <s-button href={`/app/tools/${tool.id}`} variant="tertiary">
-                  {t("tools.configure")}
-                </s-button>
-                {tool.allowed ? (
+                {tool.alwaysOn ? (
+                  // AI টুল: চালু/বন্ধ নেই, নিজের পেজে কাজ হয়
+                  <s-button href={tool.allowed ? `/app/ai/${tool.id}` : "/app/plans"}>
+                    {tool.allowed ? t("tools.open") : t("tools.upgrade")}
+                  </s-button>
+                ) : (
+                  <s-button href={`/app/tools/${tool.id}`} variant="tertiary">
+                    {t("tools.configure")}
+                  </s-button>
+                )}
+                {tool.alwaysOn ? null : tool.allowed ? (
                   <s-switch
                     label={enabled ? t("tools.on") : t("tools.off")}
                     checked={enabled}
