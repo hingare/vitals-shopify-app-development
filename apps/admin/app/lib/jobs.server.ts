@@ -11,6 +11,7 @@ import "./ai/tasks.server";
 import "./integrations.server";
 import "./push.server";
 import "./seo-alt.server";
+import "./seo-meta.server";
 import "./stock-alerts.server";
 import "./subscribers.server";
 

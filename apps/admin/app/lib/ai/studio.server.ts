@@ -14,6 +14,7 @@ export const AI_TOOL_GROUPS = {
     "ai-descriptions",
     "ai-alt-text",
     "ai-product-faq",
+    "ai-review-summary",
     "ai-social-posts",
     "ai-page-builder",
     "ai-product-importer",

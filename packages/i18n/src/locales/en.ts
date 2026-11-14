@@ -869,8 +869,10 @@ export const en = {
   "ai.notConfigured": "AI tools are not available right now. Please try again later.",
   "ai.needsProfessional": "AI tools are part of the Professional plan.",
   "ai.notReady": "This tool is coming soon.",
-  "ai.faqOff":
+  "ai.storefrontOff.ai-product-faq":
     "Saved questions show on product pages once AI Product FAQ is turned on. You can also place the AI FAQ block in your theme editor.",
+  "ai.storefrontOff.ai-review-summary":
+    "Summaries show above the reviews on product pages once AI Review Summary is turned on.",
   "ai.faqOffAction": "Turn it on",
   "ai.comingSoon": "Coming soon",
   "ai.group.write": "Write",
@@ -923,6 +925,12 @@ export const en = {
   "ai.form.length": "Length",
   "ai.form.includeSeo": "Also write the SEO title and description",
   "ai.form.onlyMissing": "Only photos without alt text",
+  "ai.form.summaryHelp":
+    "Summaries are written from published reviews and show on the product page right away. You can edit or undo each one below.",
+  "ai.form.summaryAll": "Write summaries",
+  "ai.form.summaryAllHelp":
+    "Leave the product empty to cover up to 50 products that have enough reviews and no up-to-date summary.",
+  "ai.form.summaryOne": "Write summary",
   "ai.form.questions": "Number of questions",
   "ai.form.topic": "Topic",
   "ai.form.topicHelp": "What the posts are about, if you don't choose a product.",
@@ -999,6 +1007,12 @@ export const en = {
   "ai.results.question": "Question {n}",
   "ai.results.answer": "Answer",
   "ai.results.remove": "Remove",
+  "ai.results.summary": "Summary",
+  "ai.results.pros": "What customers like",
+  "ai.results.cons": "What customers don't like",
+  "ai.results.point": "Point {n}",
+  "ai.results.basedOn": "Written from {count} published reviews",
+  "ai.results.appliedSummary": "Showing above the reviews on the product page.",
   "ai.results.post": "Post",
   "ai.results.posts": "Posts",
   "ai.results.metrics": "What to measure",
@@ -1046,7 +1060,9 @@ export const en = {
   "ai.toast.appliedSome": "Saved {n}, but {failed} could not be saved",
   "ai.toast.undone": "Undone",
   "ai.toast.discarded": "Discarded",
-  "ai.toast.nothing.start": "All photos of this product already have alt text.",
+  "ai.toast.nothing.start.ai-alt-text": "All photos of this product already have alt text.",
+  "ai.toast.nothing.start.ai-review-summary":
+    "No product needs a summary right now. A product needs enough published reviews (you can change how many in the tool settings), and a summary is only rewritten after new reviews.",
   "ai.toast.nothing.apply": "Nothing is ready to save.",
 
   // ---- Marketing (email) ----

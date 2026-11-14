@@ -165,6 +165,81 @@ function FaqView({ output, editable, onChange }: ViewProps) {
   );
 }
 
+/** ভালো বা খারাপ দিকের তালিকা: প্রতিটা আলাদা ঘরে, বাদ দেওয়া যায় */
+function PointList({
+  label,
+  items,
+  editable,
+  onChange,
+}: {
+  label: string;
+  items: string[];
+  editable: boolean;
+  onChange: (items: string[]) => void;
+}) {
+  const t = useT();
+  if (items.length === 0) return null;
+  return (
+    <s-stack direction="block" gap="small-200">
+      <s-text type="strong">{label}</s-text>
+      {items.map((item, index) => (
+        <s-stack key={index} direction="inline" gap="small-200" alignItems="end">
+          <s-text-field
+            label={t("ai.results.point", { n: index + 1 })}
+            labelAccessibilityVisibility="exclusive"
+            maxLength={120}
+            readOnly={!editable}
+            value={item}
+            onChange={(e) =>
+              onChange(items.map((value, i) => (i === index ? e.currentTarget.value : value)))
+            }
+          />
+          {editable && (
+            <s-button
+              variant="tertiary"
+              tone="critical"
+              onClick={() => onChange(items.filter((_, i) => i !== index))}
+            >
+              {t("ai.results.remove")}
+            </s-button>
+          )}
+        </s-stack>
+      ))}
+    </s-stack>
+  );
+}
+
+function ReviewSummaryView({ output, editable, onChange }: ViewProps) {
+  const t = useT();
+  return (
+    <s-stack direction="block" gap="base">
+      <s-text color="subdued">
+        {t("ai.results.basedOn", { count: Number(output.reviewCount) || 0 })}
+      </s-text>
+      <s-text-area
+        label={t("ai.results.summary")}
+        rows={3}
+        maxLength={600}
+        readOnly={!editable}
+        value={str(output.text)}
+        onChange={(e) => onChange({ ...output, text: e.currentTarget.value })}
+      />
+      <PointList
+        label={t("ai.results.pros")}
+        items={list<string>(output.pros)}
+        editable={editable}
+        onChange={(pros) => onChange({ ...output, pros })}
+      />
+      <PointList
+        label={t("ai.results.cons")}
+        items={list<string>(output.cons)}
+        editable={editable}
+        onChange={(cons) => onChange({ ...output, cons })}
+      />
+    </s-stack>
+  );
+}
+
 interface Post {
   platform: string;
   text: string;
@@ -523,6 +598,7 @@ const VIEWS: Record<string, (props: ViewProps) => React.JSX.Element> = {
   "ai-descriptions": DescriptionView,
   "ai-alt-text": AltView,
   "ai-product-faq": FaqView,
+  "ai-review-summary": ReviewSummaryView,
   "ai-social-posts": PostsView,
   "ai-marketing-plan": PlanView,
   "ai-viral-campaign": CampaignView,
@@ -549,6 +625,7 @@ const APPLY_LABEL: Record<string, string> = {
 };
 
 const APPLIED_NOTE: Record<string, string> = {
+  "ai-review-summary": "ai.results.appliedSummary",
   "ai-page-builder": "ai.results.appliedPage",
   "ai-product-importer": "ai.results.appliedProduct",
 };

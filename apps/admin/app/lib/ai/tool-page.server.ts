@@ -20,11 +20,15 @@ import {
 import { loadProduct, smallImage } from "./product.server";
 import { AI_TOOL_GROUPS, aiCredits, generationList } from "./studio.server";
 import { productGid } from "./tasks/common.server";
+import { startReviewSummaries } from "./tasks/review-summary.server";
 
 /** AI পেজের প্রতিটা টুলের নিজস্ব পাতা (/app/ai/<id>): শুরু করা, ফল দেখা, বসানো, ফেরানো */
 const STUDIO_TOOLS = new Set<string>(Object.values(AI_TOOL_GROUPS).flat());
 
 export const isStudioTool = (toolId: string) => STUDIO_TOOLS.has(toolId);
+
+/** যেসব AI টুলের ফল স্টোরে দেখাতে টুলটা চালু থাকতে হয় */
+const STOREFRONT_TOOLS = new Set(["ai-product-faq", "ai-review-summary"]);
 
 /** একবারে কতগুলো ফল একসাথে বসানো যায় ("সব বসান") */
 const APPLY_ALL_LIMIT = 50;
@@ -47,9 +51,9 @@ export async function toolPageData(shop: AiShop, admin: GraphqlClient, toolId: s
   if (!tool || !isStudioTool(toolId)) throw new Response("Not found", { status: 404 });
   const plan = shop.plan === "starter" || shop.plan === "professional" ? shop.plan : null;
   const allowed = plan !== null && canUseTool(tool, plan);
-  // FAQ স্টোরে দেখাতে টুলটা চালু থাকতে হয় (থিমের ব্লক বা embed); বন্ধ থাকলে পেজে মনে করিয়ে দেওয়া হয়
+  // FAQ আর রিভিউর সারাংশ স্টোরে দেখাতে টুলটা চালু থাকতে হয়; বন্ধ থাকলে পেজে মনে করিয়ে দেওয়া হয়
   const storefrontOff =
-    toolId === "ai-product-faq" &&
+    STOREFRONT_TOOLS.has(toolId) &&
     !(await db.toolSetting.findFirst({ where: { shopId: shop.id, toolId, enabled: true } }));
   return {
     id: toolId,
@@ -137,8 +141,11 @@ export async function handleToolAction(
     switch (body.intent) {
       case "start": {
         await assertCanStart(shop);
-        if (toolId === "ai-alt-text") {
-          const count = await startAltText(shop, admin, body.input);
+        if (toolId === "ai-alt-text" || toolId === "ai-review-summary") {
+          const count =
+            toolId === "ai-alt-text"
+              ? await startAltText(shop, admin, body.input)
+              : await startReviewSummaries(shop, admin, body.input);
           return count > 0
             ? done(body.intent, count)
             : { ok: false, intent: body.intent, error: "nothing" };

@@ -34,6 +34,7 @@ export default function AiToolPage() {
   const revalidator = useRevalidator();
   const busy = fetcher.state !== "idle";
   const working = data.generations.some((g) => WORKING.includes(g.status));
+  const toolId = data.id;
 
   // AI কাজ ব্যাকগ্রাউন্ডে চলে; চলার সময় তালিকা নিজে থেকেই নতুন হয়
   useEffect(() => {
@@ -50,7 +51,9 @@ export default function AiToolPage() {
     if (!result.ok) {
       const key =
         result.error === "nothing"
-          ? `ai.toast.nothing.${result.intent === "start" ? "start" : "apply"}`
+          ? result.intent === "start"
+            ? `ai.toast.nothing.start.${toolId}`
+            : "ai.toast.nothing.apply"
           : `ai.error.${result.error}`;
       shopify.toast.show(t(key), { isError: true });
       return;
@@ -71,7 +74,7 @@ export default function AiToolPage() {
       discard: t("ai.toast.discarded"),
     };
     if (message[result.intent]) shopify.toast.show(message[result.intent]!);
-  }, [fetcher.state, fetcher.data, shopify, t]);
+  }, [fetcher.state, fetcher.data, shopify, t, toolId]);
 
   const send = (body: ResultAction | (StartRequest & { intent: "start" })) =>
     fetcher.submit(JSON.stringify(body), { method: "POST", encType: "application/json" });
@@ -94,7 +97,8 @@ export default function AiToolPage() {
       {data.allowed && !data.ready && <s-banner tone="info">{t("ai.notReady")}</s-banner>}
       {data.allowed && data.storefrontOff && (
         <s-banner tone="info">
-          {t("ai.faqOff")} <s-link href={`/app/tools/${data.id}`}>{t("ai.faqOffAction")}</s-link>
+          {t(`ai.storefrontOff.${data.id}`)}{" "}
+          <s-link href={`/app/tools/${data.id}`}>{t("ai.faqOffAction")}</s-link>
         </s-banner>
       )}
       {data.allowed && outOfCredits && (

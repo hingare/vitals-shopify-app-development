@@ -56,6 +56,11 @@ export interface AiTask<I = unknown, O = unknown> {
   /** ফলের আকার: মার্চেন্ট বদলে দিলে বসানোর আগে এটা দিয়েই মেলানো হয় */
   output: z.ZodType<O>;
   run(context: AiTaskContext<I>): Promise<AiRunResult<O>>;
+  /**
+   * ফল তৈরি হলেই নিজে থেকে স্টোরে বসে (মার্চেন্ট পরে বদলাতে বা ফেরাতে পারেন)। শুধু সেই টুলে, যেখানে
+   * মার্চেন্ট টুল চালু করেই এটা চেয়েছেন (যেমন রিভিউর সারাংশ)।
+   */
+  autoApply?: boolean;
   /** ফল স্টোরে বসায় আর আগের মান ফেরত দেয় (ফেরানোর জন্য) */
   apply?(context: AiTaskContext<I> & { output: O }): Promise<unknown>;
   undo?(context: AiTaskContext<I> & { output: O; previous: unknown }): Promise<void>;
@@ -137,6 +142,12 @@ export async function runGenerationJob(job: JobContext) {
       model: result.model,
       error: null,
     });
+    if (task.autoApply) {
+      // বসানো না গেলে ফলটা "ready" থাকে, মার্চেন্ট নিজে বসাতে পারেন
+      await applyGeneration(shop, admin, id).catch((error: unknown) =>
+        console.warn(`[ai] ${generation.toolId} auto apply failed`, error),
+      );
+    }
   } catch (error) {
     const aiError = asAiError(error);
     if (aiError.retryable && job.attempts < MAX_AI_ATTEMPTS) {

@@ -2,6 +2,7 @@ import db from "../db.server";
 import { parseCsv } from "./csv";
 import { MAX_IMPORT_ROWS } from "./reviews";
 import { syncProductRatings } from "./reviews.server";
+import { queueSummaryRefresh } from "./ai/tasks/review-summary.server";
 import type { GraphqlClient } from "./tools.server";
 
 export { MAX_IMPORT_ROWS };
@@ -186,7 +187,12 @@ export async function importReviews(
   }
 
   if (options.publish && data.length > 0) {
-    await syncProductRatings(admin, shopId, [...new Set(data.map((d) => d.productId))]);
+    const products = [...new Set(data.map((d) => d.productId))];
+    await syncProductRatings(admin, shopId, products);
+    // AI Review Summary: আমদানি করা রিভিউ থেকেও সারাংশ (টুল চালু থাকলে, কিছুক্ষণ পরে)
+    await queueSummaryRefresh(shopId, products).catch((error) =>
+      console.warn("[reviews] summary refresh failed", error),
+    );
   }
   return { imported: data.length, skipped, duplicates, tooMany, errors };
 }

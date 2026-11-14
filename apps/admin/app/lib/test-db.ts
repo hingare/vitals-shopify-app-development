@@ -309,6 +309,7 @@ function build() {
     })),
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
     seoMetaChange: table("meta", () => ({}), [["shopId", "resourceId", "field"]]),
+    reviewSummary: table("sum", () => ({ updatedAt: new Date() }), [["shopId", "productId"]]),
     usageCounter: table("usage", () => ({ used: 0 }), [["shopId", "meter", "month"]]),
     aiGeneration: table("gen", () => ({
       targetId: null,

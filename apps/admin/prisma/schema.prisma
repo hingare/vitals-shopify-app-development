@@ -90,6 +90,7 @@ model Shop {
   withdrawals      WithdrawalRequest[]
   altTextChanges   AltTextChange[]
   seoMetaChanges   SeoMetaChange[]
+  reviewSummaries  ReviewSummary[]
   jobs             Job[]
   /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
   trialEndsAt      DateTime?
@@ -679,4 +680,24 @@ model AiGeneration {
   @@index([shopId, toolId, createdAt])
   @@index([shopId, targetId])
   @@index([batchId])
+}
+
+/// AI Review Summary: প্রোডাক্টের প্রকাশিত রিভিউর সারাংশ (স্টোরে রিভিউ উইজেটের উপরে দেখায়)
+model ReviewSummary {
+  id          String   @id @default(cuid())
+  shopId      String
+  /// Shopify প্রোডাক্টের সংখ্যা-id (রিভিউর মতো, gid ছাড়া)
+  productId   String
+  text        String
+  /// ক্রেতারা যা পছন্দ করেন (সর্বোচ্চ ৩টা লেখা)
+  pros        Json
+  /// যা নিয়ে অভিযোগ (সর্বোচ্চ ৩টা লেখা)
+  cons        Json
+  /// কতগুলো প্রকাশিত রিভিউ থেকে লেখা; নতুন রিভিউ জমলে আবার লেখার জন্য মেলানো হয়
+  reviewCount Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, productId])
 }

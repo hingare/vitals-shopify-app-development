@@ -243,6 +243,28 @@ function FaqForm({ busy, disabled, onStart }: FormProps) {
   );
 }
 
+function ReviewSummaryForm({ busy, disabled, onStart }: FormProps) {
+  const t = useT();
+  const [product, setProduct] = useState<Picked | null>(null);
+  return (
+    <s-stack direction="block" gap="base">
+      <s-paragraph>{t("ai.form.summaryHelp")}</s-paragraph>
+      <ProductPicker value={product} onChange={setProduct} optional />
+      {!product && <s-text color="subdued">{t("ai.form.summaryAllHelp")}</s-text>}
+      <StartButton
+        busy={busy}
+        disabled={disabled}
+        label={t(product ? "ai.form.summaryOne" : "ai.form.summaryAll")}
+        onClick={() =>
+          onStart(
+            product ? { input: { productId: product.id }, label: product.title } : { input: {} },
+          )
+        }
+      />
+    </s-stack>
+  );
+}
+
 const PLATFORMS = ["facebook", "instagram", "tiktok", "x"] as const;
 
 function SocialForm({ busy, disabled, onStart }: FormProps) {
@@ -437,6 +459,7 @@ const FORMS: Record<string, (props: FormProps) => React.JSX.Element> = {
   "ai-descriptions": DescriptionsForm,
   "ai-alt-text": AltTextForm,
   "ai-product-faq": FaqForm,
+  "ai-review-summary": ReviewSummaryForm,
   "ai-social-posts": SocialForm,
   "ai-marketing-plan": PlanForm,
   "ai-viral-campaign": CampaignForm,

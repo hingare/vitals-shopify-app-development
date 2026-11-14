@@ -48,6 +48,21 @@ CREATE TABLE "AiGeneration" (
     CONSTRAINT "AiGeneration_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ReviewSummary" (
+    "id" TEXT NOT NULL,
+    "shopId" TEXT NOT NULL,
+    "productId" TEXT NOT NULL,
+    "text" TEXT NOT NULL,
+    "pros" JSONB NOT NULL,
+    "cons" JSONB NOT NULL,
+    "reviewCount" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ReviewSummary_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "SeoMetaChange_shopId_resourceId_field_key" ON "SeoMetaChange"("shopId", "resourceId", "field");
 
@@ -63,6 +78,9 @@ CREATE INDEX "AiGeneration_shopId_targetId_idx" ON "AiGeneration"("shopId", "tar
 -- CreateIndex
 CREATE INDEX "AiGeneration_batchId_idx" ON "AiGeneration"("batchId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ReviewSummary_shopId_productId_key" ON "ReviewSummary"("shopId", "productId");
+
 -- AddForeignKey
 ALTER TABLE "SeoMetaChange" ADD CONSTRAINT "SeoMetaChange_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -71,4 +89,7 @@ ALTER TABLE "UsageCounter" ADD CONSTRAINT "UsageCounter_shopId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "AiGeneration" ADD CONSTRAINT "AiGeneration_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReviewSummary" ADD CONSTRAINT "ReviewSummary_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

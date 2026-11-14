@@ -10,6 +10,7 @@ import {
 } from "../lib/reviews.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import { attachMedia } from "../lib/review-media.server";
+import { queueSummaryRefresh, storefrontSummary } from "../lib/ai/tasks/review-summary.server";
 
 /**
  * স্টোরফ্রন্টের রিভিউ উইজেট এখানে কথা বলে (App Proxy: /apps/app-tools/reviews)।
@@ -40,7 +41,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   if (!/^(\d{1,20}|store)$/.test(product)) return json({ error: "invalid" }, 400);
   const page = Number(url.searchParams.get("page")) || 1;
   const productId = product === "store" ? null : product;
-  return json(await publishedReviews(shop.id, productId, page, settings.perPage, admin));
+  const result = await publishedReviews(shop.id, productId, page, settings.perPage, admin);
+  // AI Review Summary: প্রথম পাতার সাথেই, টুল চালু থাকলে
+  const aiSummary =
+    productId && result.page === 1
+      ? await storefrontSummary(shop, productId, result.summary.count).catch(() => null)
+      : null;
+  return json(aiSummary ? { ...result, aiSummary } : result);
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -80,6 +87,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (result.review.status === "published" && admin && productId) {
     await syncProductRating(admin, shop.id, productId).catch((error) =>
       console.warn("[reviews] rating sync failed", error),
+    );
+  }
+  if (result.review.status === "published" && productId) {
+    await queueSummaryRefresh(shop.id, [productId]).catch((error) =>
+      console.warn("[reviews] summary refresh failed", error),
     );
   }
   return json({ status: result.review.status });
