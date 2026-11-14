@@ -308,6 +308,7 @@ function build() {
       source: "form",
     })),
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
+    seoMetaChange: table("meta", () => ({}), [["shopId", "resourceId", "field"]]),
     usageCounter: table("usage", () => ({ used: 0 }), [["shopId", "meter", "month"]]),
     aiGeneration: table("gen", () => ({
       targetId: null,

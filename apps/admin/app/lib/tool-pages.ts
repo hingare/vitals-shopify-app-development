@@ -8,4 +8,6 @@ export const TOOL_PAGES: Record<string, string> = {
   "seo-alt-tags": "/app/seo-alt",
   "eu-withdrawal": "/app/withdrawals",
   "ai-product-faq": "/app/ai/ai-product-faq",
+  "ai-seo-schema": "/app/seo",
+  "seo-meta-templates": "/app/seo",
 };

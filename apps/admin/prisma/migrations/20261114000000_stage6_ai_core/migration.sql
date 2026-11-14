@@ -3,6 +3,18 @@ ALTER TABLE "Shop" ADD COLUMN     "aiSettings" JSONB,
 ADD COLUMN     "trialEndsAt" TIMESTAMP(3);
 
 -- CreateTable
+CREATE TABLE "SeoMetaChange" (
+    "id" TEXT NOT NULL,
+    "shopId" TEXT NOT NULL,
+    "resourceId" TEXT NOT NULL,
+    "field" TEXT NOT NULL,
+    "newValue" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SeoMetaChange_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "UsageCounter" (
     "id" TEXT NOT NULL,
     "shopId" TEXT NOT NULL,
@@ -37,6 +49,9 @@ CREATE TABLE "AiGeneration" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "SeoMetaChange_shopId_resourceId_field_key" ON "SeoMetaChange"("shopId", "resourceId", "field");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "UsageCounter_shopId_meter_month_key" ON "UsageCounter"("shopId", "meter", "month");
 
 -- CreateIndex
@@ -47,6 +62,9 @@ CREATE INDEX "AiGeneration_shopId_targetId_idx" ON "AiGeneration"("shopId", "tar
 
 -- CreateIndex
 CREATE INDEX "AiGeneration_batchId_idx" ON "AiGeneration"("batchId");
+
+-- AddForeignKey
+ALTER TABLE "SeoMetaChange" ADD CONSTRAINT "SeoMetaChange_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UsageCounter" ADD CONSTRAINT "UsageCounter_shopId_fkey" FOREIGN KEY ("shopId") REFERENCES "Shop"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -73,7 +73,6 @@ import {
   aiViralCampaign,
   instantSearch,
   liveChat,
-  llmsTxt,
   seoMetaTemplates,
   visitorRecordings,
 } from "./stage6";
@@ -134,7 +133,6 @@ export const registry = createRegistry([
   liveChat,
   instantSearch,
   aiSeoSchema,
-  llmsTxt,
   seoMetaTemplates,
   aiAltText,
   aiDescriptions,
@@ -206,7 +204,6 @@ export {
   aiViralCampaign,
   instantSearch,
   liveChat,
-  llmsTxt,
   seoMetaTemplates,
   visitorRecordings,
 } from "./stage6";

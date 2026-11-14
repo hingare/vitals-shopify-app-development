@@ -50,6 +50,8 @@ export const en = {
   "tools.page.seo-alt-tags": "Add alt text",
   "tools.page.eu-withdrawal": "Withdrawal requests",
   "tools.page.ai-product-faq": "Write FAQs with AI",
+  "tools.page.seo-meta-templates": "Fill in empty fields",
+  "tools.page.ai-seo-schema": "Check your AI visibility",
   "tools.nativeWarning":
     "Shopify's own {feature} is available. Use only one of them to avoid duplicates.",
 
@@ -799,30 +801,19 @@ export const en = {
   "field.removeThemeDuplicates": "Remove the same data if your theme already adds it",
   "help.removeThemeDuplicates":
     "Many themes add their own product data. Two different copies can confuse search engines, so this keeps only the app's copy.",
-  "tool.llms-txt.name": "llms.txt for AI search",
-  "tool.llms-txt.description":
-    "Publishes a short guide to your store at /llms.txt, so AI assistants like ChatGPT, Claude, Gemini and Grok understand what you sell.",
-  "field.storeSummary": "About your store",
-  "help.storeSummary":
-    "A few sentences on what you sell and who it's for. Leave empty to use your store description from Shopify.",
-  "field.productLimit": "How many products to list",
-  "field.includeCollections": "List collections",
-  "field.includePolicies": "List store policies (shipping, returns, privacy)",
-  "field.includePages": "List pages",
-  "field.fullVersion": "Also publish /llms-full.txt with product descriptions",
   "tool.seo-meta-templates.name": "SEO Meta Templates",
   "tool.seo-meta-templates.description":
     "Fills in empty search titles and descriptions of products and collections from a pattern. Text you wrote yourself is never changed, and you can undo it.",
   "field.productTitle": "Product search title",
-  "help.productTitle": "Use {product}, {vendor}, {type}, {price} and {shop}.",
+  "help.productTitle": "Use {product}, {vendor}, {type} and {shop}.",
   "field.productDescription": "Product search description",
   "help.productDescription":
-    "Use {product}, {description}, {vendor}, {type}, {price} and {shop}. {description} is the start of the product description.",
+    "Use {product}, {description}, {vendor}, {type} and {shop}. {description} is the start of the product description.",
   "field.collectionTitle": "Collection search title",
   "help.collectionTitle": "Use {collection} and {shop}.",
   "field.collectionDescription": "Collection search description",
   "help.collectionDescription": "Use {collection}, {description} and {shop}.",
-  "field.autoFillNew": "Fill in new products and collections automatically",
+  "field.autoFillNew": "Fill in new and edited products automatically",
   "tool.ai-alt-text.name": "AI Alt Text",
   "tool.ai-alt-text.description":
     "AI looks at each product photo and writes alt text that describes what is in it. You review the text before it is saved.",
@@ -1299,6 +1290,169 @@ export const en = {
   "seoAlt.error.off": "Turn on SEO Alt Tags first.",
   "seoAlt.error.busy": "A run is already in progress.",
   "seoAlt.error.unknown": "Something went wrong. Please try again.",
+
+  // ---- AI visibility (/app/seo) ----
+  "nav.visibility": "AI visibility",
+  "visibility.title": "AI visibility",
+  "visibility.intro":
+    "How easily Google and AI assistants like ChatGPT, Claude, Gemini and Perplexity can read your store and recommend your products.",
+  "visibility.checking": "Checking your store…",
+  "visibility.checkAgain": "Check again",
+  "visibility.failed": "The check could not finish. Please try again in a moment.",
+  "visibility.scoreHeading": "Your score",
+  "visibility.score": "{score} / 100",
+  "visibility.scoreNone": "Not enough to score yet",
+  "visibility.grade.success": "Good",
+  "visibility.grade.warning": "Needs work",
+  "visibility.grade.critical": "Poor",
+  "visibility.scoreHelp":
+    "Based on your 50 most recently updated products. Anything that couldn't be checked doesn't lower your score.",
+  "visibility.password":
+    "Your store has a password, so search engines and AI assistants can't read it yet. Some checks start working once the store is open.",
+  "visibility.state.pass": "Done",
+  "visibility.state.partial": "Almost",
+  "visibility.state.fail": "To do",
+  "visibility.state.unknown": "Couldn't check",
+  "visibility.state.locked": "Professional",
+  "visibility.check.schema": "Product data for search engines",
+  "visibility.check.schema.off":
+    "AI SEO Schema is off. It adds your prices, stock and ratings to every product page in a form Google and AI assistants read.",
+  "visibility.check.schema.embedOff":
+    "AI SEO Schema is on, but the app embed is off in your theme, so nothing reaches your store.",
+  "visibility.check.schema.productOff":
+    "Product data is turned off in AI SEO Schema. Products are what shoppers search for most.",
+  "visibility.check.schema.missing":
+    "AI SEO Schema is on, but its product data didn't show up on your product page. Check that the app embed is on in your live theme.",
+  "visibility.check.schema.duplicates":
+    "Your theme or another app adds its own product data too ({count}). Two different copies can confuse search engines.",
+  "visibility.check.schema.live": "Checked on a live product page: your product data is there.",
+  "visibility.check.schema.on": "AI SEO Schema is on.",
+  "visibility.check.crawlers": "AI assistants can visit your store",
+  "visibility.check.crawlers.open":
+    "Your robots.txt lets AI search and assistants read your pages.",
+  "visibility.check.crawlers.blocked":
+    "Your robots.txt blocks {count} crawlers that put stores in AI answers: {bots}.",
+  "visibility.check.crawlers.unknown": "Your robots.txt could not be read.",
+  "visibility.check.descriptions": "Product descriptions",
+  "visibility.check.descriptions.good": "All {total} products checked have a full description.",
+  "visibility.check.descriptions.thin":
+    "{thin} of {total} products have fewer than {words} words. AI assistants recommend products they can describe.",
+  "visibility.check.descriptions.noProducts": "No active products yet.",
+  "visibility.check.altText": "Image alt text",
+  "visibility.check.altText.good": "All {total} product images checked have alt text.",
+  "visibility.check.altText.missing":
+    "{missing} of {total} product images have no alt text ({percent}% done).",
+  "visibility.check.altText.noImages": "No product images yet.",
+  "visibility.check.seoFields": "Search titles and descriptions",
+  "visibility.check.seoFields.good":
+    "All {total} products checked have their own search title and description.",
+  "visibility.check.seoFields.empty":
+    "{empty} of {total} products have an empty search title or description.",
+  "visibility.check.seoFields.noProducts": "No active products yet.",
+  "visibility.check.reviews": "Reviews",
+  "visibility.check.reviews.off":
+    "Product Reviews is off. Ratings show as stars in Google and help AI assistants choose products.",
+  "visibility.check.reviews.none": "Product Reviews is on, but no reviews are published yet.",
+  "visibility.check.reviews.good": "{count} published reviews.",
+  "visibility.check.faq": "Questions and answers",
+  "visibility.check.faq.locked": "AI FAQ is part of the Professional plan.",
+  "visibility.check.faq.noProducts": "No active products yet.",
+  "visibility.check.faq.hidden":
+    "{count} products have questions and answers, but AI FAQ is off, so they don't show in your store.",
+  "visibility.check.faq.none":
+    "No products have questions and answers yet. Answers to common questions are what AI assistants quote.",
+  "visibility.check.faq.few":
+    "{count} of the {target} suggested products have questions and answers.",
+  "visibility.check.faq.good": "{count} products have questions and answers.",
+  "visibility.check.homeMeta": "Home page description",
+  "visibility.check.homeMeta.good": "Your home page has a search description.",
+  "visibility.check.homeMeta.empty":
+    "Your home page has no search description, so search engines make one up from the page.",
+  "visibility.fix.turnOn": "Turn on",
+  "visibility.fix.openSettings": "Open settings",
+  "visibility.fix.embed": "Open theme editor",
+  "visibility.fix.themes": "Open themes",
+  "visibility.fix.writeWithAi": "Write with AI",
+  "visibility.fix.products": "Open products",
+  "visibility.fix.fillAlt": "Fill in alt text",
+  "visibility.fix.fillMeta": "Fill in",
+  "visibility.fix.reviews": "Get reviews",
+  "visibility.fix.upgrade": "Upgrade",
+  "visibility.fix.writeFaq": "Write FAQs",
+  "visibility.fix.preferences": "Open preferences",
+  "visibility.crawlersHeading": "AI crawlers",
+  "visibility.crawlersHelp":
+    "AI companies send these robots to read websites. Your store's robots.txt file decides which ones may come in.",
+  "visibility.crawlersUnknown":
+    "Your robots.txt could not be read, so this can't be shown right now.",
+  "visibility.crawlersBlockedHelp":
+    "To let a blocked crawler in, open Online Store > Themes > Edit code, find the robots.txt.liquid template and remove the rule for that crawler.",
+  "visibility.purpose.search": "Show your store in AI answers and search",
+  "visibility.purpose.user": "Open your pages when a shopper asks about them",
+  "visibility.purpose.training": "Collect pages to train AI models",
+  "visibility.purpose.trainingHelp":
+    "Blocking these is up to you. It keeps your pages out of AI training but doesn't remove your store from AI answers, so it doesn't change your score.",
+  "visibility.column.assistant": "Used for",
+  "visibility.column.crawler": "Crawler",
+  "visibility.column.access": "Access",
+  "visibility.allowed": "Allowed",
+  "visibility.blocked": "Blocked",
+  "visibility.bot.OAI-SearchBot": "ChatGPT search",
+  "visibility.bot.Claude-SearchBot": "Claude search",
+  "visibility.bot.PerplexityBot": "Perplexity",
+  "visibility.bot.Googlebot": "Google Search and AI Overviews",
+  "visibility.bot.Google-Extended": "Gemini",
+  "visibility.bot.Bingbot": "Bing and Copilot",
+  "visibility.bot.Applebot": "Siri and Spotlight",
+  "visibility.bot.DuckAssistBot": "DuckDuckGo answers",
+  "visibility.bot.ChatGPT-User": "ChatGPT",
+  "visibility.bot.Claude-User": "Claude",
+  "visibility.bot.Perplexity-User": "Perplexity",
+  "visibility.bot.GPTBot": "OpenAI",
+  "visibility.bot.ClaudeBot": "Anthropic",
+  "visibility.bot.Applebot-Extended": "Apple Intelligence",
+  "visibility.bot.meta-externalagent": "Meta AI",
+  "visibility.bot.Amazonbot": "Amazon",
+  "visibility.bot.CCBot": "Common Crawl",
+  "visibility.bot.Bytespider": "ByteDance",
+  "visibility.filesHeading": "Files for AI assistants",
+  "visibility.filesHelp":
+    "Shopify publishes these files for your store automatically. They tell AI assistants what your store is and how to browse and buy from it, and they stay up to date by themselves.",
+  "visibility.filesChange":
+    "To write your own version, add an agents.md.liquid template to your theme (Online Store > Themes > Edit code).",
+  "visibility.file.found": "Published",
+  "visibility.file.missing": "Not found",
+  "visibility.file.unknown": "Couldn't check",
+
+  // ---- SEO Meta Templates (/app/seo) ----
+  "seoMeta.heading": "Search titles and descriptions",
+  "seoMeta.help":
+    "Products and collections with an empty search title or description get one made from your templates. Text you wrote yourself is never replaced.",
+  "seoMeta.off": "SEO Meta Templates is turned off.",
+  "seoMeta.turnOn": "Turn it on",
+  "seoMeta.fill": "Fill in empty fields",
+  "seoMeta.filling":
+    "Looking through your products and collections… {scanned} checked, {updated} filled in so far.",
+  "seoMeta.fillDone": "Done. {scanned} products and collections checked, {updated} filled in.",
+  "seoMeta.undoing": "Emptying the fields this app filled in… {restored} done so far.",
+  "seoMeta.undoDone": "Emptied {restored} fields this app had filled in.",
+  "seoMeta.undoKept": "{kept} were left alone because they were changed after this app wrote them.",
+  "seoMeta.failed": "The run stopped: {error}",
+  "seoMeta.example": "Example: {product}",
+  "seoMeta.exampleEmpty": "(stays empty)",
+  "seoMeta.autoOn":
+    "New and edited products are filled in automatically, about a minute after you save them.",
+  "seoMeta.autoOff":
+    "New products are not filled in automatically. Press the button after adding products.",
+  "seoMeta.change": "Change the templates",
+  "seoMeta.written": "Fields filled in by this app",
+  "seoMeta.undoHelp":
+    "This empties the search titles and descriptions this app filled in, as they were before. Fields you changed afterwards are not touched.",
+  "seoMeta.undoConfirm": "Empty the {count} fields this app filled in?",
+  "seoMeta.undo": "Empty what this app filled in",
+  "seoMeta.error.off": "Turn on SEO Meta Templates first.",
+  "seoMeta.error.busy": "A run is already in progress.",
+  "seoMeta.error.unknown": "Something went wrong. Please try again.",
 
   // ---- EU Withdrawal ----
   "withdrawals.title": "Withdrawal requests",

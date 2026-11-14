@@ -72,24 +72,11 @@ export const aiSeoSchema = defineTool({
   }),
 });
 
-/** llms.txt: AI ক্রলারের জন্য স্টোরের সারাংশ, কালেকশন, পলিসি আর প্রোডাক্টের তালিকা (/llms.txt) */
-export const llmsTxt = defineTool({
-  id: "llms-txt",
-  category: "ai",
-  plan: "starter",
-  surfaces: ["all"],
-  delivery: "admin",
-  settings: z.object({
-    /** স্টোরের পরিচয় নিজের ভাষায়; ফাঁকা থাকলে Shopify-র স্টোর বর্ণনা */
-    storeSummary: text(600),
-    productLimit: z.number().int().min(10).max(200).default(50),
-    includeCollections: z.boolean().default(true),
-    includePolicies: z.boolean().default(true),
-    includePages: z.boolean().default(true),
-    /** /llms-full.txt: প্রোডাক্টের বর্ণনাসহ বড় সংস্করণ */
-    fullVersion: z.boolean().default(true),
-  }),
-});
+/*
+ * llms.txt আলাদা টুল নয়: Shopify নিজেই প্রতিটা স্টোরে /agents.md, /llms.txt আর /llms-full.txt দেয়
+ * (প্রোডাক্ট আর কেনার পথসহ, নিজে থেকে হালনাগাদ), আর অ্যাপ এগুলো বদলাতে পারে না। AI ভিজিবিলিটি পেজ
+ * এগুলো আছে কিনা দেখায়।
+ */
 
 /**
  * মেটা টাইটেল ও বর্ণনার টেমপ্লেট: যে প্রোডাক্ট বা কালেকশনের SEO ঘর ফাঁকা, শুধু সেখানে বসায়।

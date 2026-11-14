@@ -89,6 +89,7 @@ model Shop {
   pushCampaigns    PushCampaign[]
   withdrawals      WithdrawalRequest[]
   altTextChanges   AltTextChange[]
+  seoMetaChanges   SeoMetaChange[]
   jobs             Job[]
   /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
   trialEndsAt      DateTime?
@@ -591,6 +592,22 @@ model AltTextChange {
   shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, mediaId])
+}
+
+/// SEO Meta Templates: কোন প্রোডাক্ট বা কালেকশনের ফাঁকা SEO ঘরে কী বসানো হলো (আগের মান সবসময় ফাঁকা)।
+/// ফেরানোর সময় Shopify-তে এখনো এই লেখাই থাকলে তবেই ফাঁকা করা হয়।
+model SeoMetaChange {
+  id         String   @id @default(cuid())
+  shopId     String
+  /// Shopify Product বা Collection gid
+  resourceId String
+  /// "title" বা "description"
+  field      String
+  newValue   String
+  createdAt  DateTime @default(now())
+  shop       Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, resourceId, field])
 }
 
 /// সাধারণ ব্যাকগ্রাউন্ড কাজ (ক্যাম্পেইন পাঠানো, alt লেখা, সিঙ্ক)

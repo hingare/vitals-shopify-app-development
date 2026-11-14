@@ -134,6 +134,12 @@ export async function syncStoreConfig(
   return config;
 }
 
+/** থিম এডিটরে সরাসরি আমাদের app embed খুলে দেয় (চালু করার জন্য) */
+export function embedEditorUrl(shopDomain: string): string {
+  const handle = shopDomain.replace(".myshopify.com", "");
+  return `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/app-tools-embed`;
+}
+
 /**
  * থিমে আমাদের app embed চালু আছে কিনা দেখে (config/settings_data.json থেকে)।
  * পড়া না গেলে null।

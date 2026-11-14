@@ -9,6 +9,7 @@ import {
   type JobContext,
   type JobResult,
 } from "./queue.server";
+import { renderTemplate } from "./text-template";
 import { enabledSettings, type ShopRef } from "./tool-state.server";
 import type { GraphqlClient } from "./tools.server";
 
@@ -37,54 +38,12 @@ export interface AltContext {
   shop: string;
 }
 
-const VARIABLE = /(\{[a-zA-Z_]+\})/;
-const GLUE = /^[\s\-–—|,·•:;/]+$/;
-
 /**
  * নিয়ম থেকে alt লেখা বানায়: {product}, {vendor}, {type}, {shop}।
- * কোনো মান ফাঁকা হলে (যেমন vendor নেই) তার পাশের বিভাজকও বাদ যায়: "Shirt - - Shop" নয়, "Shirt - Shop"।
- * অচেনা {নাম} ফাঁকা ধরা হয়, যাতে বন্ধনীসহ লেখা কখনো ছবির alt-এ না যায়।
- * মানের ভেতরের লেখা (যেমন "T-Shirt") কখনো বদলায় না।
+ * ফাঁকা মানের পাশের বিভাজক বাদ যায়, অচেনা {নাম} ফাঁকা ধরা হয় (text-template.ts দেখুন)।
  */
 export function renderAlt(template: string, context: AltContext): string {
-  const values = context as unknown as Record<string, string | undefined>;
-  const parts: Array<{ text: string; glue: boolean }> = [];
-  let dropNextGlue = false;
-  for (const piece of template.split(VARIABLE)) {
-    if (!piece) continue;
-    if (VARIABLE.test(piece)) {
-      const name = piece.slice(1, -1);
-      const value = (Object.hasOwn(values, name) ? (values[name] ?? "") : "").trim();
-      if (value) {
-        parts.push({ text: value, glue: false });
-        dropNextGlue = false;
-      } else if (parts[parts.length - 1]?.glue) {
-        // ফাঁকা মানের আগের বিভাজক বাদ
-        parts.pop();
-      } else {
-        // আগে বিভাজক নেই (শুরুতে): পরেরটা বাদ
-        dropNextGlue = true;
-      }
-      continue;
-    }
-    const glue = GLUE.test(piece);
-    if (glue && dropNextGlue) {
-      dropNextGlue = false;
-      continue;
-    }
-    dropNextGlue = false;
-    parts.push({ text: piece, glue });
-  }
-  while (parts[0]?.glue) parts.shift();
-  while (parts[parts.length - 1]?.glue) parts.pop();
-  return parts
-    .map((part) => part.text)
-    .join("")
-    .replace(/\(\s*\)|\[\s*\]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, ALT_MAX)
-    .trim();
+  return renderTemplate(template, context as unknown as Record<string, string | undefined>, ALT_MAX);
 }
 
 interface MediaNode {
