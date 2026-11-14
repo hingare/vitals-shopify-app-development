@@ -1510,6 +1510,63 @@ export const en = {
   "withdrawals.ack.email": "Email",
   "withdrawals.ack.details": "Details",
   "withdrawals.ack.submitted": "Received on",
+
+  // ---- Live Chat ----
+  "nav.chat": "Chat",
+  "tools.page.live-chat": "Open Chat",
+  "chat.title": "Chat",
+  "chat.settings": "Chat settings",
+  "chat.off": "Live Chat is turned off, so shoppers cannot write to you.",
+  "chat.turnOn": "Turn it on",
+  "chat.online":
+    "You show as online to shoppers while this page is open. When you close it, shoppers see your away message.",
+  "chat.noEmail":
+    "Email sending is not set up on the server yet, so replies and new message alerts cannot be emailed.",
+  "chat.noAlerts":
+    "Add a reply-to email on the Marketing page to get an email when a shopper writes while you're away.",
+  "chat.addReplyTo": "Open Marketing",
+  "chat.openTab": "Open",
+  "chat.openWithCount": "Open ({n} unread)",
+  "chat.closedTab": "Closed",
+  "chat.empty": "No chats yet. Shoppers' messages appear here as soon as they write.",
+  "chat.emptyClosed": "No closed chats.",
+  "chat.shopper": "Shopper",
+  "chat.anonymous": "Shopper {id}",
+  "chat.lastMessage": "Last message",
+  "chat.when": "When",
+  "chat.you": "You",
+  "chat.ago.now": "Just now",
+  "chat.ago.minutes": "{n} min ago",
+  "chat.ago.hours": "{n} h ago",
+  "chat.ago.days": "{n} d ago",
+  "chat.notFound":
+    "This chat no longer exists. Chats are removed after 180 days without new messages.",
+  "chat.close": "Close chat",
+  "chat.reopen": "Reopen chat",
+  "chat.closedBadge": "Closed",
+  "chat.emailLeft": "Email: {email}. If they have left the store, your reply also goes there.",
+  "chat.noEmailLeft":
+    "No email left, so they see your reply only when they open the chat in your store again.",
+  "chat.customer": "Open customer in Shopify",
+  "chat.page": "Writing from {page}",
+  "chat.started": "Started {when}",
+  "chat.reply": "Your reply",
+  "chat.replyReopens": "Sending a reply reopens this chat.",
+  "chat.send": "Send",
+  "chat.sendFailed": "Could not send your reply. Please try again.",
+  "chat.email.replySubject": "{shop} replied to your message",
+  "chat.email.replyIntro": "Here is the reply to the message you sent us:",
+  "chat.email.replyOutro": "You can reply to this email or continue the chat in our store.",
+  "chat.email.replyOutroNoEmail": "To answer, continue the chat in our store.",
+  "chat.email.replyButton": "Continue the chat",
+  "chat.email.alertSubject": "New chat message from {who}",
+  "chat.email.alertIntro": "{who} wrote to you on {page} while you were away:",
+  "chat.email.alertHasEmail":
+    "They left their email, so if they have left the store your reply also reaches them by email.",
+  "chat.email.alertNoEmail":
+    "They didn't leave an email, so they see your reply only if they open the chat in your store again.",
+  "chat.email.alertButton": "Open Chat",
+  "chat.email.someone": "A shopper",
 } as const;
 
 export type MessageKey = keyof typeof en;

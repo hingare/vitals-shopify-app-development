@@ -91,6 +91,9 @@ model Shop {
   altTextChanges   AltTextChange[]
   seoMetaChanges   SeoMetaChange[]
   reviewSummaries  ReviewSummary[]
+  chats            ChatConversation[]
+  /// Live Chat: মার্চেন্ট শেষ কখন অ্যাপের Chat পাতা খোলা রেখেছিলেন (এর ১.৫ মিনিটের মধ্যে হলে "অনলাইন")
+  chatSeenAt       DateTime?
   jobs             Job[]
   /// প্ল্যানের ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI-র মাসিক সীমা ছোট, app/lib/usage.server.ts)
   trialEndsAt      DateTime?
@@ -700,4 +703,52 @@ model ReviewSummary {
   shop        Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
 
   @@unique([shopId, productId])
+}
+
+/// Live Chat-এর একটা কথোপকথন: একজন ক্রেতার ব্রাউজার = একটা কথোপকথন (app/lib/chat.server.ts)
+model ChatConversation {
+  id            String        @id @default(cuid())
+  shopId        String
+  /// ক্রেতার ব্রাউজারে রাখা গোপন চাবির sha256; চাবি ছাড়া কেউ কথোপকথন পড়তে পারে না
+  visitorKey    String
+  /// ক্রেতা নিজে দিলে (উত্তর ইমেইলে পাঠানোর জন্য)
+  email         String?
+  /// লগইন করা ক্রেতার Shopify customer id (Shopify-র সই করা অনুরোধ থেকে, ব্রাউজার বানাতে পারে না)
+  customerId    String?
+  /// কোন পাতা থেকে লিখেছেন (শুধু পথ, যেমন /products/linen-shirt)
+  pagePath      String?
+  /// স্টোরের যে ভাষায় লিখেছেন (উত্তরের ইমেইল সেই ভাষায়)
+  locale        String        @default("en")
+  /// "open" | "closed"
+  status        String        @default("open")
+  /// মার্চেন্ট এখনো পড়েননি এমন ক্রেতার বার্তা
+  unread        Int           @default(0)
+  /// শেষ বার্তার শুরুটুকু আর কে লিখেছেন (তালিকায় দেখানোর জন্য)
+  preview       String        @default("")
+  lastAuthor    String        @default("visitor")
+  lastMessageAt DateTime      @default(now())
+  /// ক্রেতা শেষ কবে চ্যাট খুলে দেখেছেন; এর পরের উত্তর ইমেইলে যায়
+  visitorSeenAt DateTime?
+  /// শেষ কবে ক্রেতাকে উত্তরের ইমেইল আর মার্চেন্টকে খবরের ইমেইল গেছে (একই বার্তা দুবার যায় না)
+  emailedAt     DateTime?
+  alertedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  shop          Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages      ChatMessage[]
+
+  @@unique([shopId, visitorKey])
+  @@index([shopId, lastMessageAt])
+}
+
+model ChatMessage {
+  id             String           @id @default(cuid())
+  conversationId String
+  /// "visitor" | "merchant"
+  author         String
+  body           String
+  createdAt      DateTime         @default(now())
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
 }

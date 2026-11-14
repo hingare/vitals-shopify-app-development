@@ -235,7 +235,7 @@ export class FakeTable {
 function build() {
   const shop = new FakeTable(
     "shop",
-    () => ({ plan: "professional", uninstalledAt: null, emailSettings: null }),
+    () => ({ plan: "professional", uninstalledAt: null, emailSettings: null, chatSeenAt: null }),
     [["domain"]],
   );
   const shopOf = (row: Row) => shop.rows.find((s) => s.id === row.shopId) ?? null;
@@ -310,6 +310,25 @@ function build() {
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
     seoMetaChange: table("meta", () => ({}), [["shopId", "resourceId", "field"]]),
     reviewSummary: table("sum", () => ({ updatedAt: new Date() }), [["shopId", "productId"]]),
+    chatConversation: table(
+      "chat",
+      () => ({
+        email: null,
+        customerId: null,
+        pagePath: null,
+        locale: "en",
+        status: "open",
+        unread: 0,
+        preview: "",
+        lastAuthor: "visitor",
+        lastMessageAt: new Date(),
+        visitorSeenAt: null,
+        emailedAt: null,
+        alertedAt: null,
+      }),
+      [["shopId", "visitorKey"]],
+    ),
+    chatMessage: table("chatmsg", () => ({})),
     usageCounter: table("usage", () => ({ used: 0 }), [["shopId", "meter", "month"]]),
     aiGeneration: table("gen", () => ({
       targetId: null,

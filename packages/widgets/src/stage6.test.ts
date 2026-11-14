@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { isDuplicate, schemaTypes } from "./tools/ai-seo-schema";
+import {
+  parseResults,
+  pushRecent,
+  readRecent,
+  splitList,
+  suggestUrl,
+} from "./tools/instant-search";
 
 describe("AI SEO Schema duplicates", () => {
   const all = {
@@ -32,5 +39,99 @@ describe("AI SEO Schema duplicates", () => {
     expect(isDuplicate(["Organization"], ours, all)).toBe(false);
     expect(isDuplicate([], ours, all)).toBe(false);
     expect(isDuplicate(["Product"], ours, { ...all, productSchema: false })).toBe(false);
+  });
+});
+
+describe("Instant Search", () => {
+  it("asks Shopify for each kind of result the merchant wants to show", () => {
+    const url = new URL(
+      suggestUrl("/fr/", "linen shirt", { limit: 6, showCollections: false, showPages: true }),
+      "https://shop.example",
+    );
+    expect(url.pathname).toBe("/fr/search/suggest.json");
+    expect(url.searchParams.get("q")).toBe("linen shirt");
+    expect(url.searchParams.get("resources[type]")).toBe("query,product,page");
+    expect(url.searchParams.get("resources[limit]")).toBe("6");
+    expect(url.searchParams.get("resources[limit_scope]")).toBe("each");
+    const capped = new URL(
+      suggestUrl("/", "x", { limit: 40, showCollections: true, showPages: false }),
+      "https://shop.example",
+    );
+    expect(capped.searchParams.get("resources[limit]")).toBe("10");
+  });
+
+  it("keeps only what it needs from Shopify's answer, and only links inside the store", () => {
+    const results = parseResults({
+      resources: {
+        results: {
+          queries: [{ text: "linen shirt", url: "/search?q=linen+shirt" }, { text: "" }],
+          products: [
+            {
+              title: "Linen Shirt",
+              url: "/products/linen-shirt?_pos=1",
+              price: "19.90",
+              compare_at_price_min: "29.00",
+              available: true,
+              featured_image: { url: "//cdn.shopify.com/a.jpg" },
+              variants: [{ id: 11, available: true }],
+            },
+            {
+              title: "Linen Pants",
+              url: "/products/linen-pants",
+              image: "https://cdn.shopify.com/b.jpg",
+              price: "45.00",
+              compare_at_price_min: "0.00",
+              available: false,
+              variants: [
+                { id: 21, available: false },
+                { id: 22, available: false },
+              ],
+            },
+            { title: "Elsewhere", url: "https://evil.example/products/x", price: "1.00" },
+            { title: "Protocol relative", url: "//evil.example/x" },
+            null,
+          ],
+          collections: [{ title: "Summer", url: "/collections/summer" }],
+          pages: "not a list",
+        },
+      },
+    });
+    expect(results.queries).toEqual([{ title: "linen shirt", url: "/search?q=linen+shirt" }]);
+    expect(results.products).toEqual([
+      {
+        title: "Linen Shirt",
+        url: "/products/linen-shirt?_pos=1",
+        image: "//cdn.shopify.com/a.jpg",
+        price: 1990,
+        compareAt: 2900,
+        available: true,
+        variantId: 11,
+      },
+      {
+        title: "Linen Pants",
+        url: "/products/linen-pants",
+        image: "https://cdn.shopify.com/b.jpg",
+        price: 4500,
+        compareAt: 0,
+        available: false,
+        variantId: null,
+      },
+    ]);
+    expect(results.collections).toEqual([{ title: "Summer", url: "/collections/summer" }]);
+    expect(results.pages).toEqual([]);
+    expect(parseResults(null)).toEqual({ queries: [], products: [], collections: [], pages: [] });
+  });
+
+  it("keeps popular and recent searches short and without repeats", () => {
+    expect(splitList(" t-shirts, Summer sale,,t-shirts , hats")).toEqual([
+      "t-shirts",
+      "Summer sale",
+      "hats",
+    ]);
+    expect(pushRecent(["hats", "Shirts", "socks"], "shirts")).toEqual(["shirts", "hats", "socks"]);
+    expect(pushRecent(["a", "b", "c", "d", "e"], "f")).toEqual(["f", "a", "b", "c", "d"]);
+    expect(pushRecent(["a"], "   ")).toEqual(["a"]);
+    expect(readRecent('["a", 2, "b"]')).toEqual(["a", "b"]);
+    expect(readRecent("{broken")).toEqual([]);
   });
 });

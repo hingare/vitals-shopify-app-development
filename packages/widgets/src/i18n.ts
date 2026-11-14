@@ -117,6 +117,16 @@ const strings = {
     withdrawDetails: "What you are withdrawing from (optional)",
     withdrawDetailsHelp: "Leave this empty to withdraw from the whole order.",
     withdrawSubmitted: "Received on {date}",
+    searchLabel: "Search",
+    searchRecent: "Recent searches",
+    searchClear: "Clear",
+    searchPopular: "Popular searches",
+    searchSuggestions: "Suggestions",
+    searchProducts: "Products",
+    searchCollections: "Collections",
+    searchPages: "Pages",
+    searchNone: 'No results for "{q}"',
+    searchAll: 'See all results for "{q}"',
   },
 } satisfies Record<string, Record<string, string>>;
 

@@ -67,6 +67,17 @@ function subjectOf(payload: unknown): string {
   return typeof content?.subject === "string" ? content.subject : "";
 }
 
+/** Live Chat-এর কথোপকথন: ক্রেতার দেওয়া ইমেইল বা লগইন করা ক্রেতার id দিয়ে */
+function chatsOf(shopId: string, emails: string[], customerId: string | null) {
+  const or = [
+    ...(emails.length ? [{ email: { in: emails } }] : []),
+    ...(customerId ? [{ customerId }] : []),
+  ];
+  return or.length
+    ? db.chatConversation.findMany({ where: { shopId, OR: or } })
+    : Promise.resolve([]);
+}
+
 /** এক ক্রেতার যা যা তথ্য এই স্টোরের জন্য আমাদের কাছে আছে */
 export async function customerData(shopId: string, ref: CustomerRef) {
   const { emails, customerId } = await identify(shopId, ref);
@@ -94,6 +105,13 @@ export async function customerData(shopId: string, ref: CustomerRef) {
       none ? [] : db.withdrawalRequest.findMany({ where: byEmail }),
       customerId ? db.wishlistItem.findMany({ where: { shopId, owner: `c:${customerId}` } }) : [],
     ]);
+  const chats = await chatsOf(shopId, emails, customerId);
+  const chatMessages = chats.length
+    ? await db.chatMessage.findMany({
+        where: { conversationId: { in: chats.map((row) => row.id) } },
+        orderBy: { createdAt: "asc" },
+      })
+    : [];
 
   return {
     customer: { emails, customerId },
@@ -164,6 +182,20 @@ export async function customerData(shopId: string, ref: CustomerRef) {
       handle: row.handle,
       createdAt: iso(row.createdAt),
     })),
+    chats: chats.map((row) => ({
+      email: row.email,
+      customerId: row.customerId,
+      page: row.pagePath,
+      status: row.status,
+      createdAt: iso(row.createdAt),
+      messages: chatMessages
+        .filter((message) => message.conversationId === row.id)
+        .map((message) => ({
+          from: message.author === "merchant" ? "store" : "customer",
+          text: message.body,
+          at: iso(message.createdAt),
+        })),
+    })),
   };
 }
 
@@ -179,7 +211,8 @@ export function hasCustomerData(data: CustomerData): boolean {
       data.stockAlerts.length +
       data.wheelSpins.length +
       data.withdrawals.length +
-      data.wishlist.length >
+      data.wishlist.length +
+      data.chats.length >
     0
   );
 }
@@ -245,6 +278,27 @@ export async function redactCustomer(shopId: string, ref: CustomerRef) {
       where: { shopId, owner: `c:${customerId}` },
     });
     counts.deleted += wishlist.count;
+  }
+  const chats = await chatsOf(shopId, emails, customerId);
+  if (chats.length > 0) {
+    const ids = chats.map((row) => row.id);
+    // মার্চেন্টকে পাঠানো নতুন বার্তার খবরে ক্রেতার ইমেইল আর লেখা থাকে
+    const alerts = { shopId, kind: "chat", refId: { in: ids.map((id) => `alert:${id}`) } };
+    const unsent = await db.message.deleteMany({ where: { ...alerts, status: { in: NOT_SENT } } });
+    const sent = await db.message.updateMany({
+      where: alerts,
+      data: { recipient: REDACTED, payload: {}, dedupeKey: null, error: null },
+    });
+    const jobs = await db.job.deleteMany({
+      where: {
+        shopId,
+        kind: { in: ids.flatMap((id) => [`chat-alert:${id}`, `chat-reply:${id}`]) },
+      },
+    });
+    // বার্তাগুলো কথোপকথনের সাথে cascade-এ মুছে যায়
+    const removed = await db.chatConversation.deleteMany({ where: { id: { in: ids } } });
+    counts.deleted += unsent.count + jobs.count + removed.count;
+    counts.anonymized += sent.count;
   }
   return counts;
 }

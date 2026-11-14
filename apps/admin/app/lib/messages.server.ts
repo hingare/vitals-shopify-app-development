@@ -35,10 +35,15 @@ export type EmailPayload = {
   vars?: Record<string, string>;
 } & ({ content: EmailContent } | { campaignId: string });
 
-export type MessageKind = "campaign" | "flow" | "back-in-stock" | "withdrawal" | "test";
+export type MessageKind = "campaign" | "flow" | "back-in-stock" | "withdrawal" | "chat" | "test";
 
-/** আইনে বাধ্যতামূলক বা ক্রেতার নিজের চাওয়া বার্তা মাসের সীমায় আটকায় না */
-const CAP_EXEMPT: MessageKind[] = ["withdrawal", "test"];
+/**
+ * আইনে বাধ্যতামূলক বা ক্রেতার নিজের চাওয়া বার্তা মাসের সীমায় আটকায় না। Live Chat-এর ইমেইলও না: ক্রেতা নিজে
+ * উত্তর চেয়েছেন, আর মার্চেন্টকে খবর দেওয়ার ইমেইলের নিজের দৈনিক সীমা আছে (chat.server.ts)।
+ */
+const CAP_EXEMPT: MessageKind[] = ["withdrawal", "chat", "test"];
+/** কথোপকথনের ইমেইলে খোলা বা ক্লিক গোনার কিছু বসে না */
+const UNTRACKED: MessageKind[] = ["withdrawal", "chat"];
 /**
  * আইনে বাধ্যতামূলক প্রাপ্তিস্বীকার (EU withdrawal): ক্রেতা এইমাত্র নিজে এই ঠিকানা দিয়েছেন, তাই আগের
  * bounce বা স্প্যাম অভিযোগের কারণে আটকানো হয় না, আর এতে খোলা বা ক্লিক গোনার কিছু বসে না।
@@ -253,8 +258,8 @@ async function emailOutcome(
     accent: settings.accent,
     postalAddress: settings.postalAddress,
     unsubscribeUrl: unsubscribe,
-    openPixelUrl: required ? undefined : openPixelUrl(message.id),
-    wrapLink: required ? undefined : (url) => clickUrl(message.id, url),
+    openPixelUrl: UNTRACKED.includes(kind) ? undefined : openPixelUrl(message.id),
+    wrapLink: UNTRACKED.includes(kind) ? undefined : (url) => clickUrl(message.id, url),
   });
   const result = await deps.send({
     fromName: shopName,

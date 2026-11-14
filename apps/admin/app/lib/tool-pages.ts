@@ -10,4 +10,5 @@ export const TOOL_PAGES: Record<string, string> = {
   "ai-product-faq": "/app/ai/ai-product-faq",
   "ai-seo-schema": "/app/seo",
   "seo-meta-templates": "/app/seo",
+  "live-chat": "/app/chat",
 };
