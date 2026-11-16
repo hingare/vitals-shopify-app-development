@@ -1,8 +1,16 @@
 import { render } from "preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { attribute, track } from "../analytics";
+import {
+  currentVariantId,
+  fetchProduct,
+  money,
+  onVariantChange,
+  readPageProduct,
+  type PageProduct,
+} from "../product";
 
 const TOOL_ID = "sticky-atc";
 
@@ -12,34 +20,55 @@ interface Settings {
   colors: { background: string; text: string; accent: string };
 }
 
-interface ProductInfo {
-  title: string;
+interface Shown {
   variantId: string;
   price: string;
   available: boolean;
-}
-
-function readProduct(): ProductInfo | null {
-  const el = document.getElementById("app-product-json");
-  if (!el?.textContent) return null;
-  try {
-    return JSON.parse(el.textContent) as ProductInfo;
-  } catch {
-    return null;
-  }
 }
 
 function StickyBar({
   settings,
   product,
   locale,
+  currency,
 }: {
   settings: Settings;
-  product: ProductInfo;
+  product: PageProduct;
   locale: string;
+  currency: string | undefined;
 }) {
   const [state, setState] = useState<"idle" | "adding" | "added">("idle");
+  // The variant the shopper has picked in the theme's product form, with its own price and stock
+  const [shown, setShown] = useState<Shown>({
+    variantId: String(product.variantId),
+    price: product.price,
+    available: product.available,
+  });
   const { colors } = settings;
+
+  useEffect(
+    () =>
+      onVariantChange(() => {
+        const variantId = currentVariantId(product.variantId);
+        setState("idle");
+        setShown((prev) => ({ ...prev, variantId }));
+        if (!product.handle) return;
+        void fetchProduct(product.handle).then((ajax) => {
+          const variant = ajax?.variants?.find((v) => String(v.id) === variantId);
+          if (!variant) return;
+          setShown((prev) =>
+            prev.variantId === variantId
+              ? {
+                  variantId,
+                  price: money(variant.price, currency, locale),
+                  available: variant.available,
+                }
+              : prev,
+          );
+        });
+      }),
+    [],
+  );
 
   async function add() {
     track(TOOL_ID, "click");
@@ -47,7 +76,7 @@ function StickyBar({
     const res = await fetch("/cart/add.js", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ items: [{ id: product.variantId, quantity: 1 }] }),
+      body: JSON.stringify({ items: [{ id: currentVariantId(product.variantId), quantity: 1 }] }),
     });
     if (res.ok) {
       track(TOOL_ID, "add_to_cart");
@@ -77,12 +106,12 @@ function StickyBar({
       }}
     >
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-        {product.title} · {product.price}
+        {product.title} · {shown.price}
       </span>
       <button
         type="button"
         onClick={add}
-        disabled={state === "adding" || !product.available}
+        disabled={state === "adding" || !shown.available}
         style={{
           background: colors.accent,
           color: "#fff",
@@ -93,7 +122,7 @@ function StickyBar({
           minHeight: "44px",
         }}
       >
-        {!product.available
+        {!shown.available
           ? widgetT(locale, "soldOut")
           : state === "added"
             ? widgetT(locale, "added")
@@ -107,11 +136,14 @@ export function mount({ config, settings }: ToolContext) {
   if (config.pageType !== "product") return;
   const s = settings as unknown as Settings;
   if (!s.showOnMobile && window.matchMedia("(max-width: 749px)").matches) return;
-  const product = readProduct();
+  const product = readPageProduct();
   if (!product) return;
   const host = document.createElement("div");
   host.id = "app-sticky-atc";
   document.body.appendChild(host);
   track(TOOL_ID, "view");
-  render(<StickyBar settings={s} product={product} locale={config.locale} />, host);
+  render(
+    <StickyBar settings={s} product={product} locale={config.locale} currency={config.currency} />,
+    host,
+  );
 }

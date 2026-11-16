@@ -611,8 +611,9 @@ export const en = {
   "plans.current": "Current plan",
   "plans.choose": "Choose",
   "plans.none": "No plan",
-  "plans.starter.summary": "All conversion, trust and store tools.",
-  "plans.professional.summary": "Everything in Starter plus upsells, marketing, AI and recordings.",
+  "plans.starter.summary": "Conversion, trust, offers, reviews and SEO tools.",
+  "plans.professional.summary":
+    "Everything in Starter, plus marketing, AI, live chat, instant search and recordings.",
 
   "speed.title": "Speed Guard",
   "speed.description":

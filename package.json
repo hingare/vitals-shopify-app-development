@@ -7,6 +7,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @app/widgets build && pnpm --filter @app/admin dev",
+    "dev:web": "pnpm --filter @app/web dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
