@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
+import { disconnectAll } from "../lib/mcp/oauth.server";
 
 /**
  * আনইনস্টল: Shopify নিজেই সাথে সাথে সব app subscription বাতিল করে, তাই আর কোনো বিল হয় না।
@@ -25,6 +26,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       pixelSettings: null,
     },
   });
+  // AI সহকারীর সব সংযোগ বন্ধ, অপেক্ষমাণ অনুরোধ বাতিল (আবার ইনস্টল করলে নতুন করে যুক্ত করতে হয়)
+  const row = await db.shop.findUnique({ where: { domain: shop }, select: { id: true } });
+  if (row) await disconnectAll(row.id);
 
   return new Response();
 };

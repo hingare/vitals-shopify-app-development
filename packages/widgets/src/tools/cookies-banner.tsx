@@ -1,4 +1,5 @@
 import { render } from "preact";
+import { loadPrivacyApi } from "../privacy";
 import type { ToolContext } from "../types";
 
 interface Settings {
@@ -14,17 +15,6 @@ interface Settings {
 
 /** Shopify-র নিজের কুকি ব্যানার */
 const SHOPIFY_BANNER = "#shopify-pc__banner, #shopify-pc__prefs";
-
-function loadPrivacyApi(): Promise<NonNullable<Window["Shopify"]>["customerPrivacy"] | null> {
-  return new Promise((resolve) => {
-    const shopify = window.Shopify;
-    if (shopify?.customerPrivacy) return resolve(shopify.customerPrivacy);
-    if (!shopify?.loadFeatures) return resolve(null);
-    shopify.loadFeatures([{ name: "consent-tracking-api", version: "0.1" }], (error) =>
-      resolve(error ? null : (window.Shopify?.customerPrivacy ?? null)),
-    );
-  });
-}
 
 /**
  * কুকির সম্মতি নেয় আর Shopify-কে জানায় (Customer Privacy API), তাই Shopify-র পিক্সেল,

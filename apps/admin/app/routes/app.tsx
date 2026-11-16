@@ -28,10 +28,15 @@ export default function App() {
       <s-app-nav>
         <s-link href="/app">{t("nav.dashboard")}</s-link>
         <s-link href="/app/tools">{t("nav.tools")}</s-link>
+        <s-link href="/app/ai">{t("nav.ai")}</s-link>
+        <s-link href="/app/seo">{t("nav.visibility")}</s-link>
         <s-link href="/app/offers">{t("nav.offers")}</s-link>
         <s-link href="/app/reviews">{t("nav.reviews")}</s-link>
+        <s-link href="/app/chat">{t("nav.chat")}</s-link>
+        <s-link href="/app/recordings">{t("nav.recordings")}</s-link>
         <s-link href="/app/marketing">{t("nav.marketing")}</s-link>
         <s-link href="/app/integrations">{t("nav.integrations")}</s-link>
+        <s-link href="/app/assistants">{t("nav.assistants")}</s-link>
         <s-link href="/app/analytics">{t("nav.analytics")}</s-link>
         <s-link href="/app/speed">{t("nav.speed")}</s-link>
         <s-link href="/app/plans">{t("nav.plans")}</s-link>

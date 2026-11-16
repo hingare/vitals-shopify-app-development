@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { translate } from "@app/i18n";
@@ -33,9 +33,16 @@ describe("tool translations", () => {
 
 describe("tool pages", () => {
   /** "/app/marketing/push" -> app.marketing.push.tsx, বা ফোল্ডারের প্রথম পেজ হলে app.marketing._index.tsx */
+  const routes = join(__dirname, "../routes");
   const routeExists = (path: string) => {
-    const base = join(__dirname, "../routes", path.slice(1).replaceAll("/", "."));
-    return existsSync(`${base}.tsx`) || existsSync(`${base}._index.tsx`);
+    const parts = path.slice(1).split("/");
+    const base = join(routes, parts.join("."));
+    if (existsSync(`${base}.tsx`) || existsSync(`${base}._index.tsx`)) return true;
+    // শেষ অংশ বদলায় এমন পেজ: "/app/ai/ai-product-faq" -> app.ai.$toolId.tsx
+    const parent = parts.slice(0, -1).join(".");
+    return readdirSync(routes).some(
+      (file) => file.startsWith(`${parent}.$`) && file.split(".").length === parts.length + 1,
+    );
   };
 
   it("links only real tools to pages that exist, each with a button label", () => {

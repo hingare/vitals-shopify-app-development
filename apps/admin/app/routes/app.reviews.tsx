@@ -14,6 +14,7 @@ import {
   statusCounts,
   syncProductRating,
 } from "../lib/reviews.server";
+import { queueSummaryRefresh } from "../lib/ai/tasks/review-summary.server";
 import { REVIEW_STATUSES, type ReviewStatus } from "../lib/reviews";
 import { deleteMediaFiles, resolvePendingMedia } from "../lib/review-media.server";
 import { useT } from "../lib/i18n";
@@ -96,6 +97,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         console.warn("[reviews] rating sync failed", error),
       ),
     ),
+  );
+  // AI Review Summary: প্রকাশিত রিভিউ বদলালে সারাংশ পরে আবার লেখা হয় (টুল চালু থাকলে)
+  await queueSummaryRefresh(shop.id, changed.products).catch((error) =>
+    console.warn("[reviews] summary refresh failed", error),
   );
   return { ok: true as const, intent };
 };

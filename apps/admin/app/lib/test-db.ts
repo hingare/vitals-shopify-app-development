@@ -49,6 +49,8 @@ function test(value: unknown, cond: unknown): boolean {
         return typeof value === "string" && value.includes(arg as string);
       case "startsWith":
         return typeof value === "string" && value.startsWith(arg as string);
+      case "isEmpty":
+        return Array.isArray(value) && (value.length === 0) === arg;
       default:
         throw new Error(`test-db: unsupported operator "${op}"`);
     }
@@ -235,8 +237,14 @@ export class FakeTable {
 function build() {
   const shop = new FakeTable(
     "shop",
-    () => ({ plan: "professional", uninstalledAt: null, emailSettings: null }),
-    [["domain"]],
+    () => ({
+      plan: "professional",
+      uninstalledAt: null,
+      emailSettings: null,
+      chatSeenAt: null,
+      mcpId: null,
+    }),
+    [["domain"], ["mcpId"]],
   );
   const shopOf = (row: Row) => shop.rows.find((s) => s.id === row.shopId) ?? null;
   const table = (name: string, defaults: () => Row, unique: string[][] = []) =>
@@ -299,6 +307,7 @@ function build() {
     pushSubscription: table("pushsub", () => ({}), [["shopId", "endpoint"]]),
     pushCampaign: table("push", () => ({ status: "queued", sent: 0, failed: 0, clicks: 0 })),
     withdrawalRequest: table("wd", () => ({ details: "", status: "new" })),
+    offer: table("offer", () => ({ active: true, config: {}, updatedAt: new Date() })),
     review: table("review", () => ({
       productId: null,
       title: null,
@@ -308,6 +317,100 @@ function build() {
       source: "form",
     })),
     altTextChange: table("alt", () => ({}), [["shopId", "mediaId"]]),
+    seoMetaChange: table("meta", () => ({}), [["shopId", "resourceId", "field"]]),
+    reviewSummary: table("sum", () => ({ updatedAt: new Date() }), [["shopId", "productId"]]),
+    chatConversation: table(
+      "chat",
+      () => ({
+        email: null,
+        customerId: null,
+        pagePath: null,
+        locale: "en",
+        status: "open",
+        unread: 0,
+        preview: "",
+        lastAuthor: "visitor",
+        lastMessageAt: new Date(),
+        visitorSeenAt: null,
+        emailedAt: null,
+        alertedAt: null,
+      }),
+      [["shopId", "visitorKey"]],
+    ),
+    chatMessage: table("chatmsg", () => ({})),
+    recording: table(
+      "rec",
+      () => ({
+        customerId: null,
+        device: "desktop",
+        width: null,
+        height: null,
+        entryPath: "/",
+        pages: [],
+        pageViews: 0,
+        clicks: 0,
+        durationMs: 0,
+        firstEventAt: null,
+        lastEventAt: null,
+        chunks: 0,
+        bytes: 0,
+        rawBytes: 0,
+        parts: 0,
+        storedBytes: 0,
+        stopped: null,
+        lastChunkAt: new Date(),
+      }),
+      [["shopId", "keyHash"]],
+    ),
+    recordingChunk: table("recchunk", () => ({}), [["recordingId", "seq"]]),
+    usageCounter: table("usage", () => ({ used: 0 }), [["shopId", "meter", "month"]]),
+    aiGeneration: table("gen", () => ({
+      targetId: null,
+      batchId: null,
+      label: null,
+      status: "queued",
+      input: {},
+      output: null,
+      previous: null,
+      error: null,
+      costMicros: 0,
+      model: null,
+      mediaKeys: [],
+      appliedAt: null,
+    })),
+    mcpClient: table(
+      "mcpclient",
+      () => ({ authMethod: "none", secretHash: null, logoUri: null, fetchedAt: null }),
+      [["clientId"]],
+    ),
+    mcpAuthRequest: table(
+      "mcpreq",
+      () => ({ state: null, shopId: null, codeHash: null, status: "pending", grantId: null }),
+      [["codeHash"]],
+    ),
+    mcpGrant: table(
+      "grant",
+      () => ({
+        clientId: null,
+        resource: null,
+        accessHash: null,
+        accessExpiresAt: null,
+        refreshHash: null,
+        refreshPrevHash: null,
+        refreshedAt: null,
+        keyHint: null,
+        lastUsedAt: null,
+        revokedAt: null,
+      }),
+      [["accessHash"], ["refreshHash"], ["refreshPrevHash"]],
+    ),
+    mcpAction: table("mcpaction", () => ({
+      grantId: null,
+      details: {},
+      status: "pending",
+      error: null,
+      decidedAt: null,
+    })),
     job: table("job", () => ({
       payload: {},
       status: "pending",
@@ -322,6 +425,11 @@ function build() {
 }
 
 export const fakeDb = build();
+/** আসল Prisma-র মতো কয়েকটা কাজ একসাথে (নকলে শুধু ক্রমে চালানো); তালিকায় দেখায় না, তাই টেবিলের মতো গোনা হয় না */
+Object.defineProperty(fakeDb, "$transaction", {
+  value: async (ops: Promise<unknown>[]) => Promise.all(ops),
+  enumerable: false,
+});
 
 export function resetFakeDb() {
   for (const table of Object.values(fakeDb)) table.reset();

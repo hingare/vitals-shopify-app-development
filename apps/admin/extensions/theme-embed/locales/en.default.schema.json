@@ -27,6 +27,9 @@
       "social_buttons": "Share buttons",
       "related_products": "Related products",
       "recently_viewed": "Recently viewed"
+    },
+    "ai_faq": {
+      "name": "AI FAQ"
     }
   }
 }

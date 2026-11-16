@@ -92,3 +92,21 @@ export const store = {
     }
   },
 };
+
+/** sessionStorage (শুধু এই ট্যাবের এই ভিজিট); বন্ধ থাকলে চুপচাপ কিছু না */
+export const sessionStore = {
+  get(key: string): string | null {
+    try {
+      return sessionStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key: string, value: string) {
+    try {
+      sessionStorage.setItem(key, value);
+    } catch {
+      // private mode
+    }
+  },
+};

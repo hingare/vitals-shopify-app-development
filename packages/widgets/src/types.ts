@@ -119,6 +119,7 @@ declare global {
       customerPrivacy?: {
         shouldShowBanner?: () => boolean;
         currentVisitorConsent?: () => Record<string, string>;
+        analyticsProcessingAllowed?: () => boolean;
         setTrackingConsent: (consent: Record<string, boolean>, callback: () => void) => void;
       };
     };

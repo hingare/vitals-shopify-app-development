@@ -1,5 +1,9 @@
 import db from "../db.server";
 import { startDueCampaigns } from "./campaigns.server";
+import { pruneChats } from "./chat.server";
+import { pruneAiMedia } from "./ai/media/files.server";
+import { pruneMcp } from "./mcp/oauth.server";
+import { pruneRecordings } from "./recordings.server";
 import { queueWinbacks } from "./flows.server";
 import { processMessages, recoverStuckMessages } from "./messages.server";
 import { claimJob, recoverStuckJobs, runJob } from "./queue.server";
@@ -7,9 +11,11 @@ import { measure, primaryDomainUrl, saveSnapshot } from "./speed.server";
 import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
 // এই ফাইলগুলো নিজেদের ব্যাকগ্রাউন্ড কাজ (registerJob) নথিভুক্ত করে, তাই সার্ভার চালুর সময়ই আনতে হয়
+import "./ai/tasks.server";
 import "./integrations.server";
 import "./push.server";
 import "./seo-alt.server";
+import "./seo-meta.server";
 import "./stock-alerts.server";
 import "./subscribers.server";
 
@@ -19,6 +25,8 @@ import "./subscribers.server";
  */
 const TICK_MS = 3_000;
 const MAX_PARALLEL = 2;
+/** একসাথে কতগুলো AI কাজ (বেশিরভাগ সময় বাইরের API-র উত্তরের অপেক্ষা, তাই সার্ভারে চাপ কম) */
+const MAX_AI_PARALLEL = 4;
 const STUCK_MS = 5 * 60_000;
 const MAX_ATTEMPTS = 2;
 
@@ -99,10 +107,19 @@ export async function pruneMarketingData(now = new Date()) {
   });
   // বার্তার ইতিহাস ১৮০ দিন (রিপোর্টের জন্য যথেষ্ট)
   await db.message.deleteMany({ where: { createdAt: { lt: daysAgo(180) } } });
+  // Live Chat: ১৮০ দিন নতুন বার্তা না আসা কথোপকথন
+  await pruneChats(now);
+  // Visitor Recordings: ৩০ দিনের পুরনো রেকর্ডিং আর তার ফাইল
+  await pruneRecordings(now);
+  // AI-র বানানো ছবি ও ভিডিও: ৩০ দিন পরে আমাদের স্টোরেজ থেকে মোছে (প্রোডাক্টে বসানোগুলো Shopify-তে থাকে)
+  await pruneAiMedia(now);
+  // AI সহকারী: পুরনো লগইনের অনুরোধ, বন্ধ সংযোগ, ৯০ দিনের পুরনো পরিবর্তনের অনুরোধ, অব্যবহৃত ক্লায়েন্ট
+  await pruneMcp(now);
 }
 
 let running = 0;
 let runningJobs = 0;
+let runningAiJobs = 0;
 let sending = false;
 let lastHousekeeping = 0;
 let lastMinute = 0;
@@ -156,6 +173,17 @@ async function tick() {
       runningJobs++;
       void runJob(job).finally(() => {
         runningJobs--;
+      });
+    }
+  });
+
+  await step("ai", async () => {
+    while (runningAiJobs < MAX_AI_PARALLEL) {
+      const job = await claimJob("ai");
+      if (!job) break;
+      runningAiJobs++;
+      void runJob(job).finally(() => {
+        runningAiJobs--;
       });
     }
   });

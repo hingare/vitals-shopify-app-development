@@ -41,6 +41,12 @@ export interface ToolDefinition<S extends z.ZodType<Record<string, unknown>>> {
   attribution?: AttributionEvent[];
   /** ডিফল্টে বন্ধ থাকবে কিনা (Shopify-বিকল্প টুলের জন্য true) */
   offByDefault?: boolean;
+  /**
+   * চালু-বন্ধের সুইচ নেই: অ্যাডমিনে খুলে ব্যবহার করার টুল (যেমন AI দিয়ে লেখা বানানো)।
+   * প্ল্যানই একমাত্র শর্ত; টুলের তালিকায় সুইচের জায়গায় "খুলুন" বাটন দেখায় (TOOL_PAGES-এর পেজে)।
+   * শুধু delivery "admin" টুলের জন্য, কারণ স্টোরে এর কিছু যায় না।
+   */
+  alwaysOn?: boolean;
 }
 
 export type AnyTool = ToolDefinition<z.ZodType<Record<string, unknown>>>;
@@ -60,6 +66,9 @@ export function defineTool<S extends z.ZodType<Record<string, unknown>>>(
   if (def.surfaces.length === 0) {
     throw new Error(`Tool "${def.id}" needs at least one surface`);
   }
+  if (def.alwaysOn && def.delivery !== "admin") {
+    throw new Error(`Tool "${def.id}" can only be always on if it runs in the admin`);
+  }
   const parsed = def.settings.safeParse({});
   if (!parsed.success) {
     throw new Error(
@@ -71,6 +80,7 @@ export function defineTool<S extends z.ZodType<Record<string, unknown>>>(
     shopifyNativeAlternative: null,
     attribution: [],
     offByDefault: false,
+    alwaysOn: false,
     ...def,
   };
 }

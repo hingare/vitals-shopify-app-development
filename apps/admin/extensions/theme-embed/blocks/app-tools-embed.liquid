@@ -5,6 +5,12 @@
 {% endcomment %}
 {%- assign app_config = app.metafields.app_config.tools.value -%}
 {%- if app_config and app_config.tools.size > 0 -%}
+  {%- assign reviews_on = false -%}
+  {%- assign seo_schema = nil -%}
+  {%- for tool in app_config.tools -%}
+    {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
+    {%- if tool.id == 'ai-seo-schema' -%}{%- assign seo_schema = tool.settings -%}{%- endif -%}
+  {%- endfor -%}
   {%- comment -%}
     Best Sellers Protection: কেউ ?sort_by=best-selling লিংকে এলে সাধারণ ক্রমে পাঠানো হয়।
     এটা এখানে (লোডারের আগে) থাকে যাতে তালিকাটা যত কম সময় সম্ভব চোখে পড়ে; থিম পেজ নতুন করে লোড না
@@ -132,13 +138,23 @@
         ]
       }
     </script>
-    {%- comment -%} রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে) {%- endcomment -%}
-    {%- assign reviews_on = false -%}
+    {%- comment -%}
+      AI FAQ: থিমে "AI FAQ" ব্লক না থাকলে tool-ai-product-faq.js এই template থেকে প্রোডাক্ট সেকশনের পরে বসায়।
+    {%- endcomment -%}
     {%- for tool in app_config.tools -%}
-      {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
+      {%- if tool.id == 'ai-product-faq' -%}
+        {%- assign faq = product.metafields['$app'].ai_faq.value -%}
+        {%- if faq -%}
+          <template id="app-ai-faq">{%- render 'ai-faq', faq: faq, s: tool.settings -%}</template>
+        {%- endif -%}
+      {%- endif -%}
     {%- endfor -%}
+    {%- comment -%}
+      রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে)। AI SEO Schema-র পুরো
+      Product schema চালু থাকলে রেটিং সেখানেই থাকে, তাই এখানে আলাদা করে দেওয়া হয় না (একই প্রোডাক্ট দুবার নয়)।
+    {%- endcomment -%}
     {%- assign rating_count = product.metafields.reviews.rating_count.value | default: 0 -%}
-    {%- if reviews_on and rating_count > 0 -%}
+    {%- if reviews_on and rating_count > 0 and seo_schema.productSchema != true -%}
       <script type="application/ld+json">
         {
           "@context": "https://schema.org",
@@ -179,6 +195,9 @@
       </style>
     {%- endif -%}
   {%- endfor -%}
+  {%- if seo_schema -%}
+    {%- render 'ai-seo-schema', s: seo_schema, reviews_on: reviews_on, product: product, collection: collection -%}
+  {%- endif -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
 {%- endif -%}
 

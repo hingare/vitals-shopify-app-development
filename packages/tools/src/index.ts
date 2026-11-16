@@ -54,6 +54,28 @@ import {
   spinWheel,
   wishlist,
 } from "./stage5";
+import {
+  aiAltText,
+  aiBackgroundRemover,
+  aiDescriptions,
+  aiImageEnhancer,
+  aiImageToVideo,
+  aiMarketingPlan,
+  aiPageAudit,
+  aiPageBuilder,
+  aiPhotoshoots,
+  aiProductFaq,
+  aiProductImporter,
+  aiReviewSummary,
+  aiSeoSchema,
+  aiSocialPosts,
+  aiVideoAds,
+  aiViralCampaign,
+  instantSearch,
+  liveChat,
+  seoMetaTemplates,
+  visitorRecordings,
+} from "./stage6";
 import { paymentLogos, trustSeals } from "./trust";
 
 /** সব টুলের তালিকা। নতুন টুল বানালে এখানে যোগ করুন। */
@@ -107,6 +129,26 @@ export const registry = createRegistry([
   facebookPixels,
   euWithdrawal,
   bestSellersProtection,
+  visitorRecordings,
+  liveChat,
+  instantSearch,
+  aiSeoSchema,
+  seoMetaTemplates,
+  aiAltText,
+  aiDescriptions,
+  aiProductFaq,
+  aiReviewSummary,
+  aiBackgroundRemover,
+  aiImageEnhancer,
+  aiPhotoshoots,
+  aiImageToVideo,
+  aiVideoAds,
+  aiPageBuilder,
+  aiProductImporter,
+  aiPageAudit,
+  aiMarketingPlan,
+  aiSocialPosts,
+  aiViralCampaign,
 ]);
 
 export { buildStoreConfig } from "./config";
@@ -143,3 +185,25 @@ export {
   wishlist,
 } from "./stage5";
 export type { WheelSlice } from "./stage5";
+export {
+  aiAltText,
+  aiBackgroundRemover,
+  aiDescriptions,
+  aiImageEnhancer,
+  aiImageToVideo,
+  aiMarketingPlan,
+  aiPageAudit,
+  aiPageBuilder,
+  aiPhotoshoots,
+  aiProductFaq,
+  aiProductImporter,
+  aiReviewSummary,
+  aiSeoSchema,
+  aiSocialPosts,
+  aiVideoAds,
+  aiViralCampaign,
+  instantSearch,
+  liveChat,
+  seoMetaTemplates,
+  visitorRecordings,
+} from "./stage6";

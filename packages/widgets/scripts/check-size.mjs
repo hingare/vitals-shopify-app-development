@@ -9,12 +9,16 @@ const dist = fileURLToPath(
   new URL("../../../apps/admin/extensions/theme-embed/assets/", import.meta.url),
 );
 const LIMITS = { loader: 5 * 1024, tool: 10 * 1024, chunk: 10 * 1024 };
+// ব্যতিক্রম: Visitor Recordings-এর rrweb রেকর্ডার। পেজ লোড শেষে শুধু রেকর্ডের জন্য বাছাই হওয়া আর
+// অ্যানালিটিক্সে রাজি ভিজিটরের ব্রাউজারে আলাদা করে আসে (Shopify-র পরামর্শের "দরকার হলে তবেই import");
+// বাকি কোনো ভিজিটরের কাছে এই ফাইল যায় না।
+const EXCEPTIONS = { "chunk-recorder.js": 25 * 1024 };
 let failed = false;
 
 for (const file of readdirSync(dist).filter((f) => f.endsWith(".js"))) {
   const size = gzipSync(readFileSync(join(dist, file))).length;
   const kind = file === "loader.js" ? "loader" : file.startsWith("tool-") ? "tool" : "chunk";
-  const limit = LIMITS[kind];
+  const limit = EXCEPTIONS[file] ?? LIMITS[kind];
   const ok = size <= limit;
   if (!ok) failed = true;
   console.log(

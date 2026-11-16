@@ -47,9 +47,19 @@ export async function syncPlanFromBilling(
   const plan = tierFromSubscriptionName(active?.name);
   await db.shop.update({
     where: { domain: shopDomain },
-    data: { plan, subscriptionId: active?.id ?? null },
+    data: { plan, subscriptionId: active?.id ?? null, trialEndsAt: trialEnd(active) },
   });
   return plan;
+}
+
+/** ফ্রি ট্রায়াল কবে শেষ (ট্রায়ালে AI ক্রেডিট কম থাকে, usage.server.ts দেখুন) */
+export function trialEnd(
+  subscription: { trialDays?: number; createdAt?: string } | undefined,
+): Date | null {
+  const days = subscription?.trialDays ?? 0;
+  const created = subscription?.createdAt ? new Date(subscription.createdAt) : null;
+  if (days <= 0 || !created || Number.isNaN(created.getTime())) return null;
+  return new Date(created.getTime() + days * 24 * 60 * 60 * 1000);
 }
 
 /** ডেভেলপমেন্ট স্টোরে সব বিল টেস্ট মোডে হয় */

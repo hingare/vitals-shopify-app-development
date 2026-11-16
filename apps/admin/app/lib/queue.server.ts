@@ -64,11 +64,24 @@ export function latestJob(shopId: string, kind: string) {
   return db.job.findFirst({ where: { shopId, kind }, orderBy: { createdAt: "desc" } });
 }
 
-export async function claimJob(): Promise<JobContext | null> {
-  const rows = await db.$queryRaw<JobContext[]>`
+/**
+ * AI-র কাজ ("ai:" দিয়ে শুরু) ধীর আর বাইরের API-র উপর নির্ভর করে, তাই নিজের লাইনে চলে:
+ * অনেক AI কাজ জমলেও ইমেইল, সিঙ্ক বা alt লেখার কাজ আটকে থাকে না।
+ */
+export async function claimJob(lane: "main" | "ai" = "main"): Promise<JobContext | null> {
+  const rows =
+    lane === "ai"
+      ? await db.$queryRaw<JobContext[]>`
     UPDATE "Job" SET status = 'running', "startedAt" = now(), attempts = attempts + 1
     WHERE id = (
-      SELECT id FROM "Job" WHERE status = 'pending' AND "runAt" <= now()
+      SELECT id FROM "Job" WHERE status = 'pending' AND "runAt" <= now() AND kind LIKE 'ai:%'
+      ORDER BY "runAt" LIMIT 1 FOR UPDATE SKIP LOCKED
+    )
+    RETURNING id, "shopId", kind, payload, attempts`
+      : await db.$queryRaw<JobContext[]>`
+    UPDATE "Job" SET status = 'running', "startedAt" = now(), attempts = attempts + 1
+    WHERE id = (
+      SELECT id FROM "Job" WHERE status = 'pending' AND "runAt" <= now() AND kind NOT LIKE 'ai:%'
       ORDER BY "runAt" LIMIT 1 FOR UPDATE SKIP LOCKED
     )
     RETURNING id, "shopId", kind, payload, attempts`;

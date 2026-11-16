@@ -19,12 +19,14 @@ embedded = true
 #   customers webhook দিয়ে এখানে আসে। Wishlist-এর খবর ইমেইল টুলে পাঠাতে ক্রেতার ইমেইলও এখান থেকে পড়া হয়।
 #   তালিকার বাইরের কাউকে মার্কেটিং ইমেইল (যেমন abandoned checkout) পাঠানোর আগে এখান থেকেই দেখা হয়
 #   তিনি Shopify-তে আনসাবস্ক্রাইব করেছেন কিনা।
+# write_online_store_pages: AI Page Builder-এর পেজ স্টোরে লুকানো খসড়া হিসেবে তৈরি করা (মার্চেন্ট দেখে প্রকাশ করেন),
+#   আর ফেরালে সেই খসড়া মোছা, যদি তখনো অপ্রকাশিত আর অপরিবর্তিত থাকে।
 #
 # ক্রেতার তথ্য (protected customer data): Partner Dashboard > API access requests-এ "Protected customer data"
 # আর Name, Email, Phone ফিল্ড বেছে নিতে হয়; নইলে Shopify নিচের customers, checkouts আর orders webhook দেয় না,
 # বা ক্রেতার ঘরগুলো ফাঁকা পাঠায়।
 # Phone লাগে শুধু Order Tracker-এ ফোন নম্বর দিয়ে খোঁজার জন্য; Address কোথাও লাগে না।
-scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts,write_customers"
+scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts,write_customers,write_online_store_pages"
 
 [webhooks]
 api_version = "2026-10"
@@ -135,3 +137,12 @@ include_config_on_deploy = true
 
 [auth]
 redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
+# ---- অ্যাপের নিজের metafield (নামস্থান $app: শুধু এই অ্যাপ লেখে, অন্য অ্যাপ বা থিম বদলাতে পারে না) ----
+# AI Product FAQ-এর প্রশ্ন-উত্তর; থিমের "AI FAQ" ব্লক Liquid দিয়ে পড়ে (product.metafields["$app"].ai_faq)।
+# মার্চেন্ট অ্যাডমিনে দেখতে পান, বদলান অ্যাপের AI Studio থেকে (যাতে আগের মানে ফেরানো যায়)।
+[product.metafields.app.ai_faq]
+type = "json"
+name = "AI FAQ"
+description = "Questions and answers shown by the AI FAQ block"
+access.admin = "merchant_read"

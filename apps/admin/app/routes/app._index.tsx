@@ -4,7 +4,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 
 import { authenticate } from "../shopify.server";
 import { ensureShop, syncPlanFromBilling } from "../lib/shop.server";
-import { getEmbedStatus, getToolStates } from "../lib/tools.server";
+import { embedEditorUrl, getEmbedStatus, getToolStates } from "../lib/tools.server";
 import { getSpeedSummary } from "../lib/speed.server";
 import { getToolStats } from "../lib/analytics.server";
 import { openWithdrawals } from "../lib/withdrawals.server";
@@ -29,20 +29,20 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       .then((j) => j.data?.shop?.currencyCode ?? "USD")
       .catch(() => "USD"),
   ]);
-  const handle = session.shop.replace(".myshopify.com", "");
+  // AI টুলগুলো চালু/বন্ধ করার নয় (সবসময় খোলা), তাই গোনায় আসে না
+  const switchable = tools.filter((t) => !t.tool.alwaysOn);
   return {
     plan,
     embedEnabled,
-    enabledCount: tools.filter((t) => t.enabled).length,
-    totalTools: tools.length,
+    enabledCount: switchable.filter((t) => t.enabled).length,
+    totalTools: switchable.length,
     baselineScore: speed.baseline?.score ?? null,
     latestScore: speed.latest?.score ?? null,
     stats,
     // EU Withdrawal: ক্রেতার নতুন বিবৃতি থাকলে ড্যাশবোর্ডেই চোখে পড়ে
     withdrawals,
     currency,
-    // থিম এডিটরে সরাসরি আমাদের app embed খুলে দেয়
-    themeEditorUrl: `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/app-tools-embed`,
+    themeEditorUrl: embedEditorUrl(session.shop),
   };
 };
 
