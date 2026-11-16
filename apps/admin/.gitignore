@@ -34,3 +34,7 @@ yarn.lock
 # উইজেটের বিল্ড ফাইল (packages/widgets থেকে তৈরি হয়)
 /extensions/theme-embed/assets/*.js
 /extensions/theme-embed/assets/*.css
+
+# ডাটাবেসের ব্যাকআপ (scripts/db-backup.mjs): ক্রেতাদের ইমেইল থাকে, কখনো GitHub-এ নয়
+/backups
+*.dump

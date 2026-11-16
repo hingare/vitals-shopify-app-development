@@ -90,6 +90,14 @@ module.exports = {
         node: true,
       },
     },
+
+    // ব্যাকআপ, রিস্টোর আর লোড টেস্টের Node স্ক্রিপ্ট
+    {
+      files: ["scripts/**/*.mjs", "loadtest/**/*.mjs"],
+      env: {
+        node: true,
+      },
+    },
   ],
   globals: {
     shopify: "readonly",

@@ -22,6 +22,51 @@ jobs:
         run: pnpm test
       - run: pnpm build
 
+  backup-restore:
+    # ব্যাকআপ নিয়ে নতুন ডাটাবেসে ফেরত আনা যায় কিনা, আর প্রতিটা টেবিল মেলে কিনা (docs/backup-restore.md)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app
+      RESTORED_URL: postgresql://postgres:postgres@localhost:5432/restored
+      PG_BIN: /usr/lib/postgresql/16/bin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: PostgreSQL 16 client tools
+        run: test -x "$PG_BIN/pg_dump" || (sudo apt-get update && sudo apt-get install -y postgresql-client-16)
+      - name: App database with 20 sample stores
+        working-directory: apps/admin
+        env:
+          LOADTEST_SEED: "yes"
+        run: |
+          pnpm exec prisma migrate deploy
+          node loadtest/seed.mjs --stores 20
+      - name: Back up, restore into a new database, compare every table
+        working-directory: apps/admin
+        run: |
+          node scripts/db-backup.mjs --out backups
+          PGPASSWORD=postgres "$PG_BIN/createdb" -h localhost -U postgres restored
+          node scripts/db-restore.mjs backups/*.dump --into "$RESTORED_URL"
+          DATABASE_URL="$RESTORED_URL" pnpm exec prisma migrate status
+
   functions:
     # Shopify Functions (Rust): টেস্ট, lint, আর wasm সাইজ Shopify-র ২৫৬KB সীমার নিচে কিনা
     runs-on: ubuntu-latest
