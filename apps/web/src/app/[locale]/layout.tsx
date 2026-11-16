@@ -1,19 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import type { ReactNode } from "react";
 import { brand } from "@app/brand";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Analytics } from "@/components/Analytics";
 import { ChatLauncher } from "@/components/ChatLauncher";
+import type { ChatTexts } from "@/components/ChatPanel";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { JsonLd } from "@/components/JsonLd";
 import { routing } from "@/i18n/routing";
 import { toolIds } from "@/lib/catalog";
+import { MAX_QUESTION_CHARS } from "@/lib/chat-limits";
 import { organizationSchema, websiteSchema } from "@/lib/schema";
 import { OG_IMAGE } from "@/lib/seo";
-import { absoluteUrl, SITE_URL } from "@/lib/site";
+import { absoluteUrl, SITE_URL, supportChatEnabled } from "@/lib/site";
 import "../globals.css";
 
 export function generateStaticParams() {
@@ -62,15 +63,36 @@ export default async function LocaleLayout({ children, params }: LayoutProps<"/[
         <a className="skip" href="#main">
           {t("skip")}
         </a>
-        <NextIntlClientProvider>
+        {/* Client components get their texts as props, so no messages are sent to the browser */}
+        <NextIntlClientProvider messages={null}>
           <Header />
           <main id="main">{children}</main>
           <Footer />
-          <ChatLauncher />
+          {supportChatEnabled() && <ChatLauncher texts={await chatTexts(locale)} />}
         </NextIntlClientProvider>
         <JsonLd data={[organizationSchema(), websiteSchema(locale)]} />
         <Analytics />
       </body>
     </html>
   );
+}
+
+/** The support assistant's texts, with the support email as a link */
+async function chatTexts(locale: string): Promise<ChatTexts> {
+  const t = await getTranslations({ locale, namespace: "chat" });
+  const email = `[${brand.supportEmail}](mailto:${brand.supportEmail})`;
+  return {
+    open: t("open"),
+    title: t("title"),
+    close: t("close"),
+    intro: t("intro"),
+    placeholder: t("placeholder"),
+    send: t("send"),
+    thinking: t("thinking"),
+    disclaimer: t("disclaimer", { email }),
+    error: t("error", { email }),
+    busy: t("busy", { email }),
+    unavailable: t("unavailable", { email }),
+    tooLong: t("tooLong", { max: MAX_QUESTION_CHARS }),
+  };
 }

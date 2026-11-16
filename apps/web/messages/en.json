@@ -293,8 +293,7 @@
     "error": "Something went wrong. Please try again, or email {email}.",
     "busy": "The assistant is busy right now. Please try again in a few minutes, or email {email}.",
     "unavailable": "The assistant is not available right now. Please email {email} and we'll help.",
-    "tooLong": "That message is too long. Please keep it under {max} characters.",
-    "sources": "From these articles:"
+    "tooLong": "That message is too long. Please keep it under {max} characters."
   },
   "notFound": {
     "title": "Page not found",

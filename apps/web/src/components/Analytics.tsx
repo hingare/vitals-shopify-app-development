@@ -27,11 +27,10 @@ export function Analytics() {
         });
       });
     };
-    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 2000));
-    const handle = idle(start);
+    if (window.requestIdleCallback) window.requestIdleCallback(start);
+    else window.setTimeout(start, 2000);
     return () => {
       cancelled = true;
-      if (window.cancelIdleCallback && typeof handle === "number") window.cancelIdleCallback(handle);
     };
   }, []);
   return null;
