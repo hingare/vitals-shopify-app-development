@@ -3,7 +3,8 @@ import { brand } from "@app/brand";
 import { allowRequest } from "../rate-limit.server";
 import { planOf } from "../shop.server";
 import { McpToolError } from "./actions.server";
-import { CORS_HEADERS, jsonReply, methodNotAllowed, preflight, readBody } from "./http.server";
+import { readText } from "../request.server";
+import { CORS_HEADERS, jsonReply, methodNotAllowed, preflight } from "./http.server";
 import { MCP_SCOPES, authenticateBearer, isMcpId, resourceMetadataUrl } from "./oauth.server";
 import { MCP_TOOLS, inputSchema, toolsFor, type McpTool, type ToolContext } from "./tools.server";
 
@@ -214,7 +215,7 @@ export async function handleMcpRequest(
     });
   }
 
-  const text = await readBody(request, MAX_BODY);
+  const text = await readText(request, MAX_BODY);
   if (text === null) return jsonReply(rpcError(null, -32600, "Request is too large"), 413);
   let body: unknown;
   try {

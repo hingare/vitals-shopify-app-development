@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { allowRequest } from "../lib/rate-limit.server";
-import { activeShop, clientIp, jsonResponse, readJson } from "../lib/tool-state.server";
+import { activeShop, proxyClientIp, jsonResponse, readJson } from "../lib/tool-state.server";
 import {
   changeWishlist,
   listWishlist,
@@ -47,7 +47,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const ctx = await context(request, body.g);
   if (!ctx) return jsonResponse({ error: "disabled" }, 404);
   if (!ctx.owner) return jsonResponse({ error: "invalid" }, 400);
-  if (!allowRequest(`wishlist:${ctx.shop.id}:${clientIp(request)}`, 60, 60_000)) {
+  if (!allowRequest(`wishlist:${ctx.shop.id}:${proxyClientIp(request)}`, 60, 60_000)) {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
   const entry = { productId: body.productId, handle: body.handle };

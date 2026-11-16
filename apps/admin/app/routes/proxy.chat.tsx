@@ -4,7 +4,7 @@ import { authenticate } from "../shopify.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import {
   activeShop,
-  clientIp,
+  proxyClientIp,
   enabledSettings,
   jsonResponse,
   readJson,
@@ -25,7 +25,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = await activeShop(session?.shop);
   const settings = shop ? await enabledSettings(shop, liveChat) : null;
   if (!shop || !settings) return jsonResponse({ error: "disabled" }, 404);
-  const ip = clientIp(request);
+  const ip = proxyClientIp(request);
   const visitorKey = hashKey(body.key);
 
   if (body.action === "send") {

@@ -1,6 +1,9 @@
 import { canUseTool, type AnyTool, type Plan, type ToolDefinition, type z } from "@app/tool-sdk";
 import db from "../db.server";
 
+/** স্টোরফ্রন্টের (App Proxy) রাস্তার জন্য: আকার বাঁধা JSON body আর ভিজিটরের IP */
+export { proxyClientIp, readJson } from "./request.server";
+
 export interface ShopRef {
   id: string;
   plan: string | null;
@@ -51,10 +54,6 @@ export const jsonResponse = (data: unknown, status = 200) =>
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 
-/** অনুরোধকারীর IP (রেট লিমিটের জন্য) */
-export const clientIp = (request: Request) =>
-  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-
 export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 /** ইমেইল ছোট হাতের অক্ষরে; ভুল হলে null */
@@ -62,29 +61,4 @@ export function cleanEmail(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const email = value.trim().toLowerCase();
   return email.length <= 254 && EMAIL_PATTERN.test(email) ? email : null;
-}
-
-/** স্টোরফ্রন্ট থেকে আসা JSON body (ভুল হলে null) */
-export async function readJson(request: Request, maxBytes = 16 * 1024): Promise<unknown> {
-  // বড় body পুরোটা মেমরিতে তোলার আগেই থামে: আগে ঘোষিত আকার, তারপর পড়তে পড়তে গোনা
-  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return null;
-  const reader = request.body?.getReader();
-  if (!reader) return null;
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    parts.push(value);
-  }
-  try {
-    return JSON.parse(Buffer.concat(parts).toString("utf8"));
-  } catch {
-    return null;
-  }
 }

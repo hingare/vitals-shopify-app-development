@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "react-router";
 import { Form, redirect, useActionData, useLoaderData } from "react-router";
 import { createT, resolveLocale } from "@app/i18n";
+import { readForm } from "../lib/mcp/http.server";
 import { pendingStoreRequest, storeConsentUrl } from "../lib/mcp/oauth.server";
 
 /**
@@ -21,11 +22,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const form = await request.formData();
-  const url = await storeConsentUrl(
-    String(form.get("request") ?? ""),
-    String(form.get("shop") ?? ""),
-  );
+  // লগইন ছাড়াই খোলা পাতা, তাই ফর্ম আকার বেঁধে পড়া হয়
+  const form = await readForm(request);
+  if (!form) return { invalid: true };
+  const url = await storeConsentUrl(form.get("request") ?? "", form.get("shop") ?? "");
   return url ? redirect(url) : { invalid: true };
 };
 

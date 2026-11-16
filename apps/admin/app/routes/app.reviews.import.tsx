@@ -6,6 +6,7 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
 import { importReviews } from "../lib/review-import.server";
+import { readText } from "../lib/request.server";
 import { MAX_IMPORT_ROWS } from "../lib/reviews";
 import { useT } from "../lib/i18n";
 
@@ -19,9 +20,14 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const text = await request.text();
-  if (text.length > MAX_BYTES) return { ok: false as const, error: "too_large" };
-  const body = JSON.parse(text) as { csv?: unknown; publish?: unknown };
+  const text = await readText(request, MAX_BYTES);
+  if (text === null) return { ok: false as const, error: "too_large" };
+  let body: { csv?: unknown; publish?: unknown } = {};
+  try {
+    body = (JSON.parse(text) as typeof body | null) ?? {};
+  } catch {
+    // ভুল body মানে কিছু আসেনি
+  }
   if (typeof body.csv !== "string" || body.csv.trim() === "") {
     return { ok: false as const, error: "empty" };
   }

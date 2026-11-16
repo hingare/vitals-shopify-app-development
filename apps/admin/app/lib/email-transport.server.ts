@@ -233,16 +233,38 @@ export function snsStringToSign(msg: SnsMessage): string {
   return out;
 }
 
+/**
+ * SNS-এর সার্টিফিকেট খুব কম বদলায় (নতুন হলে ঠিকানাও নতুন)। প্রতিটা বার্তায় আবার আনলে AWS ধীর হলে
+ * webhook-ও ধীর হয়, তাই যাচাইয়ে কাজ করা সার্টিফিকেট এক ঘণ্টা মনে রাখা হয়।
+ */
+export type CertCache = Map<string, { pem: string; until: number }>;
+const snsCerts: CertCache = new Map();
+const CERT_TTL_MS = 60 * 60_000;
+
 /** Amazon SNS-এর সই যাচাই (সার্টিফিকেট Amazon-এর সার্ভার থেকে আনা হয়) */
-export async function verifySns(msg: SnsMessage, fetchFn: FetchFn = timedFetch): Promise<boolean> {
+export async function verifySns(
+  msg: SnsMessage,
+  fetchFn: FetchFn = timedFetch,
+  cache: CertCache = snsCerts,
+  now = Date.now(),
+): Promise<boolean> {
   if (!msg.Signature || !isSnsUrl(msg.SigningCertURL)) return false;
-  try {
-    const res = await fetchFn(msg.SigningCertURL as string);
-    if (!res.ok) return false;
-    const cert = await res.text();
+  const url = msg.SigningCertURL as string;
+  const verify = (pem: string) => {
     const verifier = createVerify(msg.SignatureVersion === "2" ? "RSA-SHA256" : "RSA-SHA1");
     verifier.update(snsStringToSign(msg), "utf8");
-    return verifier.verify(cert, msg.Signature, "base64");
+    return verifier.verify(pem, msg.Signature as string, "base64");
+  };
+  try {
+    const cached = cache.get(url);
+    if (cached && cached.until > now) return verify(cached.pem);
+    const res = await fetchFn(url);
+    if (!res.ok) return false;
+    const pem = await res.text();
+    if (!verify(pem)) return false;
+    if (cache.size >= 20) cache.clear();
+    cache.set(url, { pem, until: now + CERT_TTL_MS });
+    return true;
   } catch {
     return false;
   }

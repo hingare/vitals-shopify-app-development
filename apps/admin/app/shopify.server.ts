@@ -9,6 +9,7 @@ import {
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
 import prisma from "./db.server";
 import { PRICES, PLAN_KEYS, TRIAL_DAYS, type PlanKey } from "./lib/plans";
+import { BodyTooLargeError, limitBody } from "./lib/request.server";
 
 function plan(key: PlanKey) {
   const price = PRICES[key];
@@ -58,7 +59,23 @@ const shopify = shopifyApp({
 export default shopify;
 export const apiVersion = ApiVersion.October26;
 export const addDocumentResponseHeaders = shopify.addDocumentResponseHeaders;
-export const authenticate = shopify.authenticate;
+/** Shopify HTTPS webhook-এর body সর্বোচ্চ ৫MB; দ্বিগুণ জায়গা রেখে এর বেশি হলে পড়া থামে */
+const MAX_WEBHOOK_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Shopify-র লাইব্রেরি সই মেলানোর আগে webhook-এর পুরো body মেমরিতে পড়ে। তাই যে কেউ webhook-এর
+ * ঠিকানায় বিশাল body পাঠালে সার্ভারের মেমরি ভরে যেত; এখানে সেটা মাঝপথেই থামে (413)।
+ */
+const webhook = (async (request: Request) => {
+  try {
+    return await shopify.authenticate.webhook(limitBody(request, MAX_WEBHOOK_BYTES));
+  } catch (error) {
+    if (error instanceof BodyTooLargeError) throw new Response(null, { status: 413 });
+    throw error;
+  }
+}) as typeof shopify.authenticate.webhook;
+
+export const authenticate = { ...shopify.authenticate, webhook };
 export const unauthenticated = shopify.unauthenticated;
 export const login = shopify.login;
 export const registerWebhooks = shopify.registerWebhooks;

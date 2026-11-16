@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { parseResendEvent, verifySvix } from "../lib/email-transport.server";
 import { applyDeliveryEvent } from "../lib/messages.server";
+import { readText } from "../lib/request.server";
 
 /**
  * Resend-এর ঘটনা (পৌঁছেছে, bounce, স্প্যাম অভিযোগ)। Resend-এর ড্যাশবোর্ডে এই ঠিকানা দিন:
@@ -10,7 +11,9 @@ import { applyDeliveryEvent } from "../lib/messages.server";
 export const action = async ({ request }: ActionFunctionArgs) => {
   const secret = process.env.RESEND_WEBHOOK_SECRET;
   if (!secret) return new Response("Not configured", { status: 503 });
-  const body = await request.text();
+  // Resend-এর ঘটনা কয়েক KB; সই মেলানোর আগে বিশাল body মেমরিতে তোলা হয় না
+  const body = await readText(request, 256 * 1024);
+  if (body === null) return new Response("Too large", { status: 413 });
   const ok = verifySvix(
     secret,
     {

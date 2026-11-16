@@ -1,6 +1,8 @@
 import type { ActionFunctionArgs } from "react-router";
 import db from "../db.server";
 import { parsePixelBatch, recordPixelBatch } from "../lib/store-analytics.server";
+import { allowRequest } from "../lib/rate-limit.server";
+import { directClientIp, readText } from "../lib/request.server";
 
 /**
  * Web Pixel এখানে ইভেন্ট পাঠায় (sendBeacon, text/plain)।
@@ -34,8 +36,12 @@ export const loader = () => new Response(null, { status: 204, headers: CORS });
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
-  const text = await request.text();
-  if (text.length > MAX_BODY) return new Response(null, { status: 413, headers: CORS });
+  // একজন ভিজিটরের পিক্সেল পেজ প্রতি দু-একবার পাঠায়; মোবাইল নেটওয়ার্কে অনেকে এক IP ভাগ করে, তাই সীমা উদার
+  if (!allowRequest(`pixel:${directClientIp(request)}`, 300, 60_000)) {
+    return new Response(null, { status: 429, headers: CORS });
+  }
+  const text = await readText(request, MAX_BODY);
+  if (text === null) return new Response(null, { status: 413, headers: CORS });
 
   let body: unknown;
   try {

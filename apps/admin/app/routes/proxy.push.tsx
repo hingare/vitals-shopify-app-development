@@ -5,7 +5,7 @@ import { savePushSubscription, vapidKeys } from "../lib/push.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import {
   activeShop,
-  clientIp,
+  proxyClientIp,
   enabledSettings,
   jsonResponse,
   readJson,
@@ -28,7 +28,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   const shop = await activeShop(session?.shop);
   if (!shop) return jsonResponse({ error: "unavailable" }, 404);
-  if (!allowRequest(`push:${shop.id}:${clientIp(request)}`, 10, 10 * 60_000)) {
+  if (!allowRequest(`push:${shop.id}:${proxyClientIp(request)}`, 10, 10 * 60_000)) {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
   const result = await savePushSubscription(shop, await readJson(request));

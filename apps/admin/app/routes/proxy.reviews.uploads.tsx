@@ -3,6 +3,7 @@ import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { enabledReviewSettings } from "../lib/reviews.server";
 import { allowRequest } from "../lib/rate-limit.server";
+import { proxyClientIp, readJson } from "../lib/tool-state.server";
 import { createUploadTargets, parseUploadRequest } from "../lib/review-media.server";
 
 /**
@@ -23,18 +24,11 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const settings = await enabledReviewSettings(shop.id);
   if (!settings?.showForm || !settings.allowPhotos) return json({ error: "disabled" }, 404);
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!allowRequest(`review-upload:${shop.id}:${ip}`, 10, 10 * 60 * 1000)) {
+  if (!allowRequest(`review-upload:${shop.id}:${proxyClientIp(request)}`, 10, 10 * 60 * 1000)) {
     return json({ error: "rate_limited" }, 429);
   }
 
-  let body: unknown = null;
-  try {
-    body = JSON.parse(await request.text());
-  } catch {
-    return json({ error: "invalid" }, 400);
-  }
-  const files = parseUploadRequest(body);
+  const files = parseUploadRequest(await readJson(request));
   if (!files) return json({ error: "invalid" }, 400);
   try {
     return json({ targets: await createUploadTargets(admin, files) });

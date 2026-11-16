@@ -5,7 +5,7 @@ import { allowRequest } from "../lib/rate-limit.server";
 import { canRecord, hashRecordingKey, ingestChunk } from "../lib/recordings.server";
 import {
   activeShop,
-  clientIp,
+  proxyClientIp,
   enabledSettings,
   jsonResponse,
   readJson,
@@ -29,7 +29,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = await activeShop(session?.shop);
   const settings = shop ? await enabledSettings(shop, visitorRecordings) : null;
   if (!shop || !settings) return jsonResponse({ error: "disabled", stop: "disabled" }, 404);
-  const ip = clientIp(request);
+  const ip = proxyClientIp(request);
 
   if (body.action === "start") {
     if (!allowRequest(`rec-start:${shop.id}:${ip}`, 30, 60_000)) {

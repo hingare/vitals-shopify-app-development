@@ -199,12 +199,35 @@ describe("SES events through SNS", () => {
 
   it("rejects a changed message, a foreign certificate host and a missing signature", async () => {
     const good = signed(notification);
-    expect(await verifySns({ ...good, Message: '{"x":1}' }, cert)).toBe(false);
-    expect(await verifySns({ ...good, SigningCertURL: "https://evil.com/cert.pem" }, cert)).toBe(
+    expect(await verifySns({ ...good, Message: '{"x":1}' }, cert, new Map())).toBe(false);
+    expect(
+      await verifySns({ ...good, SigningCertURL: "https://evil.com/cert.pem" }, cert, new Map()),
+    ).toBe(false);
+    expect(await verifySns({ ...good, Signature: undefined }, cert, new Map())).toBe(false);
+    expect(await verifySns(good, async () => new Response("", { status: 500 }), new Map())).toBe(
       false,
     );
-    expect(await verifySns({ ...good, Signature: undefined }, cert)).toBe(false);
-    expect(await verifySns(good, async () => new Response("", { status: 500 }))).toBe(false);
+  });
+
+  it("fetches a certificate once and keeps it for an hour, but only one that verified", async () => {
+    const cache = new Map();
+    let fetches = 0;
+    const counted = async () => {
+      fetches++;
+      return new Response(pem);
+    };
+    const good = signed(notification);
+    const start = Date.parse("2026-01-01T00:00:00Z");
+    expect(await verifySns(good, counted, cache, start)).toBe(true);
+    expect(await verifySns(good, counted, cache, start + 59 * 60_000)).toBe(true);
+    expect(fetches).toBe(1);
+    expect(await verifySns({ ...good, Message: '{"x":1}' }, counted, cache, start)).toBe(false);
+    expect(await verifySns(good, counted, cache, start + 61 * 60_000)).toBe(true);
+    expect(fetches).toBe(2);
+
+    const junk = new Map();
+    expect(await verifySns(good, async () => new Response("not a cert"), junk)).toBe(false);
+    expect(junk.size).toBe(0);
   });
 
   it("reads delivery, permanent bounce and complaint", () => {

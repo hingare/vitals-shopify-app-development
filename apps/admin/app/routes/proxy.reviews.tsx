@@ -9,6 +9,7 @@ import {
   syncProductRating,
 } from "../lib/reviews.server";
 import { allowRequest } from "../lib/rate-limit.server";
+import { proxyClientIp, readJson } from "../lib/tool-state.server";
 import { attachMedia } from "../lib/review-media.server";
 import { queueSummaryRefresh, storefrontSummary } from "../lib/ai/tasks/review-summary.server";
 
@@ -57,17 +58,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const settings = await enabledReviewSettings(shop.id);
   if (!settings?.showForm) return json({ error: "disabled" }, 404);
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (!allowRequest(`review:${shop.id}:${ip}`, 5, 10 * 60 * 1000)) {
+  if (!allowRequest(`review:${shop.id}:${proxyClientIp(request)}`, 5, 10 * 60 * 1000)) {
     return json({ error: "rate_limited" }, 429);
   }
 
-  let body: unknown = null;
-  try {
-    body = JSON.parse(await request.text());
-  } catch {
-    return json({ error: "invalid" }, 400);
-  }
+  // লেখা সর্বোচ্চ ৫,০০০ অক্ষর; যেকোনো ভাষার অক্ষরে তা ৬৪KB-এর মধ্যেই থাকে
+  const body = await readJson(request, 64 * 1024);
+  if (body === null) return json({ error: "invalid" }, 400);
   const parsed = parseReviewInput(body);
   // বটকে সফল দেখাই, যাতে সে আবার চেষ্টা না করে
   if (!parsed.ok && parsed.error === "spam") return json({ status: "pending" });
