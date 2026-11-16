@@ -4,6 +4,7 @@ import {
   AppDistribution,
   BillingInterval,
   BillingReplacementBehavior,
+  LogSeverity,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -38,6 +39,22 @@ export const billingConfig = {
   [PLAN_KEYS.PRO_ANNUAL]: plan(PLAN_KEYS.PRO_ANNUAL),
 };
 
+const LOG_LEVELS: Record<string, LogSeverity> = {
+  error: LogSeverity.Error,
+  warning: LogSeverity.Warning,
+  info: LogSeverity.Info,
+  debug: LogSeverity.Debug,
+};
+
+/**
+ * Shopify-র লাইব্রেরি প্রতিটা App Proxy আর webhook অনুরোধে একটা INFO লাইন লেখে; ১,০০০ দোকানের ব্যস্ত সময়ে
+ * সেটা সেকেন্ডে কয়েকশো লাইন। তাই production-এ শুধু সতর্কতা আর ভুল; খুঁজে দেখার দরকার হলে
+ * SHOPIFY_LOG_LEVEL=info দিয়ে আবার চালু করা যায়।
+ */
+const logLevel =
+  LOG_LEVELS[process.env.SHOPIFY_LOG_LEVEL?.toLowerCase() ?? ""] ??
+  (process.env.NODE_ENV === "production" ? LogSeverity.Warning : LogSeverity.Info);
+
 const shopify = shopifyApp({
   apiKey: process.env.SHOPIFY_API_KEY,
   apiSecretKey: process.env.SHOPIFY_API_SECRET || "",
@@ -51,6 +68,7 @@ const shopify = shopifyApp({
   future: {
     expiringOfflineAccessTokens: true,
   },
+  logger: { level: logLevel },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
