@@ -4,7 +4,10 @@ import type { CatalogTool } from "./catalog";
 /** Tools that show something in the store need the app embed switched on first */
 export const NEEDS_EMBED: ReadonlySet<string> = new Set(["embed", "block", "function"]);
 
-type StepText = (key: "stepOpen" | "stepSave" | "stepOpenStudio", values?: { name: string }) => string;
+type StepText = (
+  key: "stepOpen" | "stepSave" | "stepOpenStudio",
+  values?: { name: string },
+) => string;
 
 /**
  * The setup steps of a tool's help article: opening the tool, the article's own steps, then saving.

@@ -13,7 +13,7 @@ export const privacy: LegalDoc = {
   body: [
     {
       type: "p",
-      text: "This policy explains what data {company} (\"we\") collects through the {brand} Shopify app and this website, why, who we share it with and how long we keep it. If anything is unclear, email [{privacyEmail}](mailto:{privacyEmail}).",
+      text: 'This policy explains what data {company} ("we") collects through the {brand} Shopify app and this website, why, who we share it with and how long we keep it. If anything is unclear, email [{privacyEmail}](mailto:{privacyEmail}).',
     },
     { type: "h2", text: "Who we are" },
     {
@@ -128,17 +128,49 @@ export const privacy: LegalDoc = {
       type: "table",
       headers: ["Service", "What it does", "Data it receives"],
       rows: [
-        ["Shopify", "The platform the app runs on, and billing", "What the app reads from and writes to your store"],
-        ["Our hosting provider", "Runs the app's servers and database", "Everything the app stores"],
+        [
+          "Shopify",
+          "The platform the app runs on, and billing",
+          "What the app reads from and writes to your store",
+        ],
+        [
+          "Our hosting provider",
+          "Runs the app's servers and database",
+          "Everything the app stores",
+        ],
         ["Cloudflare R2", "File storage", "Recordings, and photos and videos made with AI tools"],
-        ["Anthropic", "AI writing and image understanding", "Content sent to AI tools and to this website's support assistant"],
+        [
+          "Anthropic",
+          "AI writing and image understanding",
+          "Content sent to AI tools and to this website's support assistant",
+        ],
         ["fal.ai", "AI photo and video tools", "Product photos and your instructions"],
-        ["Resend or Amazon Web Services", "Sends emails", "Recipients' email addresses and the emails"],
-        ["Browser push services from Google, Apple, Mozilla and Microsoft", "Deliver push notifications", "Push addresses and notification text"],
+        [
+          "Resend or Amazon Web Services",
+          "Sends emails",
+          "Recipients' email addresses and the emails",
+        ],
+        [
+          "Browser push services from Google, Apple, Mozilla and Microsoft",
+          "Deliver push notifications",
+          "Push addresses and notification text",
+        ],
         ["Google PageSpeed Insights", "Speed Guard tests", "Your store's web address"],
-        ["PostHog", "Page analytics on this website", "Page views, IP addresses and browser details"],
-        ["Klaviyo, Mailchimp or Omnisend", "Only if you connect one: receives your new subscribers", "Subscribers' email addresses, names and consent"],
-        ["Meta", "Only if you turn on Facebook Pixels", "Store events from shoppers who allow marketing"],
+        [
+          "PostHog",
+          "Page analytics on this website",
+          "Page views, IP addresses and browser details",
+        ],
+        [
+          "Klaviyo, Mailchimp or Omnisend",
+          "Only if you connect one: receives your new subscribers",
+          "Subscribers' email addresses, names and consent",
+        ],
+        [
+          "Meta",
+          "Only if you turn on Facebook Pixels",
+          "Store events from shoppers who allow marketing",
+        ],
       ],
     },
     {
@@ -203,7 +235,7 @@ export const terms: LegalDoc = {
   body: [
     {
       type: "p",
-      text: "These terms are the agreement between you, the merchant, and {company} (\"we\") for using the {brand} Shopify app. By installing or using it, you accept them. If you accept them for a business, you confirm that you're allowed to.",
+      text: 'These terms are the agreement between you, the merchant, and {company} ("we") for using the {brand} Shopify app. By installing or using it, you accept them. If you accept them for a business, you confirm that you\'re allowed to.',
     },
     { type: "h2", text: "1. The service" },
     {

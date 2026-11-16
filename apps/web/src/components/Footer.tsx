@@ -69,9 +69,7 @@ export async function Footer() {
             </ul>
           </div>
         </div>
-        <p className="footer-bottom">
-          {t("rights", { year, company: brand.legal.companyName })}
-        </p>
+        <p className="footer-bottom">{t("rights", { year, company: brand.legal.companyName })}</p>
       </div>
     </footer>
   );

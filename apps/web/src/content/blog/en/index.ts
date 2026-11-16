@@ -15,7 +15,7 @@ export const posts: Post[] = [
     body: [
       {
         type: "p",
-        text: "A countdown that starts again when the page reloads. \"Only 2 left\" on a product with 200 in stock. A pop-up saying someone just bought this when nobody did. Reviews copied from a supplier's page. Tricks like these take a minute to install, and in the biggest markets Shopify stores sell to, they are now plainly against the law.",
+        text: 'A countdown that starts again when the page reloads. "Only 2 left" on a product with 200 in stock. A pop-up saying someone just bought this when nobody did. Reviews copied from a supplier\'s page. Tricks like these take a minute to install, and in the biggest markets Shopify stores sell to, they are now plainly against the law.',
       },
       {
         type: "note",
@@ -57,11 +57,11 @@ export const posts: Post[] = [
         type: "list",
         items: [
           "**A countdown to a real deadline.** The sale really ends then, every visitor sees the same clock, and it disappears when time is up. End the discount at the same moment.",
-          "**Stock levels from your real inventory.** \"Only 3 left\" is useful when it's true, and it changes as your stock does.",
+          '**Stock levels from your real inventory.** "Only 3 left" is useful when it\'s true, and it changes as your stock does.',
           "**Real recent sales.** A note that a product sold an hour ago is reassuring, as long as the sale happened. Leave out names and locations: those customers didn't agree to be shown.",
           "**Reviews from real buyers.** Ask customers for a review after their order, and bring over reviews you already collected for the same products. Don't copy reviews from a supplier's or another store's page: those people didn't buy from you.",
           "**All the genuine reviews, including the bad ones.** Holding reviews for a quick check against spam, abuse or private details is fine. Leaving genuine reviews unpublished because they're negative is the review suppression the FTC rule describes.",
-          "**Real reasons to act now.** \"Spend $12 more for free shipping\" creates urgency from a real benefit.",
+          '**Real reasons to act now.** "Spend $12 more for free shipping" creates urgency from a real benefit.',
         ],
       },
       { type: "h2", text: "How {brand} handles this" },

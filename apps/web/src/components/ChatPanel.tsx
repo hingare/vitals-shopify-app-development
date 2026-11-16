@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { MAX_QUESTION_CHARS, MAX_TURNS, type ChatError } from "@/lib/chat-limits";
+import { plainText } from "@/lib/text";
 import { Inline } from "./RichText";
 
 /** The window's texts, filled in on the server (email addresses are Markdown links) */
@@ -127,7 +128,7 @@ export default function ChatPanel({
       }
       answer += decoder.decode();
       update(answerIndex, { content: answer });
-      setAnnounce(answer);
+      setAnnounce(plainText(answer));
     } catch (error) {
       if (controller.signal.aborted) return;
       const key = error instanceof ChatFailure ? error.text : "error";
@@ -135,7 +136,7 @@ export default function ChatPanel({
         ...list.map((entry, i) => (i >= userIndex ? { ...entry, failed: true } : entry)),
         { role: "error", content: texts[key] },
       ]);
-      setAnnounce(texts[key]);
+      setAnnounce(plainText(texts[key]));
     } finally {
       if (request.current === controller) request.current = null;
       setPending(false);

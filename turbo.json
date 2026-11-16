@@ -12,6 +12,17 @@
       "dependsOn": ["^build"]
     },
     "lint": {},
+    "@app/web#build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"],
+      "env": [
+        "NEXT_PUBLIC_*",
+        "GOOGLE_SITE_VERIFICATION",
+        "BING_SITE_VERIFICATION",
+        "ANTHROPIC_API_KEY",
+        "SUPPORT_CHAT"
+      ]
+    },
     "@app/widgets#build": {
       "cache": false
     },

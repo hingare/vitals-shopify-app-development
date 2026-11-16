@@ -11,7 +11,9 @@ import { lowestMonthly, trialDays, usd } from "@/lib/pricing";
 import { breadcrumbSchema, faqSchema, softwareSchema } from "@/lib/schema";
 import { localizedUrl, pageMetadata } from "@/lib/seo";
 
-export async function generateMetadata({ params }: PageProps<"/[locale]/pricing">): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/pricing">): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "pricing" });
   const home = await getTranslations({ locale, namespace: "home" });
@@ -56,7 +58,7 @@ export default async function PricingPage({ params }: PageProps<"/[locale]/prici
 
       <section className="section">
         <div className="container">
-          <PlanCards locale={locale} />
+          <PlanCards locale={locale} headingLevel={2} />
           <div className="callout" style={{ marginTop: 24 }}>
             <p>{t("noUsage")}</p>
           </div>
@@ -84,12 +86,8 @@ export default async function PricingPage({ params }: PageProps<"/[locale]/prici
                         <Link href={`/tools/${tool.id}`}>{tool.name}</Link>
                       </th>
                       <td>{category.name}</td>
-                      <td>
-                        {mark(tool.plan === "starter")}
-                      </td>
-                      <td>
-                        {mark(true)}
-                      </td>
+                      <td>{mark(tool.plan === "starter")}</td>
+                      <td>{mark(true)}</td>
                     </tr>
                   )),
                 )}

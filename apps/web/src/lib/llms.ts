@@ -78,7 +78,10 @@ function blocksText(blocks: Block[], fill: (text: string) => string): string {
         case "faq":
           return block.items.map((item) => `Q: ${fill(item.q)}\nA: ${fill(item.a)}`).join("\n\n");
         case "table":
-          return markdownTable(block.headers.map(fill), block.rows.map((row) => row.map(fill)));
+          return markdownTable(
+            block.headers.map(fill),
+            block.rows.map((row) => row.map(fill)),
+          );
       }
     })
     .join("\n\n");
@@ -87,7 +90,8 @@ function blocksText(blocks: Block[], fill: (text: string) => string): string {
 function settingLines(rows: SettingRow[], depth = 0): string[] {
   return rows.flatMap((row) => {
     const indent = "  ".repeat(depth);
-    if (row.kind === "group") return [`${indent}- ${row.label}:`, ...settingLines(row.children, depth + 1)];
+    if (row.kind === "group")
+      return [`${indent}- ${row.label}:`, ...settingLines(row.children, depth + 1)];
     const options = row.options.length ? ` Options: ${row.options.join(", ")}.` : "";
     const help = row.help ? ` ${row.help}` : "";
     return [`${indent}- ${row.label} (starts as ${row.defaultText}).${options}${help}`];
@@ -119,17 +123,23 @@ export async function llmsText(): Promise<string> {
 
   lines.push("", "## Guides", "");
   for (const guide of getGuides(LOCALE)) {
-    lines.push(`- [${guide.title}](${url(`/help/${guide.slug}`)}): ${plainText(fill(guide.description))}`);
+    lines.push(
+      `- [${guide.title}](${url(`/help/${guide.slug}`)}): ${plainText(fill(guide.description))}`,
+    );
   }
 
   lines.push("", "## Comparisons", "");
   for (const item of comparisons.all(LOCALE)) {
-    lines.push(`- [${fill(item.title)}](${url(`/compare/${item.slug}`)}): ${plainText(fill(item.description))}`);
+    lines.push(
+      `- [${fill(item.title)}](${url(`/compare/${item.slug}`)}): ${plainText(fill(item.description))}`,
+    );
   }
 
   lines.push("", "## Blog", "");
   for (const post of latestPosts(LOCALE)) {
-    lines.push(`- [${fill(post.title)}](${url(`/blog/${post.slug}`)}): ${plainText(fill(post.description))}`);
+    lines.push(
+      `- [${fill(post.title)}](${url(`/blog/${post.slug}`)}): ${plainText(fill(post.description))}`,
+    );
   }
 
   lines.push(
@@ -201,19 +211,33 @@ export async function llmsFullText(): Promise<string> {
   sections.push("# Help articles");
   for (const guide of getGuides(LOCALE)) {
     sections.push(
-      [`## ${guide.title}`, "", url(`/help/${guide.slug}`), "", blocksText(guide.body, fill)].join("\n"),
+      [`## ${guide.title}`, "", url(`/help/${guide.slug}`), "", blocksText(guide.body, fill)].join(
+        "\n",
+      ),
     );
   }
   sections.push("# Comparisons");
   for (const item of comparisons.all(LOCALE)) {
     sections.push(
-      [`## ${fill(item.title)}`, "", url(`/compare/${item.slug}`), "", blocksText(item.body, fill)].join("\n"),
+      [
+        `## ${fill(item.title)}`,
+        "",
+        url(`/compare/${item.slug}`),
+        "",
+        blocksText(item.body, fill),
+      ].join("\n"),
     );
   }
   sections.push("# Blog");
   for (const post of latestPosts(LOCALE)) {
     sections.push(
-      [`## ${fill(post.title)}`, "", url(`/blog/${post.slug}`), "", blocksText(post.body, fill)].join("\n"),
+      [
+        `## ${fill(post.title)}`,
+        "",
+        url(`/blog/${post.slug}`),
+        "",
+        blocksText(post.body, fill),
+      ].join("\n"),
     );
   }
   return `${sections.join("\n\n")}\n`;

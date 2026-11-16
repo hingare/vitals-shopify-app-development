@@ -50,7 +50,7 @@ export const ai: Record<string, ToolArticle> = {
       "Press **Generate**, check each text, edit it if needed, and press **Save to store**.",
     ],
     tips: [
-      "Good alt text says what a shopper would see: \"Blue linen shirt with short sleeves, front view\", not \"shirt image\".",
+      'Good alt text says what a shopper would see: "Blue linen shirt with short sleeves, front view", not "shirt image".',
       "For a quick fill of every image without AI, use [SEO Alt Tags](/help/seo-alt-tags).",
     ],
     related: ["seo-alt-tags", "ai-descriptions", "ai-credits"],
@@ -205,9 +205,7 @@ export const ai: Record<string, ToolArticle> = {
       "Check the title, description, brand, product type, price and tags, and edit what you need.",
       "Press **Create draft product**.",
     ],
-    after: [
-      "Open the draft in Shopify to check the photos, add stock and set it to Active.",
-    ],
+    after: ["Open the draft in Shopify to check the photos, add stock and set it to Active."],
     tips: [
       "Only import products you have the right to sell, with text and photos you're allowed to use.",
     ],
@@ -221,9 +219,7 @@ export const ai: Record<string, ToolArticle> = {
       "Enter the **Page address** of a page in your own store, like your home page or a product page, and press **Generate**.",
       "Work through the list from high priority down.",
     ],
-    tips: [
-      "Run it again after making changes to see the score move. Each check uses credits.",
-    ],
+    tips: ["Run it again after making changes to see the score move. Each check uses credits."],
     related: ["ai-visibility", "ai-marketing-plan", "ai-credits"],
   },
 

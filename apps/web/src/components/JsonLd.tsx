@@ -1,5 +1,9 @@
 /** Structured data for search engines. `<` is escaped so text can never close the script tag. */
-export function JsonLd({ data }: { data: Record<string, unknown> | Array<Record<string, unknown>> }) {
+export function JsonLd({
+  data,
+}: {
+  data: Record<string, unknown> | Array<Record<string, unknown>>;
+}) {
   return (
     <script
       type="application/ld+json"

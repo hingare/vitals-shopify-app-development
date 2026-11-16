@@ -1,12 +1,17 @@
-/** The tiny markup used in site content: **bold**, [text](link) and `code`. */
+/** The tiny markup used in site content: **bold**, [text](link) and `code`. Bold may hold a link. */
 export const INLINE_TOKEN = /\*\*([^*]+)\*\*|\[([^\]]+)\]\(([^)\s]+)\)|`([^`]+)`/g;
 
 /** The same text without markup, for meta descriptions, structured data, llms.txt and search */
 export function plainText(text: string): string {
   return text.replace(
     INLINE_TOKEN,
-    (_match, bold: string | undefined, label: string | undefined, _href, code: string | undefined) =>
-      bold ?? label ?? code ?? "",
+    (
+      _match,
+      bold: string | undefined,
+      label: string | undefined,
+      _href,
+      code: string | undefined,
+    ) => (bold === undefined ? (label ?? code ?? "") : plainText(bold)),
   );
 }
 

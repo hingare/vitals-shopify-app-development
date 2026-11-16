@@ -85,16 +85,12 @@ export default async function HelpArticlePage({ params }: PageProps<"/[locale]/h
   const facts = factValues(locale);
   const fill = (text: string) => fillFacts(text, facts);
 
-  const title = page.kind === "tool" ? t("articleTitle", { name: page.tool.name }) : page.guide.title;
+  const title =
+    page.kind === "tool" ? t("articleTitle", { name: page.tool.name }) : page.guide.title;
   const description =
-    page.kind === "tool"
-      ? page.tool.description
-      : plainText(fill(page.guide.description));
+    page.kind === "tool" ? page.tool.description : plainText(fill(page.guide.description));
   const url = localizedUrl(locale, `/help/${slug}`);
-  const faq =
-    page.kind === "tool"
-      ? (page.article?.faq ?? [])
-      : blockFaq(page.guide.body);
+  const faq = page.kind === "tool" ? (page.article?.faq ?? []) : blockFaq(page.guide.body);
   const related = (page.kind === "tool" ? page.article?.related : page.guide.related) ?? [];
 
   return (
@@ -120,12 +116,7 @@ export default async function HelpArticlePage({ params }: PageProps<"/[locale]/h
       <div className="container layout">
         <article className="prose">
           {page.kind === "tool" ? (
-            <ToolArticleBody
-              locale={locale}
-              tool={page.tool}
-              article={page.article}
-              fill={fill}
-            />
+            <ToolArticleBody locale={locale} tool={page.tool} article={page.article} fill={fill} />
           ) : (
             <Blocks blocks={page.guide.body} fill={fill} />
           )}
@@ -146,7 +137,9 @@ export default async function HelpArticlePage({ params }: PageProps<"/[locale]/h
               <div className="card">
                 <h2 style={{ fontSize: "1.05rem" }}>{t("toolPage")}</h2>
                 <p className="muted">{page.tool.description}</p>
-                <Link href={`/tools/${page.tool.id}`}>{common("learnMore")}</Link>
+                <Link href={`/tools/${page.tool.id}`}>
+                  {t("toolPageLink", { name: page.tool.name })}
+                </Link>
               </div>
             )}
             {related.length > 0 && (
@@ -235,8 +228,7 @@ async function ToolArticleBody({
           <strong>{t("plan")}:</strong> {common(`planBadge.${tool.plan}`)}
         </li>
         <li>
-          <strong>{t("where")}:</strong>{" "}
-          {tool.surfaces.map((s) => surface(s)).join(", ")}
+          <strong>{t("where")}:</strong> {tool.surfaces.map((s) => surface(s)).join(", ")}
         </li>
       </ul>
       <p className="muted">{delivery(tool.alwaysOn ? "adminAlwaysOn" : tool.delivery)}</p>
@@ -305,7 +297,9 @@ async function ToolArticleBody({
       )}
 
       <h2>{t("off")}</h2>
-      <p>{tool.alwaysOn ? t("offBodyAlwaysOn") : t("offBody")}</p>
+      <p>
+        <Inline text={tool.alwaysOn ? t("offBodyAlwaysOn") : t("offBody")} />
+      </p>
     </>
   );
 }

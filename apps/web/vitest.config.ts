@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+    // next-intl imports "next/navigation" without a file extension, which only bundlers resolve
+    server: { deps: { inline: ["next-intl"] } },
   },
 });

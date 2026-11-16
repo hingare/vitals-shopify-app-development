@@ -189,9 +189,7 @@ export default async function HomePage({ params }: PageProps<"/[locale]">) {
         <div className="container">
           <div className="section-head">
             <h2>{t("aiTitle")}</h2>
-            <p className="lead">
-              {t("aiLead", { credits: num.format(pro?.aiCredits ?? 0) })}
-            </p>
+            <p className="lead">{t("aiLead", { credits: num.format(pro?.aiCredits ?? 0) })}</p>
           </div>
           <div className="grid grid-4">
             {(["chat", "chart", "image", "eye"] as const).map((icon, i) => (

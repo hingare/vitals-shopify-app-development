@@ -103,7 +103,8 @@ interface JsonSchema {
   properties?: Record<string, JsonSchema>;
 }
 
-export type SettingKind = "toggle" | "choice" | "multi" | "color" | "date" | "number" | "text" | "group";
+export type SettingKind =
+  "toggle" | "choice" | "multi" | "color" | "date" | "number" | "text" | "group";
 
 export interface SettingRow {
   key: string;

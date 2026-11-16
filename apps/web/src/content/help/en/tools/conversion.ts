@@ -120,7 +120,7 @@ export const conversion: Record<string, ToolArticle> = {
 
   "stock-scarcity": {
     intro:
-      "Stock Scarcity shows a message like \"Only 3 left\" on product pages when the real stock of the selected variant is low. The number comes from your Shopify inventory, so it is always true.",
+      'Stock Scarcity shows a message like "Only 3 left" on product pages when the real stock of the selected variant is low. The number comes from your Shopify inventory, so it is always true.',
     setup: [
       "Set **Show when stock is at or below**. With the default of 10, the message appears when 10 or fewer are left.",
       "Edit the **Message**. `{n}` is replaced with the number in stock.",
@@ -174,15 +174,13 @@ export const conversion: Record<string, ToolArticle> = {
       "Pick the **Position** and how far shoppers scroll before it appears with **Show after scrolling (px)**.",
       "Decide whether to **Show on mobile** and pick **Colors**.",
     ],
-    tips: [
-      "Put it in the opposite corner from a chat button so the two don't overlap.",
-    ],
+    tips: ["Put it in the opposite corner from a chat button so the two don't overlap."],
     related: ["quick-links", "chat-button"],
   },
 
   "inactive-tab-message": {
     intro:
-      "Inactive Tab Message changes the title of the browser tab when a shopper switches to another tab, for example to \"Come back, we miss you!\". The normal title returns as soon as they come back.",
+      'Inactive Tab Message changes the title of the browser tab when a shopper switches to another tab, for example to "Come back, we miss you!". The normal title returns as soon as they come back.',
     setup: [
       "Write the **Message** shown in the tab title.",
       "Turn on **Only when the cart has items** if you only want to remind shoppers who have added something.",

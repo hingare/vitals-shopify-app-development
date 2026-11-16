@@ -55,7 +55,7 @@ export const upsell: Record<string, ToolArticle> = {
       "Open **Offers** in the app and choose **New free gift**.",
       "Choose the **Gift** product and the **Gift quantity**.",
       "Under **Unlock the gift**, choose the products that unlock it (or any product), and set the **Minimum cart amount** and **Minimum number of items**.",
-      "Write the **Progress message**, such as Spend {amount} more for a free gift.",
+      "Write the **Progress message**, such as `Spend {amount} more for a free gift`. `{amount}` is how much is left to spend.",
       "Write a **Discount label**, turn on **Offer is on** and press **Save**.",
     ],
     tips: [
@@ -68,9 +68,7 @@ export const upsell: Record<string, ToolArticle> = {
   bogo: {
     intro:
       "Buy X Get Y runs deals like buy one get one free or buy 2 get the third half price. Product pages show a badge with the offer, and Shopify applies the discount at checkout.",
-    setup: [
-      "Keep **Show the offer on product pages** on, and pick **Colors** for the badge.",
-    ],
+    setup: ["Keep **Show the offer on product pages** on, and pick **Colors** for the badge."],
     after: [
       "Open **Offers** in the app and choose **New buy X get Y**.",
       "Under **Customer buys**, choose the products and the **Number of items to buy**.",

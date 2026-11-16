@@ -37,12 +37,9 @@ export async function generateMetadata({
     locale,
     path: `/tools/${slug}`,
     title: t("metaTitle", { name: tool.name, category: categoryName(locale, tool.category) }),
-    description: clip(
-      plainText(fillFacts(article?.intro ?? tool.description, factValues(locale))),
-    ),
+    description: clip(plainText(fillFacts(article?.intro ?? tool.description, factValues(locale)))),
   });
 }
-
 
 export default async function ToolPage({ params }: PageProps<"/[locale]/tools/[slug]">) {
   const { locale, slug } = await params;

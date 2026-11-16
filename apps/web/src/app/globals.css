@@ -99,6 +99,11 @@ a:hover {
   color: var(--brand);
 }
 
+/* Components set their own display, which would otherwise override the hidden attribute */
+[hidden] {
+  display: none !important;
+}
+
 :focus-visible {
   outline: 3px solid var(--brand);
   outline-offset: 2px;
@@ -374,7 +379,11 @@ code {
 .hero {
   padding: 64px 0 72px;
   background:
-    radial-gradient(60% 50% at 85% 10%, color-mix(in srgb, var(--brand) 14%, transparent), transparent),
+    radial-gradient(
+      60% 50% at 85% 10%,
+      color-mix(in srgb, var(--brand) 14%, transparent),
+      transparent
+    ),
     radial-gradient(40% 40% at 5% 0%, color-mix(in srgb, #06b6d4 10%, transparent), transparent);
 }
 
@@ -967,6 +976,11 @@ tbody tr:last-child td {
   flex-direction: column;
   gap: 14px;
   padding: 28px;
+}
+
+.plan-name {
+  font-size: 1.15rem;
+  margin: 0;
 }
 
 .plan-featured {

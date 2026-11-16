@@ -8,7 +8,9 @@ import { getCategories, planCounts, toolIds } from "@/lib/catalog";
 import { breadcrumbSchema, itemListSchema } from "@/lib/schema";
 import { localizedUrl, pageMetadata } from "@/lib/seo";
 
-export async function generateMetadata({ params }: PageProps<"/[locale]/tools">): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: PageProps<"/[locale]/tools">): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "tools" });
   const counts = planCounts();

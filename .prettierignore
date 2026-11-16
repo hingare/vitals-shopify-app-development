@@ -4,3 +4,5 @@ dist
 .turbo
 pnpm-lock.yaml
 apps/admin/.react-router
+.next
+apps/web/next-env.d.ts

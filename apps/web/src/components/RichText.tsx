@@ -3,8 +3,9 @@ import { Link } from "@/i18n/navigation";
 import { INLINE_TOKEN } from "@/lib/text";
 
 /**
- * Renders the tiny markup used in site content: **bold**, [text](link) and `code`. Content is written by us,
- * so this is formatting, not a security boundary; still, only http(s), mailto and site paths link.
+ * Renders the tiny markup used in site content: **bold**, [text](link) and `code`, and a link inside
+ * bold. Content is written by us, so this is formatting, not a security boundary; still, only
+ * http(s), mailto and site paths link.
  */
 
 export function renderInline(text: string): ReactNode[] {
@@ -15,7 +16,7 @@ export function renderInline(text: string): ReactNode[] {
     const index = match.index ?? 0;
     if (index > last) out.push(text.slice(last, index));
     if (match[1] !== undefined) {
-      out.push(<strong key={key++}>{match[1]}</strong>);
+      out.push(<strong key={key++}>{renderInline(match[1])}</strong>);
     } else if (match[4] !== undefined) {
       out.push(<code key={key++}>{match[4]}</code>);
     } else if (match[2] !== undefined && match[3] !== undefined) {

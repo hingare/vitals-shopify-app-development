@@ -45,8 +45,8 @@ export function parseChatRequest(
   const parsed = RequestSchema.safeParse(body);
   if (!parsed.success) return { ok: false, error: "invalid" };
   const { messages } = parsed.data;
-  const alternates = messages.every((message, index) =>
-    message.role === (index % 2 === 0 ? "user" : "assistant"),
+  const alternates = messages.every(
+    (message, index) => message.role === (index % 2 === 0 ? "user" : "assistant"),
   );
   if (!alternates || messages.at(-1)!.role !== "user") return { ok: false, error: "invalid" };
   const tooLong = messages.some(
