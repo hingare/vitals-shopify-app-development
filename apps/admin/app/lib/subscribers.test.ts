@@ -8,6 +8,7 @@ const { FLOWS } = await import("./email-template");
 const { findCustomerId } = await import("./shopify-customers.server");
 const {
   applyCustomerEvent,
+  consentStillHolds,
   forgetStaleSubscribers,
   importPage,
   listSubscribers,
@@ -709,5 +710,24 @@ describe("admin list", () => {
     const found = await listSubscribers(shop.id, { search: " MINA " });
     expect(found.rows.map((r) => r.email)).toEqual(["mina@b.com"]);
     expect((await listSubscribers(shop.id, { status: "unsubscribed" })).total).toBe(1);
+  });
+});
+
+describe("queued writes to Shopify", () => {
+  it("are dropped once a newer change has replaced them", async () => {
+    db.subscriber.seed({ shopId: shop.id, email: "a@b.com", status: "unsubscribed" });
+    const holds = (state: "SUBSCRIBED" | "UNSUBSCRIBED", email = "a@b.com") =>
+      consentStillHolds(shop.id, { email, state });
+
+    // রাজি হওয়ার লেখাটা আবার চেষ্টার অপেক্ষায় থাকার সময় তিনি আনসাবস্ক্রাইব করেছেন
+    expect(await holds("SUBSCRIBED")).toBe(false);
+    expect(await holds("UNSUBSCRIBED")).toBe(true);
+    db.subscriber.rows[0]!.status = "complained";
+    expect(await holds("UNSUBSCRIBED")).toBe(true);
+    db.subscriber.rows[0]!.status = "subscribed";
+    expect(await holds("SUBSCRIBED")).toBe(true);
+    expect(await holds("UNSUBSCRIBED")).toBe(false);
+    // ক্রেতার তথ্য মোছার পরে কিছুই লেখা হয় না
+    expect(await holds("UNSUBSCRIBED", "gone@b.com")).toBe(false);
   });
 });

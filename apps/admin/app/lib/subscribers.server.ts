@@ -217,7 +217,7 @@ export function parseCustomerPayload(payload: CustomerPayload): CustomerEvent | 
  * যে স্টোর লাগায় না, তার Shopify গ্রাহকদের ঠিকানা আমরা জমাই না (অকারণে ক্রেতার তথ্য রাখা হয় না);
  * পরে চালু করলে মার্চেন্ট Subscribers পেজের "Import from Shopify" দিয়ে সবাইকে আনেন।
  */
-async function usesList(shop: ShopRow): Promise<boolean> {
+export async function usesList(shop: ShopRow): Promise<boolean> {
   if (await enabledSettings(shop, emailMarketing)) return true;
   return (await connectedProviders(shop.id)).length > 0;
 }
@@ -301,11 +301,25 @@ export async function applyCustomerEvent(
 /* Shopify-তে সম্মতি লেখা                                              */
 /* ------------------------------------------------------------------ */
 
-interface ConsentJob {
+export interface ConsentJob {
   email: string;
   firstName?: string | null;
   state: "SUBSCRIBED" | "UNSUBSCRIBED";
   source?: string;
+}
+
+/**
+ * লাইনে থাকা লেখাটা এখনো তালিকার সাথে মেলে কিনা। ব্যর্থ লেখা মিনিটখানেক পরে আবার চলে, ততক্ষণে পরের একটা
+ * বদল (যেমন আনসাবস্ক্রাইব) Shopify-তে পৌঁছে যেতে পারে; তখন পুরনো "রাজি" লেখাটা আর পাঠানো হয় না,
+ * নইলে Shopify-তে আনসাবস্ক্রাইব উল্টে যেত। তালিকায় ঠিকানাটাই না থাকলে (ক্রেতার তথ্য মোছা হয়েছে) কিছু লেখা হয় না।
+ */
+export async function consentStillHolds(shopId: string, job: ConsentJob): Promise<boolean> {
+  const row = await db.subscriber.findUnique({
+    where: { shopId_email: { shopId, email: job.email } },
+    select: { status: true },
+  });
+  if (!row) return false;
+  return job.state === "SUBSCRIBED" ? row.status === "subscribed" : row.status !== "subscribed";
 }
 
 export async function pushConsent(admin: GraphqlClient, shopId: string, job: ConsentJob) {
@@ -372,7 +386,9 @@ export async function pushConsent(admin: GraphqlClient, shopId: string, job: Con
 registerJob("shopify-consent", async (job) => {
   const shop = await db.shop.findUnique({ where: { id: job.shopId } });
   if (!shop || shop.uninstalledAt) return;
-  await pushConsent(await offlineAdmin(shop.domain), shop.id, job.payload as unknown as ConsentJob);
+  const consent = job.payload as unknown as ConsentJob;
+  if (!(await consentStillHolds(shop.id, consent))) return;
+  await pushConsent(await offlineAdmin(shop.domain), shop.id, consent);
 });
 
 /* ------------------------------------------------------------------ */
