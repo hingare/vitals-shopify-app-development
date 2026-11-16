@@ -23,6 +23,14 @@
     "moduleResolution": "Bundler",
     "target": "ES2022",
     "baseUrl": ".",
+    // The website (apps/web) uses React 19, and pnpm hoists the newest @types/react to the repo root.
+    // Libraries like react-router find React's types from there, so pin them to this app's React 18.
+    "paths": {
+      "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "react-dom/*": ["./node_modules/@types/react-dom/*"]
+    },
     "types": ["@react-router/node", "vite/client", "@shopify/polaris-types"],
     "rootDirs": [".", "./.react-router/types"]
   }
