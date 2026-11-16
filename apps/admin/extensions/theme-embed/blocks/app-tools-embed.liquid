@@ -100,7 +100,8 @@
       ],
       tools: {{ app_config.tools | json }},
       placement: {{ app_config.placement | json }},
-      offers: {{ app.metafields.app_config.offers.value | json }}
+      offers: {{ app.metafields.app_config.offers.value | json }},
+      appId: {{ app_config.appId | json }}
     };
   </script>
   {%- if request.page_type == 'product' -%}

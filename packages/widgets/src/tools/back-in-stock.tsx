@@ -12,6 +12,7 @@ import {
 } from "../product";
 import { proxyPost } from "../proxy";
 import { buttonStyle, type Colors, inputStyle } from "../ui";
+import { identifyVisitor } from "../visitor";
 
 const TOOL_ID = "back-in-stock";
 
@@ -62,17 +63,19 @@ function NotifyForm({ s, product, locale }: { s: Settings; product: PageProduct;
     event.preventDefault();
     const data = new FormData(event.currentTarget as HTMLFormElement);
     const askedFor = variantId;
+    const email = String(data.get("email") ?? "").trim();
     setSending(true);
     setError("");
     const result = await proxyPost<{ ok: boolean }>("back-in-stock", {
       productId: product.productId,
       variantId: askedFor,
-      email: String(data.get("email") ?? "").trim(),
+      email,
       newsletter: data.get("newsletter") === "on",
     });
     setSending(false);
     if (result.ok) {
       track(TOOL_ID, "click");
+      void identifyVisitor({ email });
       setDone((list) => [...list, askedFor]);
       return;
     }

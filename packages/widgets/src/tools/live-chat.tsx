@@ -7,6 +7,7 @@ import { newKey } from "../keys";
 import { proxyPost } from "../proxy";
 import type { StoreConfig, ToolContext } from "../types";
 import { inputStyle, type Colors } from "../ui";
+import { identifyVisitor } from "../visitor";
 
 /**
  * Live Chat: স্টোরের কোণে চ্যাটের বোতাম; ক্রেতা লেখেন, মার্চেন্ট অ্যাপের Chat পাতা থেকে উত্তর দেন।
@@ -197,7 +198,10 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
     if (res.ok && data?.message) {
       setMessages((previous) => mergeMessages(previous, [data.message]));
       setOnline(data.online);
-      if (email.trim()) setHasEmail(true);
+      if (email.trim()) {
+        setHasEmail(true);
+        void identifyVisitor({ email });
+      }
       setText("");
       setActive(true);
       track(TOOL_ID, "click");

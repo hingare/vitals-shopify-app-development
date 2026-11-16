@@ -19,6 +19,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { apiKey: process.env.SHOPIFY_API_KEY || "", locale: localeFromRequest(request) };
 };
 
+const HOME = { rel: "home" };
+
 export default function App() {
   const { apiKey, locale } = useLoaderData<typeof loader>();
   const t = createT(locale);
@@ -26,7 +28,11 @@ export default function App() {
   return (
     <AppProvider apiKey={apiKey}>
       <s-app-nav>
-        <s-link href="/app">{t("nav.dashboard")}</s-link>
+        {/* rel="home": অ্যাপের নাম নিজেই হোমে নিয়ে যায়, তাই মেনুতে আলাদা করে দেখায় না
+            (App Bridge-এর নিয়ম; Polaris-এর টাইপে rel নেই বলে এভাবে দেওয়া) */}
+        <s-link href="/app" {...HOME}>
+          {t("nav.dashboard")}
+        </s-link>
         <s-link href="/app/tools">{t("nav.tools")}</s-link>
         <s-link href="/app/ai">{t("nav.ai")}</s-link>
         <s-link href="/app/seo">{t("nav.visibility")}</s-link>

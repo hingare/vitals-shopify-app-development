@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { redirect, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { redirect, useFetcher, useLoaderData, useNavigate, useRevalidator } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
@@ -23,6 +23,8 @@ import { allowTestSend, marketingContext } from "../lib/marketing.server";
 import { subscriberCounts } from "../lib/subscribers.server";
 import { useT } from "../lib/i18n";
 import { EmailFields, EmailPreview, TestSend } from "../components/EmailEditor";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
+import { useConfirm } from "../components/ConfirmModal";
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -123,14 +125,26 @@ function localInput(iso: string | null): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+/** এই কাজগুলো পাঠানোর আগে নাম আর লেখা সেভ করে */
+const SAVES = new Set(["save", "schedule", "send"]);
+
 export default function CampaignPage() {
+  const data = useLoaderData<typeof loader>();
+  // নতুন ক্যাম্পেইন প্রথম সেভে নিজের ঠিকানা পায়; তখন সেভ হওয়া অবস্থা থেকে নতুন করে শুরু
+  return <CampaignEditor key={data.id ?? "new"} />;
+}
+
+function CampaignEditor() {
   const data = useLoaderData<typeof loader>();
   const t = useT();
   const shopify = useAppBridge();
+  const navigate = useNavigate();
   const fetcher = useFetcher<typeof action>();
   const revalidator = useRevalidator();
   const [name, setName] = useState(data.name);
   const [content, setContent] = useState(data.content);
+  const { dirty, begin, commit, saved } = useSaveState({ name, content });
+  const confirm = useConfirm("campaign-confirm");
   const whenInput = useRef<HTMLInputElement>(null);
   const editable = data.status === "draft" || data.status === "scheduled";
   const busy = fetcher.state !== "idle";
@@ -154,6 +168,7 @@ export default function CampaignPage() {
     if (fetcher.state !== "idle" || !fetcher.data) return;
     const result = fetcher.data;
     if (result.ok) {
+      if (SAVES.has(result.intent)) commit();
       const key =
         result.intent === "test"
           ? "marketing.email.testSent"
@@ -175,13 +190,20 @@ export default function CampaignPage() {
       messages[result.error] ?? t("marketing.email.testFailed", { error: result.error }),
       { isError: true },
     );
-  }, [fetcher.state, fetcher.data, shopify, t]);
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
 
-  const submit = (payload: Record<string, unknown>) =>
-    fetcher.submit(JSON.stringify({ name, content, ...payload }), {
+  const submit = (payload: { intent: string } & Record<string, unknown>) => {
+    if (SAVES.has(payload.intent)) begin();
+    return fetcher.submit(JSON.stringify({ name, content, ...payload }), {
       method: "POST",
       encType: "application/json",
     });
+  };
+  const discard = () => {
+    const last = saved();
+    setName(last.name);
+    setContent(last.content);
+  };
   const loading = (name: string) => (busy && intent === name ? { loading: true } : {});
 
   function schedule() {
@@ -194,12 +216,28 @@ export default function CampaignPage() {
   }
 
   function send() {
-    const message =
-      data.subscribed > data.left
-        ? `${t("marketing.campaign.overLimit", { left: data.left, n: data.subscribed })}\n\n${t("marketing.campaign.confirmSend", { n: data.subscribed })}`
-        : t("marketing.campaign.confirmSend", { n: data.subscribed });
-    if (window.confirm(message)) submit({ intent: "send" });
+    const overLimit = data.subscribed > data.left;
+    confirm.ask({
+      heading: t("marketing.campaign.confirmSend", { n: data.subscribed }),
+      body: overLimit
+        ? `${t("marketing.campaign.overLimit", { left: data.left, n: data.subscribed })} ${t("common.cantUndo")}`
+        : t("common.cantUndo"),
+      action: t("marketing.campaign.send"),
+      onConfirm: () => submit({ intent: "send" }),
+    });
   }
+
+  // একসাথে একটাই ব্যানার: যেটা আগে ঠিক করতে হবে সেটা
+  const banner = !data.configured ? (
+    <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>
+  ) : data.allowed && !data.toolEnabled ? (
+    <s-banner tone="warning">
+      {t("marketing.toolOff")}{" "}
+      <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
+    </s-banner>
+  ) : !editable ? (
+    <s-banner tone="info">{t("marketing.campaign.sentNote")}</s-banner>
+  ) : null;
 
   const stats = data.stats;
   return (
@@ -207,43 +245,34 @@ export default function CampaignPage() {
       <s-link slot="breadcrumb-actions" href="/app/marketing">
         {t("marketing.back")}
       </s-link>
-      {editable && (
-        <s-button
-          slot="primary-action"
-          variant="primary"
-          onClick={() => submit({ intent: "save" })}
-          {...loading("save")}
-        >
-          {t("marketing.campaign.saveDraft")}
-        </s-button>
-      )}
+      {/* নতুন ক্যাম্পেইন এখনো সেভ হয়নি, তাই শুরু থেকেই সেভ বার */}
+      <FormSaveBar
+        id="campaign-editor"
+        dirty={editable && (!data.id || dirty)}
+        saving={busy && intent === "save"}
+        onSave={() => void submit({ intent: "save" })}
+        onDiscard={data.id ? discard : () => navigate("/app/marketing")}
+      />
       {editable && data.id && (
         <s-button
           slot="secondary-actions"
           tone="critical"
-          onClick={() => {
-            if (window.confirm(t("marketing.campaign.confirmDelete"))) submit({ intent: "delete" });
-          }}
+          onClick={() =>
+            confirm.ask({
+              heading: t("marketing.campaign.confirmDelete"),
+              body: t("common.cantUndo"),
+              action: t("marketing.campaign.delete"),
+              destructive: true,
+              onConfirm: () => submit({ intent: "delete" }),
+            })
+          }
         >
           {t("marketing.campaign.delete")}
         </s-button>
       )}
+      {confirm.modal}
 
-      {data.allowed && !data.toolEnabled && (
-        <s-banner tone="warning">
-          {t("marketing.toolOff")}{" "}
-          <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
-        </s-banner>
-      )}
-      {!data.configured && <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>}
-      {!editable && <s-banner tone="info">{t("marketing.campaign.sentNote")}</s-banner>}
-      {data.status === "scheduled" && data.scheduledAt && (
-        <s-banner tone="info">
-          {t("marketing.campaign.scheduledFor", {
-            when: new Date(data.scheduledAt).toLocaleString(),
-          })}
-        </s-banner>
-      )}
+      {banner}
 
       {stats && (
         <s-section heading={t("marketing.campaign.results")}>
@@ -290,13 +319,20 @@ export default function CampaignPage() {
       {editable && (
         <s-section heading={t("marketing.campaign.send")}>
           <s-stack direction="block" gap="base">
+            {data.status === "scheduled" && data.scheduledAt && (
+              <s-text>
+                {t("marketing.campaign.scheduledFor", {
+                  when: new Date(data.scheduledAt).toLocaleString(),
+                })}
+              </s-text>
+            )}
             {data.subscribed === 0 ? (
               <s-text color="subdued">{t("marketing.campaign.noSubscribers")}</s-text>
             ) : (
               data.subscribed > data.left && (
-                <s-banner tone="warning">
+                <s-text tone="caution">
                   {t("marketing.campaign.overLimit", { left: data.left, n: data.subscribed })}
-                </s-banner>
+                </s-text>
               )
             )}
             <s-stack direction="inline" gap="small">

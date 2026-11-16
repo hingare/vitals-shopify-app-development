@@ -17,6 +17,7 @@ import {
 import { allowRequest } from "../lib/rate-limit.server";
 import { enabledSettings } from "../lib/tool-state.server";
 import { useT } from "../lib/i18n";
+import { useConfirm } from "../components/ConfirmModal";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -65,6 +66,7 @@ export default function PushPage() {
   const t = useT();
   const shopify = useAppBridge();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm("push-send");
   const revalidator = useRevalidator();
   const [form, setForm] = useState({ title: "", body: "", url: "" });
   const sending = data.campaigns.some((c) => c.status !== "sent");
@@ -93,8 +95,13 @@ export default function PushPage() {
   }, [fetcher.state, fetcher.data, shopify, t]);
 
   function send() {
-    if (!window.confirm(t("marketing.push.confirm", { n: data.subscribers }))) return;
-    fetcher.submit(JSON.stringify(form), { method: "POST", encType: "application/json" });
+    confirm.ask({
+      heading: t("marketing.push.confirm", { n: data.subscribers }),
+      body: t("common.cantUndo"),
+      action: t("marketing.push.send"),
+      onConfirm: () =>
+        fetcher.submit(JSON.stringify(form), { method: "POST", encType: "application/json" }),
+    });
   }
 
   const canSend = data.allowed && data.toolEnabled && data.subscribers > 0;
@@ -103,6 +110,7 @@ export default function PushPage() {
       <s-link slot="breadcrumb-actions" href="/app/marketing">
         {t("marketing.back")}
       </s-link>
+      {confirm.modal}
 
       {!data.allowed && (
         <s-banner tone="info">

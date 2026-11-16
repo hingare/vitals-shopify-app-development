@@ -24,6 +24,7 @@ import { describeAction, type ActionStatus } from "../lib/mcp/describe";
 import { CopyButton } from "../components/CopyButton";
 import { ago, minutesSince } from "../lib/ago";
 import { useT } from "../lib/i18n";
+import { useConfirm } from "../components/ConfirmModal";
 
 /**
  * AI সহকারী (MCP): স্টোরের ঠিকানা, কীভাবে যুক্ত করবেন, সহকারীর চাওয়া পরিবর্তনের অনুমোদন,
@@ -101,7 +102,7 @@ const STATUS_TONE: Record<ActionStatus, "info" | "success" | "critical" | "warni
   expired: "warning",
 };
 
-type Send = (payload: Record<string, unknown>) => void;
+type Send = (payload: Record<string, unknown>) => Promise<void>;
 
 function PendingRequest({
   row,
@@ -249,6 +250,7 @@ export default function AssistantsPage() {
   const t = useT();
   const shopify = useAppBridge();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm("disconnect-assistant");
   const submitted = fetcher.json as { intent?: string; id?: string } | undefined;
   const busy =
     fetcher.state !== "idle" && submitted ? `${submitted.intent}:${submitted.id ?? ""}` : null;
@@ -381,11 +383,15 @@ export default function AssistantsPage() {
                     <s-button
                       tone="critical"
                       variant="tertiary"
-                      onClick={() => {
-                        if (window.confirm(t("assistants.confirmDisconnect", { name: row.name }))) {
-                          send({ intent: "disconnect", id: row.id });
-                        }
-                      }}
+                      onClick={() =>
+                        confirm.ask({
+                          heading: t("assistants.confirmDisconnect", { name: row.name }),
+                          body: t("assistants.confirmDisconnectBody", { name: row.name }),
+                          action: t("assistants.disconnect"),
+                          destructive: true,
+                          onConfirm: () => send({ intent: "disconnect", id: row.id }),
+                        })
+                      }
                       {...(busy === `disconnect:${row.id}` ? { loading: true } : {})}
                     >
                       {t("assistants.disconnect")}
@@ -423,6 +429,7 @@ export default function AssistantsPage() {
           </s-stack>
         )}
       </s-section>
+      {confirm.modal}
     </s-page>
   );
 }

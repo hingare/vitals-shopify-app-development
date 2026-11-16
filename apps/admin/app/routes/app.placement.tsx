@@ -7,19 +7,18 @@ import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
 import { ensureShop, planOf } from "../lib/shop.server";
-import { syncStoreConfig } from "../lib/tools.server";
+import { addWidgetBlockUrl, syncStoreConfig } from "../lib/tools.server";
 import { type Placement, placementSchema, readPlacement } from "../lib/placement";
 import { useT } from "../lib/i18n";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
-  const handle = session.shop.replace(".myshopify.com", "");
-  const editor = `https://admin.shopify.com/store/${handle}/themes/current/editor`;
   return {
     placement: readPlacement(shop.placement),
-    productEditorUrl: `${editor}?template=product`,
-    cartEditorUrl: `${editor}?template=cart`,
+    productEditorUrl: addWidgetBlockUrl(session.shop, "product"),
+    cartEditorUrl: addWidgetBlockUrl(session.shop, "cart"),
   };
 };
 
@@ -42,12 +41,21 @@ export default function PlacementPage() {
   const fetcher = useFetcher<typeof action>();
   const [value, setValue] = useState<Placement>(data.placement);
   const set = (patch: Partial<Placement>) => setValue((v) => ({ ...v, ...patch }));
+  const { dirty, begin, commit, saved } = useSaveState(value);
+  const saving = fetcher.state !== "idle";
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show(t("tools.saved"));
-    else shopify.toast.show(fetcher.data.error, { isError: true });
-  }, [fetcher.state, fetcher.data, shopify, t]);
+    if (fetcher.data.ok) {
+      commit();
+      shopify.toast.show(t("tools.saved"));
+    } else shopify.toast.show(fetcher.data.error, { isError: true });
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
+
+  const save = () => {
+    begin();
+    fetcher.submit(JSON.stringify(value), { method: "POST", encType: "application/json" });
+  };
 
   const whereSelect = (
     label: string,
@@ -69,16 +77,13 @@ export default function PlacementPage() {
       <s-link slot="breadcrumb-actions" href="/app/tools">
         {t("nav.tools")}
       </s-link>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        {...(fetcher.state !== "idle" ? { loading: true } : {})}
-        onClick={() =>
-          fetcher.submit(JSON.stringify(value), { method: "POST", encType: "application/json" })
-        }
-      >
-        {t("tools.save")}
-      </s-button>
+      <FormSaveBar
+        id="placement"
+        dirty={dirty}
+        saving={saving}
+        onSave={save}
+        onDiscard={() => setValue(saved())}
+      />
 
       <s-section heading={t("placement.blocksTitle")}>
         <s-stack direction="block" gap="base">

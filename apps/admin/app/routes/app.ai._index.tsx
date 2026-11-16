@@ -9,6 +9,7 @@ import { ensureShop } from "../lib/shop.server";
 import { saveBrand, studioOverview } from "../lib/ai/studio.server";
 import { CreditsSummary } from "../components/ai/CreditsSummary";
 import { useT } from "../lib/i18n";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -30,20 +31,37 @@ export default function AiStudioPage() {
   const fetcher = useFetcher<typeof action>();
   const [brand, setBrand] = useState(data.brand);
   const set = (patch: Partial<typeof brand>) => setBrand((b) => ({ ...b, ...patch }));
+  const { dirty, begin, commit, saved } = useSaveState(brand);
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show(t("ai.brand.saved"));
-    else shopify.toast.show(t("ai.error.invalid"), { isError: true });
-  }, [fetcher.state, fetcher.data, shopify, t]);
+    if (fetcher.data.ok) {
+      commit();
+      shopify.toast.show(t("ai.brand.saved"));
+    } else shopify.toast.show(t("ai.error.invalid"), { isError: true });
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
+
+  const save = () => {
+    begin();
+    fetcher.submit(JSON.stringify(brand), { method: "POST", encType: "application/json" });
+  };
 
   return (
     <s-page heading={t("ai.title")}>
-      {!data.configured && <s-banner tone="warning">{t("ai.notConfigured")}</s-banner>}
-      {!data.professional && (
+      <FormSaveBar
+        id="ai-brand"
+        dirty={dirty}
+        saving={fetcher.state !== "idle"}
+        onSave={save}
+        onDiscard={() => setBrand(saved())}
+      />
+      {/* একসাথে একটাই ব্যানার: প্ল্যানে না থাকলে সেটুকুই আগে জানা দরকার */}
+      {!data.professional ? (
         <s-banner tone="info">
           {t("ai.needsProfessional")} <s-link href="/app/plans">{t("tools.upgrade")}</s-link>
         </s-banner>
+      ) : (
+        !data.configured && <s-banner tone="warning">{t("ai.notConfigured")}</s-banner>
       )}
 
       <CreditsSummary credits={data.credits} />
@@ -112,20 +130,6 @@ export default function AiStudioPage() {
             value={brand.avoid}
             onChange={(e) => set({ avoid: e.currentTarget.value })}
           />
-          <s-stack direction="inline">
-            <s-button
-              variant="primary"
-              onClick={() =>
-                fetcher.submit(JSON.stringify(brand), {
-                  method: "POST",
-                  encType: "application/json",
-                })
-              }
-              {...(fetcher.state !== "idle" ? { loading: true } : {})}
-            >
-              {t("tools.save")}
-            </s-button>
-          </s-stack>
         </s-stack>
       </s-section>
     </s-page>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { widgetT, type WidgetString } from "../i18n";
 import { track } from "../analytics";
+import { identifyVisitor } from "../visitor";
 
 const TOOL_ID = "product-reviews";
 const ENDPOINT = "/apps/app-tools/reviews";
@@ -239,8 +240,10 @@ function ReviewForm({
         body: JSON.stringify({ ...Object.fromEntries(formData), productId, rating, media }),
       });
       const json = (await res.json()) as { status?: string; error?: string };
-      if (res.ok && json.status) onDone(json.status);
-      else setError(t(json.error === "duplicate" ? "duplicate" : "sendFailed"));
+      if (res.ok && json.status) {
+        void identifyVisitor({ email: String(formData.get("email") ?? "") });
+        onDone(json.status);
+      } else setError(t(json.error === "duplicate" ? "duplicate" : "sendFailed"));
     } catch {
       setError(t("sendFailed"));
     }

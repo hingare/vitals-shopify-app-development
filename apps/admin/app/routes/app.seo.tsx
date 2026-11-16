@@ -18,6 +18,7 @@ import type {
   Fix,
   VisibilityReport,
 } from "../lib/ai-visibility.server";
+import { useConfirm } from "../components/ConfirmModal";
 import { useT } from "../lib/i18n";
 import type { loader as reportLoader } from "./app.seo.report";
 
@@ -266,6 +267,7 @@ export default function SeoPage() {
   const shopify = useAppBridge();
   const report = useFetcher<typeof reportLoader>();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm("seo-meta-undo");
   const revalidator = useRevalidator();
   const requested = useRef(false);
 
@@ -382,11 +384,15 @@ export default function SeoPage() {
           <s-stack direction="inline">
             <s-button
               tone="critical"
-              onClick={() => {
-                if (window.confirm(t("seoMeta.undoConfirm", { count: meta.written }))) {
-                  send("undo");
-                }
-              }}
+              onClick={() =>
+                confirm.ask({
+                  heading: t("seoMeta.undoConfirm", { count: meta.written }),
+                  body: t("seoMeta.undoHelp"),
+                  action: t("seoMeta.undo"),
+                  destructive: true,
+                  onConfirm: () => send("undo"),
+                })
+              }
               {...(busy || meta.written === 0 ? { disabled: true } : {})}
             >
               {t("seoMeta.undo")}
@@ -394,6 +400,7 @@ export default function SeoPage() {
           </s-stack>
         </s-stack>
       </s-section>
+      {confirm.modal}
     </s-page>
   );
 }

@@ -6,6 +6,7 @@ import { fill, footerLink } from "../dom";
 import { widgetT, type WidgetString } from "../i18n";
 import { PROXY, proxyPost } from "../proxy";
 import { buttonStyle, type Colors, inputStyle } from "../ui";
+import { identifyVisitor } from "../visitor";
 
 const TOOL_ID = "eu-withdrawal";
 const PAGE_ID = "app-eu-withdrawal-page";
@@ -59,6 +60,7 @@ function Form({ s, locale, preset }: { s: Settings; locale: string; preset: Part
     setSending(false);
     if (res.ok && res.data?.submitted) {
       track(TOOL_ID, "click");
+      void identifyVisitor({ email: statement.email });
       setSent({ statement, submitted: res.data.submitted });
     } else setError(t(res.status === 429 ? "tooMany" : "tryAgain"));
   }

@@ -9,6 +9,7 @@ import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
 import { altOverview, startAltJob } from "../lib/seo-alt.server";
 import { enabledSettings } from "../lib/tool-state.server";
+import { useConfirm } from "../components/ConfirmModal";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -39,6 +40,7 @@ export default function SeoAltPage() {
   const t = useT();
   const shopify = useAppBridge();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm("seo-alt-undo");
   const revalidator = useRevalidator();
   const job = data.job;
   const working = Boolean(job?.active);
@@ -140,9 +142,15 @@ export default function SeoAltPage() {
           <s-stack direction="inline">
             <s-button
               tone="critical"
-              onClick={() => {
-                if (window.confirm(t("seoAlt.undoConfirm", { count: data.written }))) send("undo");
-              }}
+              onClick={() =>
+                confirm.ask({
+                  heading: t("seoAlt.undoConfirm", { count: data.written }),
+                  body: t("seoAlt.undoHelp"),
+                  action: t("seoAlt.undo"),
+                  destructive: true,
+                  onConfirm: () => send("undo"),
+                })
+              }
               {...(busy || data.written === 0 ? { disabled: true } : {})}
             >
               {t("seoAlt.undo")}
@@ -150,6 +158,7 @@ export default function SeoAltPage() {
           </s-stack>
         </s-stack>
       </s-section>
+      {confirm.modal}
     </s-page>
   );
 }
