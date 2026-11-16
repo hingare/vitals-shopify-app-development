@@ -106,6 +106,8 @@ model Shop {
   mcpId            String?             @unique
   mcpGrants        McpGrant[]
   mcpActions       McpAction[]
+  /// অ্যাপের Help পাতা থেকে পাঠানো সাপোর্টের অনুরোধ
+  supportTickets   SupportTicket[]
 }
 
 /// প্রতিটি স্টোরে প্রতিটি টুলের অবস্থা ও সেটিংস
@@ -901,4 +903,42 @@ model McpAction {
 
   @@index([shopId, status, createdAt])
   @@index([createdAt])
+}
+
+/// মার্চেন্টের সাপোর্টের অনুরোধ (অ্যাপের Help পাতা থেকে); উত্তর যায় সাপোর্ট ডেস্ক থেকে (app/lib/support.server.ts)
+model SupportTicket {
+  id              String           @id @default(cuid())
+  shopId          String
+  /// উত্তরের খবর যে ঠিকানায় যায় (মার্চেন্ট নিজে দেন; শুরুতে স্টোরের মালিকের ইমেইল বসানো থাকে)
+  email           String
+  subject         String
+  /// "open" (আমাদের উত্তরের অপেক্ষায়) | "answered" (মার্চেন্টের অপেক্ষায়) | "closed"
+  status          String           @default("open")
+  /// শেষ বার্তা কার: "merchant" | "support"
+  lastAuthor      String           @default("merchant")
+  lastMessageAt   DateTime         @default(now())
+  /// প্রথম উত্তর কখন গেছে; "সাধারণত কত সময়ে উত্তর দিই" এখান থেকে মাপা হয়
+  firstResponseAt DateTime?
+  /// মার্চেন্ট শেষ কবে টিকিটটা খুলেছেন (এর পরের উত্তর "নতুন" দেখায়)
+  merchantSeenAt  DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  shop            Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  messages        SupportMessage[]
+
+  @@index([shopId, lastMessageAt])
+  @@index([status, lastMessageAt])
+  @@index([createdAt])
+}
+
+model SupportMessage {
+  id        String        @id @default(cuid())
+  ticketId  String
+  /// "merchant" | "support"
+  author    String
+  body      String
+  createdAt DateTime      @default(now())
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
 }

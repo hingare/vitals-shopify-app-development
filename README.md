@@ -5,6 +5,7 @@ Vitals-এর মতো অল-ইন-ওয়ান Shopify অ্যাপ: �
 
 - পুরো প্ল্যান ও স্টেজ: [ডেভেলপমেন্ট প্ল্যান](https://claude.ai/artifact/FhhV8ZDDrc7xLbQGaFZ1eV)
 - এখনকার স্টেজ: **স্টেজ ৮, হার্ডেনিং ও প্রাইভেট বেটা**
+- মার্চেন্ট সাপোর্ট (অ্যাপের Help পাতা আর আপনার সাপোর্ট ডেস্ক): [docs/support.md](docs/support.md)
 - Built for Shopify শর্তের সাথে মেলানো: [docs/built-for-shopify.md](docs/built-for-shopify.md)
 
 ## ফোল্ডার কাঠামো

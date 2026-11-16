@@ -8,6 +8,7 @@ import { authenticate } from "../shopify.server";
 import { ensureShop } from "../lib/shop.server";
 import { ensurePixel } from "../lib/web-pixel.server";
 import { localeFromRequest } from "../lib/i18n";
+import { isDeskShop } from "../lib/support.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -15,14 +16,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   // স্টোরের পিক্সেল (Analytics আর Facebook Pixels) চালু আর হালনাগাদ রাখা; ব্যর্থ হলেও অ্যাপ খুলবে
   await ensurePixel(admin, shop).catch((error) => console.warn("[pixel]", error));
 
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "", locale: localeFromRequest(request) };
+  return {
+    // eslint-disable-next-line no-undef
+    apiKey: process.env.SHOPIFY_API_KEY || "",
+    locale: localeFromRequest(request),
+    // সাপোর্ট ডেস্ক মেনুতে শুধু অ্যাপের মালিকের স্টোরে (SUPPORT_DESK_SHOPS)
+    desk: isDeskShop(session.shop),
+  };
 };
 
 const HOME = { rel: "home" };
 
 export default function App() {
-  const { apiKey, locale } = useLoaderData<typeof loader>();
+  const { apiKey, locale, desk } = useLoaderData<typeof loader>();
   const t = createT(locale);
 
   return (
@@ -46,6 +52,8 @@ export default function App() {
         <s-link href="/app/analytics">{t("nav.analytics")}</s-link>
         <s-link href="/app/speed">{t("nav.speed")}</s-link>
         <s-link href="/app/plans">{t("nav.plans")}</s-link>
+        <s-link href="/app/help">{t("nav.help")}</s-link>
+        {desk && <s-link href="/app/desk">{t("nav.desk")}</s-link>}
       </s-app-nav>
       <Outlet />
     </AppProvider>
