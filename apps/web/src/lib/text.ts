@@ -31,3 +31,10 @@ export function clip(text: string, max = 160): string {
   const space = cut.lastIndexOf(" ");
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, "")}…`;
 }
+
+/** A content date (YYYY-MM-DD) written out for readers, like "November 16, 2026" */
+export function formatDate(date: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(
+    new Date(`${date}T00:00:00Z`),
+  );
+}

@@ -219,10 +219,11 @@
   },
   "compare": {
     "title": "Compare",
-    "metaTitle": "Compare",
+    "metaTitle": "Honest comparisons for Shopify stores",
     "lead": "Honest comparisons to help you decide what your store needs.",
     "read": "Read the comparison",
-    "breadcrumb": "Compare"
+    "breadcrumb": "Compare",
+    "more": "More comparisons"
   },
   "help": {
     "title": "Help center",
@@ -266,12 +267,13 @@
   },
   "blog": {
     "title": "Blog",
-    "metaTitle": "Blog",
+    "metaTitle": "Blog: running a faster, more honest Shopify store",
     "lead": "Practical guides for running a faster, more trustworthy Shopify store.",
     "read": "Read the article",
     "published": "Published {date}",
     "minutes": "{count, plural, one {# minute read} other {# minute read}}",
-    "breadcrumb": "Blog"
+    "breadcrumb": "Blog",
+    "more": "More articles"
   },
   "legal": {
     "draft": "Draft: this page has not yet been reviewed by a lawyer and may change before launch.",

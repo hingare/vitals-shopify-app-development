@@ -20,3 +20,14 @@ export interface Post {
   updated: string;
   body: Block[];
 }
+
+/**
+ * Privacy Policy and Terms. Text may use the plan facts and the company details from
+ * legalValues(), like `{company}` and `{privacyEmail}`.
+ */
+export interface LegalDoc {
+  title: string;
+  description: string;
+  updated: string;
+  body: Block[];
+}

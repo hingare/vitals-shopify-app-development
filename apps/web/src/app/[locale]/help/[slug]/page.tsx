@@ -19,20 +19,19 @@ import {
 } from "@/content/help";
 import { Link } from "@/i18n/navigation";
 import { getSettings, getTool, toolIds, type CatalogTool } from "@/lib/catalog";
+import { blockFaq } from "@/lib/blocks";
+import { NEEDS_EMBED, toolSteps } from "@/lib/help";
 import { factValues } from "@/lib/pricing";
 import { articleSchema, breadcrumbSchema, faqSchema } from "@/lib/schema";
 import { localizedUrl, pageMetadata } from "@/lib/seo";
 import { CONTENT_UPDATED, supportChatEnabled } from "@/lib/site";
-import { clip, fillFacts, plainText } from "@/lib/text";
+import { clip, fillFacts, formatDate, plainText } from "@/lib/text";
 
 export const dynamicParams = false;
 
 export function generateStaticParams() {
   return [...toolIds(), ...guideSlugs()].map((slug) => ({ slug }));
 }
-
-/** Tools that show something in the store need the app embed switched on first */
-const NEEDS_EMBED = new Set(["embed", "block", "function"]);
 
 type Page =
   | { kind: "tool"; tool: CatalogTool; article: ToolArticle | null }
@@ -95,7 +94,7 @@ export default async function HelpArticlePage({ params }: PageProps<"/[locale]/h
   const faq =
     page.kind === "tool"
       ? (page.article?.faq ?? [])
-      : page.guide.body.flatMap((block) => (block.type === "faq" ? block.items : []));
+      : blockFaq(page.guide.body);
   const related = (page.kind === "tool" ? page.article?.related : page.guide.related) ?? [];
 
   return (
@@ -193,12 +192,6 @@ export default async function HelpArticlePage({ params }: PageProps<"/[locale]/h
   );
 }
 
-function formatDate(date: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "long", timeZone: "UTC" }).format(
-    new Date(`${date}T00:00:00Z`),
-  );
-}
-
 function relatedTitle(locale: string, ref: string, toolTitle: (name: string) => string): string {
   const tool = getTool(locale, ref);
   if (tool) return toolTitle(tool.name);
@@ -229,13 +222,7 @@ async function ToolArticleBody({
         none: common("none"),
       });
 
-  const steps = tool.alwaysOn
-    ? [t("stepOpenStudio", { name: tool.name }), ...(article?.setup ?? [])]
-    : [
-        t("stepOpen", { name: tool.name }),
-        ...(article?.setup ?? []),
-        t("stepSave"),
-      ];
+  const steps = toolSteps(tool, article, (key, values) => t(key, values));
 
   return (
     <>
