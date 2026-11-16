@@ -21,4 +21,11 @@ export function installHref(): string {
 export const isListed = () => Boolean(brand.appStoreUrl);
 
 /** The date the content was last reviewed. Shown on help articles and used in structured data. */
-export const CONTENT_UPDATED = "2026-11-14";
+export const CONTENT_UPDATED = "2026-11-16";
+
+/**
+ * The support assistant on the site needs an Anthropic API key. Pages are built ahead of time, so
+ * the key has to be there when the site is built, not only when it runs.
+ */
+export const supportChatEnabled = () =>
+  Boolean(process.env.ANTHROPIC_API_KEY?.trim()) && process.env.SUPPORT_CHAT !== "off";

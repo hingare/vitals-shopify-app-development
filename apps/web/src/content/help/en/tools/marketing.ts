@@ -17,7 +17,7 @@ export const marketing: Record<string, ToolArticle> = {
 
   "email-marketing": {
     intro:
-      "Email Marketing sends campaigns and four automatic emails from the app: welcome, abandoned checkout, review request and win-back. Professional includes 10,000 emails a month, and every marketing email has an unsubscribe link.",
+      "Email Marketing sends campaigns and four automatic emails from the app: welcome, abandoned checkout, review request and win-back. Professional includes {emails} emails a month, and every marketing email has an unsubscribe link.",
     setup: [
       "Keep **Send automatic emails only to subscribers** on unless the rules in your country allow emailing customers who didn't subscribe. People who unsubscribed are never emailed.",
     ],
@@ -166,7 +166,7 @@ export const marketing: Record<string, ToolArticle> = {
 
   "visitor-recordings": {
     intro:
-      "Visitor Recordings lets you watch replays of how shoppers move through your store: where they click, scroll and get stuck. What shoppers type is always hidden, visitors who decline analytics cookies are not recorded, and recording stops at your monthly limit of 2,000 visits.",
+      "Visitor Recordings lets you watch replays of how shoppers move through your store: where they click, scroll and get stuck. What shoppers type is always hidden, visitors who decline analytics cookies are not recorded, and recording stops at your monthly limit of {recordings} visits.",
     setup: [
       "Set the **Percent of visitors to record**. Recording fewer makes your monthly limit last longer.",
       "Set **Skip visits shorter than** to leave out visitors who leave at once.",

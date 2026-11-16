@@ -1,6 +1,7 @@
 import { brand } from "@app/brand";
 import { planFacts } from "./pricing";
 import { absoluteUrl } from "./site";
+import { plainText } from "./text";
 
 /**
  * Structured data (schema.org JSON-LD). Only facts the site can stand behind: no ratings or review
@@ -67,14 +68,27 @@ export function breadcrumbSchema(items: Array<{ name: string; url: string }>): J
   };
 }
 
+export function itemListSchema(items: Array<{ name: string; url: string }>): Json {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: items.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      url: item.url,
+    })),
+  };
+}
+
 export function faqSchema(items: Array<{ q: string; a: string }>): Json {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",
     mainEntity: items.map((item) => ({
       "@type": "Question",
-      name: item.q,
-      acceptedAnswer: { "@type": "Answer", text: item.a },
+      name: plainText(item.q),
+      acceptedAnswer: { "@type": "Answer", text: plainText(item.a) },
     })),
   };
 }

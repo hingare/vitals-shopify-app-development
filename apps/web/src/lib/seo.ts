@@ -44,13 +44,17 @@ interface PageMeta {
 
 export function pageMetadata(meta: PageMeta): Metadata {
   const url = localizedUrl(meta.locale, meta.path);
+  // A page shown in English under another language's address points search engines at the
+  // English original, so only real translations get indexed.
+  const translated = !meta.available || meta.available.includes(meta.locale);
+  const canonical = translated ? url : localizedUrl(routing.defaultLocale, meta.path);
   return {
     title: meta.title,
     description: meta.description,
     // Page metadata replaces the layout's openGraph and alternates instead of merging, so the
     // image and the llms.txt link are repeated here.
     alternates: {
-      canonical: url,
+      canonical,
       languages: languageAlternates(meta.path, meta.available),
       types: { "text/plain": absoluteUrl("/llms.txt") },
     },

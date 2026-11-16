@@ -1,7 +1,7 @@
 import type { Category } from "@app/tool-sdk";
 
 /** Small line icons drawn in currentColor, so they follow light and dark mode. */
-const PATHS: Record<string, string> = {
+const PATHS = {
   conversion: "M5 12h14M13 6l6 6-6 6",
   trust: "M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6l7-3zM9 12l2 2 4-4",
   upsell: "M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5",
@@ -26,10 +26,12 @@ const PATHS: Record<string, string> = {
   mail: "M3 5h18v14H3zM3 6l9 7 9-7",
   image: "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9h.01",
   search: "M11 18a7 7 0 100-14 7 7 0 000 14zM20 20l-4-4",
-};
+} satisfies Record<Category | (string & {}), string>;
 
-export function Icon({ name, size = 20 }: { name: Category | keyof typeof PATHS; size?: number }) {
-  const d = PATHS[name] ?? PATHS.platform;
+export type IconName = keyof typeof PATHS;
+
+export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
+  const d = PATHS[name];
   return (
     <svg
       width={size}

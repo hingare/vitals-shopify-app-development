@@ -1,5 +1,5 @@
 /**
- * Help center content. Text may use **bold** and [links](/help/app-embed); nothing else is parsed.
+ * Help center content. Text may use **bold**, [links](/help/app-embed) and `code`; nothing else is parsed.
  * Facts about a tool (name, plan, settings and their defaults) are NOT written here: the article
  * page reads them from the tool registry and the app's own labels, so they can't go out of date.
  */
@@ -22,7 +22,9 @@ export type Block =
   | { type: "steps"; items: string[] }
   | { type: "list"; items: string[] }
   | { type: "note"; text: string }
-  | { type: "faq"; items: Array<{ q: string; a: string }> };
+  | { type: "faq"; items: Array<{ q: string; a: string }> }
+  /** The first column of each row is its label */
+  | { type: "table"; headers: string[]; rows: string[][] };
 
 export interface Guide {
   slug: string;

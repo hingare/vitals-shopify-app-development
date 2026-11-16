@@ -156,7 +156,9 @@
     "placementTitle": "Fits your theme",
     "placementBody": "Widgets find the right spot on most themes by themselves. To move one, place the App widget block in the theme editor, or set a custom position for unusual themes.",
     "privacyTitle": "Privacy built in",
-    "privacyBody": "Consent-aware analytics and recordings, Shopify's privacy requests handled automatically, a customer data lookup for access requests, and data erased after you uninstall."
+    "privacyBody": "Consent-aware analytics and recordings, Shopify's privacy requests handled automatically, a customer data lookup for access requests, and data erased after you uninstall.",
+    "sectionsTitle": "Ready-made page sections",
+    "sectionsBody": "Build pages in the theme editor with 19 sections, like a hero banner, testimonials, an FAQ and a comparison table. They're plain HTML and CSS, so they don't slow your store down."
   },
   "tools": {
     "title": "All {count} tools",
@@ -177,7 +179,10 @@
     "conflicts": "Can't run at the same time as {tools}. The app asks you to pick one.",
     "guide": "Read the setup guide",
     "related": "More {category} tools",
-    "breadcrumb": "Tools"
+    "breadcrumb": "Tools",
+    "priceNote": "{plan} starts at {price} a month, with a {days}-day free trial.",
+    "delivery": "How it runs",
+    "faq": "Questions"
   },
   "pricing": {
     "title": "Simple pricing, no usage fees",
@@ -242,12 +247,22 @@
     "tips": "Tips",
     "faq": "Questions",
     "off": "Turning it off",
-    "offBody": "Open the tool in the app, switch off Enabled and press Save. It disappears from your storefront right away, and your settings are kept in case you turn it back on.",
+    "offBody": "Open the tool in the app, switch off **Enabled** and press **Save**. The tool stops working right away, and your settings are kept in case you turn it back on.",
     "offBodyAlwaysOn": "This tool has no switch. Results you saved stay in your store until you change them in Shopify or press Undo in AI Studio.",
     "related": "Related guides",
     "stuck": "Still stuck?",
     "stuckBody": "Ask the support assistant at the bottom of the page, or email us at {email}.",
-    "toolPage": "About this tool"
+    "toolPage": "About this tool",
+    "embedFirst": "Before you start, make sure the app embed is on in your theme. See [The app embed](/help/app-embed).",
+    "stepOpen": "In the app, open **Tools** and press **Configure** next to {name}.",
+    "stepSave": "Turn on **Enabled** and press **Save**.",
+    "stepOpenStudio": "In the app, open **AI Studio** and choose **{name}**.",
+    "next": "Next",
+    "proNote": "This tool is part of the Professional plan. [Compare plans](/pricing)",
+    "onThisPage": "On this page",
+    "allTools": "All tool guides",
+    "stuckBodyNoChat": "Email us at {email} and we'll help.",
+    "searchEmptyNoChat": "No articles match. Try another word."
   },
   "blog": {
     "title": "Blog",

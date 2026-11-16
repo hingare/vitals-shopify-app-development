@@ -9,6 +9,7 @@ import {
   TRIAL_DAYS,
   type Plan,
 } from "@app/tool-sdk";
+import { brand } from "@app/brand";
 import { planCounts } from "./catalog";
 
 /** Prices and limits exactly as the app bills them (one source: @app/tool-sdk). */
@@ -57,4 +58,29 @@ export function usd(amount: number, locale = "en"): string {
 
 export function lowestMonthly(): number {
   return Math.min(...planFacts().map((plan) => plan.monthly));
+}
+
+/**
+ * Plan facts by name, for `{name}` placeholders in help and blog text. Written out in the
+ * visitor's number format, so the text never repeats a price or a limit by hand.
+ */
+export function factValues(locale: string): Record<string, string> {
+  const plans = planFacts();
+  const starter = plans.find((plan) => plan.id === "starter")!;
+  const pro = plans.find((plan) => plan.id === "professional")!;
+  const num = new Intl.NumberFormat(locale);
+  return {
+    brand: brand.name,
+    starterPrice: usd(starter.monthly, locale),
+    starterAnnual: usd(starter.annual, locale),
+    proPrice: usd(pro.monthly, locale),
+    proAnnual: usd(pro.annual, locale),
+    starterTools: num.format(starter.tools),
+    proTools: num.format(pro.tools),
+    trialDays: num.format(trialDays),
+    aiCredits: num.format(pro.aiCredits),
+    aiTrialCredits: num.format(pro.aiTrialCredits),
+    emails: num.format(pro.emails),
+    recordings: num.format(pro.recordings),
+  };
 }
