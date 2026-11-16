@@ -4,7 +4,7 @@ import { authenticate } from "../shopify.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import {
   activeShop,
-  clientIp,
+  proxyClientIp,
   enabledSettings,
   jsonResponse,
   readJson,
@@ -38,7 +38,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shop = await activeShop(session?.shop);
   if (!shop) return jsonResponse({ error: "disabled" }, 404);
   // এক ব্রাউজার থেকে বারবার জমা ঠেকাতে; ঠিকানা আর স্টোর ধরে আলাদা সীমা submitWithdrawal-এ
-  if (!allowRequest(`withdraw:${shop.id}:${clientIp(request)}`, 5, 10 * 60_000)) {
+  if (!allowRequest(`withdraw:${shop.id}:${proxyClientIp(request)}`, 5, 10 * 60_000)) {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
   const body = (await readJson(request)) as Record<string, unknown> | null;

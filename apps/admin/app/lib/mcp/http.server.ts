@@ -3,6 +3,8 @@
  * সহকারীরা সাধারণত নিজের সার্ভার থেকে ডাকে, তবে ব্রাউজারে চলা ক্লায়েন্টের জন্য CORS খোলা রাখা হয়।
  * কুকি দিয়ে কিছু হয় না, শুধু Bearer টোকেন, তাই সব origin-কে উত্তর দেখতে দেওয়া নিরাপদ।
  */
+import { readText } from "../request.server";
+
 export const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
@@ -34,26 +36,6 @@ export function jsonReply(
 export const methodNotAllowed = (allow: string) =>
   new Response(null, { status: 405, headers: { ...CORS_HEADERS, Allow: allow } });
 
-/** body পড়ে, তবে বড় হলে পুরোটা মেমরিতে তোলার আগেই থামে (null) */
-export async function readBody(request: Request, maxBytes: number): Promise<string | null> {
-  if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return null;
-  const reader = request.body?.getReader();
-  if (!reader) return "";
-  const parts: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel().catch(() => {});
-      return null;
-    }
-    parts.push(value);
-  }
-  return Buffer.concat(parts).toString("utf8");
-}
-
 /**
  * OAuth-এর ফর্ম (application/x-www-form-urlencoded)। কিছু ক্লায়েন্ট JSON পাঠায়, সেটাও মেনে নেওয়া হয়।
  * পড়া না গেলে null।
@@ -62,7 +44,7 @@ export async function readForm(
   request: Request,
   maxBytes = 16_384,
 ): Promise<URLSearchParams | null> {
-  const text = await readBody(request, maxBytes);
+  const text = await readText(request, maxBytes);
   if (text === null) return null;
   if (!(request.headers.get("content-type") ?? "").includes("application/json")) {
     return new URLSearchParams(text);
@@ -79,7 +61,3 @@ export async function readForm(
     return null;
   }
 }
-
-/** অনুরোধকারীর IP (রেট লিমিটের জন্য) */
-export const requestIp = (request: Request) =>
-  request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";

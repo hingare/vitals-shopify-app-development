@@ -4,6 +4,7 @@ import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { isMobile, store } from "../dom";
+import { identifyVisitor } from "../visitor";
 
 const TOOL_ID = "popup";
 const HIDE_KEY = "app_popup_hidden_until";
@@ -71,6 +72,7 @@ function Popup({ s, locale, onClose }: { s: Settings; locale: string; onClose: (
     const result = await subscribe(email);
     if (result === "ok") {
       track(TOOL_ID, "click");
+      void identifyVisitor({ email });
       store.set(HIDE_KEY, String(Date.now() + 365 * DAY));
     }
     setState(result === "ok" ? "done" : "failed");

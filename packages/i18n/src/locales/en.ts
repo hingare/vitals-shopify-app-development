@@ -1,4 +1,7 @@
 export const en = {
+  "common.cancel": "Cancel",
+  "common.cantUndo": "This can't be undone.",
+
   "nav.dashboard": "Dashboard",
   "nav.tools": "Tools",
   "nav.speed": "Speed Guard",
@@ -37,7 +40,6 @@ export const en = {
   "tools.open": "Open",
   "tools.locked": "Professional plan",
   "tools.upgrade": "Upgrade to unlock",
-  "tools.save": "Save",
   "tools.saved": "Settings saved",
   "tools.pixelPending":
     "Saved, but the change has not reached your store's pixel yet. Please save again in a few minutes.",
@@ -411,9 +413,9 @@ export const en = {
   "placement.title": "Widget placement",
   "placement.blocksTitle": "Choose the spot in your theme",
   "placement.blocksBody":
-    "Widgets find the right spot by themselves on most themes. To put one somewhere else, open the theme editor, click Add block, and pick App widget under Apps, then choose the widget (for example Trust badges or Countdown timer).",
-  "placement.openProduct": "Edit product page",
-  "placement.openCart": "Edit cart page",
+    "Widgets find the right spot by themselves on most themes. To put one somewhere else, use a button below: the theme editor opens with an App widget block already added. Drag it where you want it, choose the widget (for example Trust badges or Countdown timer), and save the theme.",
+  "placement.openProduct": "Add to product page",
+  "placement.openCart": "Add to cart page",
   "placement.advancedTitle": "Advanced: custom position",
   "placement.advancedBody":
     "Only needed if your theme is unusual and widgets show in the wrong place. Leave empty to let the app decide.",
@@ -563,7 +565,7 @@ export const en = {
   "reviews.publishAll": "Publish all on this page",
   "reviews.reject": "Reject",
   "reviews.delete": "Delete",
-  "reviews.confirmDelete": "Delete this review for good?",
+  "reviews.confirmDelete": "Delete this review?",
   "reviews.reply": "Reply",
   "reviews.editReply": "Edit reply",
   "reviews.yourReply": "Your reply",
@@ -1180,7 +1182,6 @@ export const en = {
   "marketing.postalAddressHelp":
     "Shown at the bottom of marketing emails. Many countries require it by law.",
   "marketing.accent": "Button and heading colour",
-  "marketing.saveSender": "Save sender details",
   "marketing.saved": "Saved",
   "marketing.flows": "Automatic emails",
   "marketing.flowsHelp":
@@ -1217,10 +1218,8 @@ export const en = {
   "marketing.campaign.opened": "Opened",
   "marketing.campaign.clicked": "Clicked",
   "marketing.campaign.delivered": "Delivery",
-  "marketing.campaign.saveDraft": "Save draft",
   "marketing.campaign.send": "Send now",
-  "marketing.campaign.confirmSend":
-    "Send this email to {n} subscribers now? This cannot be undone.",
+  "marketing.campaign.confirmSend": "Send this email to {n} subscribers now?",
   "marketing.campaign.overLimit":
     "You have {left} emails left this month and {n} subscribers. The first {left} are sent; the rest are skipped.",
   "marketing.campaign.noSubscribers": "You have no subscribers yet, so there is nobody to send to.",
@@ -1299,7 +1298,8 @@ export const en = {
   "subscribers.status": "Status",
   "subscribers.empty": "No subscribers here.",
   "subscribers.unsubscribe": "Unsubscribe",
-  "subscribers.confirmUnsubscribe": "Unsubscribe {email}? They stop getting marketing emails.",
+  "subscribers.confirmUnsubscribe": "Unsubscribe {email}?",
+  "subscribers.confirmUnsubscribeBody": "They stop getting marketing emails.",
   "subscribers.import": "Import from Shopify",
   "subscribers.importHelp":
     "Adds your Shopify customers who already agreed to email marketing. Nobody gets a welcome email.",
@@ -1342,7 +1342,9 @@ export const en = {
   "integrations.error": "Error",
   "integrations.keyEnding": "Key ending in {hint}",
   "integrations.disconnect": "Disconnect",
-  "integrations.confirmDisconnect": "Disconnect {name}? Nothing more is sent to it.",
+  "integrations.confirmDisconnect": "Disconnect {name}?",
+  "integrations.confirmDisconnectBody":
+    "Nothing more is sent to {name}. You can connect it again at any time.",
   "integrations.lastSync": "Last sync: {when}",
   "integrations.neverSynced": "Nothing synced yet",
   "integrations.lastError": "Last error: {error}",
@@ -1351,7 +1353,6 @@ export const en = {
   "integrations.listFor": "List for {source}",
   "integrations.useDefault": "Use the default list",
   "integrations.dontSend": "Do not send",
-  "integrations.saveLists": "Save lists",
   "integrations.listsFailed": "Could not load the lists: {error}",
   "integrations.syncAll": "Send all subscribers now",
   "integrations.syncRunning": "Sending subscribers… {done} done.",
@@ -1776,7 +1777,8 @@ export const en = {
   "assistants.access.write": "Read and ask for changes",
   "assistants.never": "Never",
   "assistants.disconnect": "Disconnect",
-  "assistants.confirmDisconnect": "Disconnect {name}? It stops working right away.",
+  "assistants.confirmDisconnect": "Disconnect {name}?",
+  "assistants.confirmDisconnectBody": "{name} loses access to your store right away.",
   "assistants.disconnected": "Disconnected",
   "assistants.keys": "Access keys",
   "assistants.keysHelp":

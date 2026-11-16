@@ -5,7 +5,7 @@ import { trackOrder } from "../lib/order-tracker.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import {
   activeShop,
-  clientIp,
+  proxyClientIp,
   enabledSettings,
   jsonResponse,
   readJson,
@@ -36,7 +36,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return jsonResponse({ error: "disabled" }, 404);
   }
   // অর্ডার নম্বর অনুমান করে করে খোঁজা ঠেকাতে কড়া সীমা
-  if (!allowRequest(`track:${shop.id}:${clientIp(request)}`, 10, 10 * 60_000)) {
+  if (!allowRequest(`track:${shop.id}:${proxyClientIp(request)}`, 10, 10 * 60_000)) {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
   const body = (await readJson(request)) as { order?: unknown; contact?: unknown } | null;

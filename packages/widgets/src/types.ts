@@ -31,6 +31,8 @@ export interface StoreConfig {
   } | null;
   /** Volume Discount আর Bundle অফার (app_config.offers metafield থেকে) */
   offers?: StoreOffers | null;
+  /** Shopify-তে এই অ্যাপের id (Visitor API-কে জানাতে হয় কে ডাকছে) */
+  appId?: string | null;
 }
 
 export interface OfferValue {
@@ -116,6 +118,13 @@ declare global {
         features: Array<{ name: string; version: string }>,
         callback: (error?: unknown) => void,
       ) => void;
+      analytics?: {
+        /** ভিজিটরের দেওয়া ইমেইল বা ফোন Shopify-কে জানানো; ভুল payload-এ error ছোড়ে */
+        visitor?: (
+          info: { email?: string; phone?: string },
+          options?: { appId?: string },
+        ) => boolean;
+      };
       customerPrivacy?: {
         shouldShowBanner?: () => boolean;
         currentVisitorConsent?: () => Record<string, string>;

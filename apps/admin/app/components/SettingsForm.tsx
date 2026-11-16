@@ -26,10 +26,13 @@ export function SettingsForm({
   schema,
   values,
   onChange,
+  disabled = false,
 }: {
   schema: JsonSchema;
   values: Values;
   onChange: (next: Values) => void;
+  /** প্ল্যানে না থাকা টুলের সেটিংস দেখা যায়, বদলানো যায় না */
+  disabled?: boolean;
 }) {
   return (
     <s-stack direction="block" gap="base">
@@ -39,6 +42,7 @@ export function SettingsForm({
           name={key}
           schema={field}
           value={values[key]}
+          disabled={disabled}
           onChange={(v) => onChange({ ...values, [key]: v })}
         />
       ))}
@@ -50,11 +54,13 @@ function Field({
   name,
   schema,
   value,
+  disabled,
   onChange,
 }: {
   name: string;
   schema: JsonSchema;
   value: unknown;
+  disabled: boolean;
   onChange: (value: unknown) => void;
 }) {
   const t = useT();
@@ -67,7 +73,12 @@ function Field({
     return (
       <s-stack direction="block" gap="small-200">
         <s-heading>{label}</s-heading>
-        <SettingsForm schema={schema} values={(value as Values) ?? {}} onChange={onChange} />
+        <SettingsForm
+          schema={schema}
+          values={(value as Values) ?? {}}
+          onChange={onChange}
+          disabled={disabled}
+        />
       </s-stack>
     );
   }
@@ -81,6 +92,7 @@ function Field({
           <s-checkbox
             key={option}
             label={t(`option.${option}`)}
+            disabled={disabled}
             checked={selected.includes(option)}
             onChange={(e) =>
               onChange(
@@ -98,6 +110,7 @@ function Field({
     return (
       <s-select
         label={label}
+        disabled={disabled}
         {...details}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.currentTarget.value)}
@@ -114,6 +127,7 @@ function Field({
     return (
       <s-checkbox
         label={label}
+        disabled={disabled}
         {...details}
         checked={value === true}
         onChange={(e) => onChange(e.currentTarget.checked)}
@@ -124,6 +138,7 @@ function Field({
     return (
       <s-color-field
         label={label}
+        disabled={disabled}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.currentTarget.value)}
       />
@@ -133,6 +148,7 @@ function Field({
     return (
       <s-date-field
         label={label}
+        disabled={disabled}
         {...details}
         value={String(value ?? "")}
         onChange={(e) => onChange(e.currentTarget.value)}
@@ -143,6 +159,7 @@ function Field({
     return (
       <s-number-field
         label={label}
+        disabled={disabled}
         {...details}
         value={String(value ?? "")}
         {...(schema.minimum !== undefined ? { min: schema.minimum } : {})}
@@ -155,6 +172,7 @@ function Field({
     return (
       <s-text-area
         label={label}
+        disabled={disabled}
         {...details}
         rows={6}
         maxLength={schema.maxLength}
@@ -166,6 +184,7 @@ function Field({
   return (
     <s-text-field
       label={label}
+      disabled={disabled}
       {...details}
       {...(schema.maxLength !== undefined ? { maxLength: schema.maxLength } : {})}
       value={String(value ?? "")}

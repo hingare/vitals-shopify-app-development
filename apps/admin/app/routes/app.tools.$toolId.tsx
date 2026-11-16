@@ -11,6 +11,7 @@ import { ensureShop, planOf } from "../lib/shop.server";
 import { getToolStates, saveTool, ToolError } from "../lib/tools.server";
 import { TOOL_PAGES } from "../lib/tool-pages";
 import { useT } from "../lib/i18n";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 import { SettingsForm, type JsonSchema } from "../components/SettingsForm";
 import { previews } from "../components/previews";
 
@@ -63,53 +64,64 @@ export default function ToolSettingsPage() {
   const fetcher = useFetcher<typeof action>();
   const [settings, setSettings] = useState(data.settings);
   const [enabled, setEnabled] = useState(data.enabled);
+  const changes = useSaveState({ enabled, settings });
+  const { commit } = changes;
   const Preview = previews[data.id];
   const saving = fetcher.state !== "idle";
 
   useEffect(() => {
     if (fetcher.state === "idle" && fetcher.data?.ok) {
+      commit();
       if (fetcher.data.pixelPending) shopify.toast.show(t("tools.pixelPending"), { isError: true });
       else shopify.toast.show(t("tools.saved"));
     }
     if (fetcher.state === "idle" && fetcher.data && !fetcher.data.ok) {
       shopify.toast.show(fetcher.data.message, { isError: true });
     }
-  }, [fetcher.state, fetcher.data, shopify, t]);
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
 
-  const save = () =>
+  const save = () => {
+    changes.begin();
     fetcher.submit(JSON.stringify({ enabled, settings }), {
       method: "POST",
       encType: "application/json",
     });
+  };
+  const discard = () => {
+    const saved = changes.saved();
+    setEnabled(saved.enabled);
+    setSettings(saved.settings);
+  };
 
   return (
     <s-page heading={t(`tool.${data.id}.name`)}>
       <s-link slot="breadcrumb-actions" href="/app/tools">
         {t("nav.tools")}
       </s-link>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        onClick={save}
-        {...(saving ? { loading: true } : {})}
-      >
-        {t("tools.save")}
-      </s-button>
       {data.page && (
         <s-button slot="secondary-actions" href={data.page}>
           {t(`tools.page.${data.id}`)}
         </s-button>
       )}
+      <FormSaveBar
+        id="tool-settings"
+        dirty={data.allowed && changes.dirty}
+        saving={saving}
+        onSave={save}
+        onDiscard={discard}
+      />
 
-      {data.nativeAlternative && (
-        <s-banner tone="warning">
-          {t("tools.nativeWarning", { feature: data.nativeAlternative })}
-        </s-banner>
-      )}
-      {!data.allowed && (
+      {/* একসাথে একটাই ব্যানার: প্ল্যানে না থাকলে Shopify-র বিকল্পের সতর্কতা অপ্রাসঙ্গিক */}
+      {!data.allowed ? (
         <s-banner tone="info">
           {t("tools.locked")}. <s-link href="/app/plans">{t("tools.upgrade")}</s-link>
         </s-banner>
+      ) : (
+        data.nativeAlternative && (
+          <s-banner tone="warning">
+            {t("tools.nativeWarning", { feature: data.nativeAlternative })}
+          </s-banner>
+        )
       )}
 
       <s-section heading={t("tools.settings")}>
@@ -121,7 +133,12 @@ export default function ToolSettingsPage() {
             disabled={!data.allowed}
             onChange={() => setEnabled(!enabled)}
           />
-          <SettingsForm schema={data.schema} values={settings} onChange={setSettings} />
+          <SettingsForm
+            schema={data.schema}
+            values={settings}
+            onChange={setSettings}
+            disabled={!data.allowed}
+          />
         </s-stack>
       </s-section>
 

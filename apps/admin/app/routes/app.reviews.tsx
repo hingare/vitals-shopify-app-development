@@ -18,6 +18,7 @@ import { queueSummaryRefresh } from "../lib/ai/tasks/review-summary.server";
 import { REVIEW_STATUSES, type ReviewStatus } from "../lib/reviews";
 import { deleteMediaFiles, resolvePendingMedia } from "../lib/review-media.server";
 import { useT } from "../lib/i18n";
+import { useConfirm } from "../components/ConfirmModal";
 
 const PER_PAGE = 25;
 
@@ -118,6 +119,7 @@ function Stars({ value }: { value: number }) {
 function ReviewRow({ review, status }: { review: Row; status: ReviewStatus }) {
   const t = useT();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm(`delete-review-${review.id}`);
   const [reply, setReply] = useState(review.reply ?? "");
   const [replying, setReplying] = useState(false);
   const busy = fetcher.state !== "idle";
@@ -204,12 +206,19 @@ function ReviewRow({ review, status }: { review: Row; status: ReviewStatus }) {
             variant="tertiary"
             tone="critical"
             {...(busy ? { disabled: true } : {})}
-            onClick={() => {
-              if (window.confirm(t("reviews.confirmDelete"))) send("delete");
-            }}
+            onClick={() =>
+              confirm.ask({
+                heading: t("reviews.confirmDelete"),
+                body: t("common.cantUndo"),
+                action: t("reviews.delete"),
+                destructive: true,
+                onConfirm: () => send("delete"),
+              })
+            }
           >
             {t("reviews.delete")}
           </s-button>
+          {confirm.modal}
         </s-stack>
       </s-stack>
     </s-section>

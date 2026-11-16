@@ -2,14 +2,14 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { allowRequest } from "../lib/rate-limit.server";
 import { requestStockAlert } from "../lib/stock-alerts.server";
-import { activeShop, clientIp, jsonResponse, readJson } from "../lib/tool-state.server";
+import { activeShop, proxyClientIp, jsonResponse, readJson } from "../lib/tool-state.server";
 
 /** Back in Stock উইজেট এখানে ইমেইল জমা দেয় (App Proxy: /apps/app-tools/back-in-stock) */
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { session } = await authenticate.public.appProxy(request);
   const shop = await activeShop(session?.shop);
   if (!shop) return jsonResponse({ error: "unavailable" }, 404);
-  if (!allowRequest(`bis:${shop.id}:${clientIp(request)}`, 10, 10 * 60_000)) {
+  if (!allowRequest(`bis:${shop.id}:${proxyClientIp(request)}`, 10, 10 * 60_000)) {
     return jsonResponse({ error: "rate_limited" }, 429);
   }
   const body = (await readJson(request)) as Record<string, unknown> | null;

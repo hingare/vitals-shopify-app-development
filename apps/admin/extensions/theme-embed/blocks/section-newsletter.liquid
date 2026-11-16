@@ -1,5 +1,6 @@
 {% comment %}
-  থিম সেকশন: Newsletter signup। শুধু Liquid + CSS, কোনো JavaScript নেই (দোকান দ্রুত থাকে)।
+  থিম সেকশন: Newsletter signup। Liquid + CSS; JavaScript শুধু কয়েক লাইন, যা জমা দেওয়া ইমেইল
+  Shopify-র Visitor API-কে জানায় (ভিজিটর অ্যানালিটিক্সে সম্মতি না দিলে কিছু পাঠায় না)।
 {% endcomment %}
 {%- liquid
   assign s = block.settings
@@ -21,6 +22,20 @@
 {%- endform -%}
 </div>
 </div>
+{%- assign app_id = app.metafields.app_config.tools.value.appId -%}
+<script>
+  (function (form) {
+    if (!form) return;
+    form.addEventListener('submit', function () {
+      try {
+        var s = window.Shopify, p = s && s.customerPrivacy, v = s && s.analytics && s.analytics.visitor;
+        if (!v || (p && p.analyticsProcessingAllowed && !p.analyticsProcessingAllowed())) return;
+        var email = form.querySelector('[name="contact[email]"]').value.trim();
+        if (email) v({ email: email }, {{ app_id | json }} ? { appId: {{ app_id | json }} } : {});
+      } catch (e) {}
+    });
+  })(document.getElementById({{ block.id | json }}));
+</script>
 
 {% schema %}
 {"name": "Newsletter signup", "target": "section", "stylesheet": "sections.css",

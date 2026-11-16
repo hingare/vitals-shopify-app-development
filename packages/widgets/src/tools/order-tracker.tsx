@@ -6,6 +6,7 @@ import { fill, footerLink } from "../dom";
 import { widgetT, type WidgetString } from "../i18n";
 import { PROXY, proxyPost } from "../proxy";
 import { buttonStyle, type Colors, inputStyle } from "../ui";
+import { contactInfo, identifyVisitor } from "../visitor";
 
 const TOOL_ID = "order-tracker";
 const PAGE_ID = "app-order-tracker-page";
@@ -178,16 +179,18 @@ function Tracker({ s, locale }: { s: Settings; locale: string }) {
   async function submit(event: Event) {
     event.preventDefault();
     const data = new FormData(event.currentTarget as HTMLFormElement);
+    const contact = String(data.get("contact") ?? "").trim();
     setState("sending");
     setError("");
     setOrder(null);
     const res = await proxyPost<{ order: TrackedOrder }>("track", {
       order: String(data.get("order") ?? "").trim(),
-      contact: String(data.get("contact") ?? "").trim(),
+      contact,
     });
     setState("form");
     if (res.ok && res.data?.order) {
       track(TOOL_ID, "click");
+      void identifyVisitor(contactInfo(contact));
       setOrder(res.data.order);
     } else if (res.status === 404) setError(s.notFoundText);
     else setError(t(res.status === 429 ? "tooMany" : "tryAgain"));

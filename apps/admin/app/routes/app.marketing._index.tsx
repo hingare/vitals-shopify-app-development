@@ -17,6 +17,7 @@ import { marketingContext } from "../lib/marketing.server";
 import { messageStats } from "../lib/messages.server";
 import { subscriberCounts } from "../lib/subscribers.server";
 import { useT } from "../lib/i18n";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -73,12 +74,36 @@ export default function MarketingPage() {
   const fetcher = useFetcher<typeof action>();
   const [settings, setSettings] = useState(data.settings);
   const set = (patch: Partial<typeof settings>) => setSettings({ ...settings, ...patch });
+  const { dirty, begin, commit, saved } = useSaveState(settings);
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show(t("marketing.saved"));
-    else shopify.toast.show(t("marketing.email.invalid"), { isError: true });
-  }, [fetcher.state, fetcher.data, shopify, t]);
+    if (fetcher.data.ok) {
+      commit();
+      shopify.toast.show(t("marketing.saved"));
+    } else shopify.toast.show(t("marketing.email.invalid"), { isError: true });
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
+
+  const save = () => {
+    begin();
+    fetcher.submit(JSON.stringify(settings), { method: "POST", encType: "application/json" });
+  };
+
+  // একসাথে একটাই ব্যানার: যেটা আগে ঠিক করতে হবে সেটা
+  const banner = !data.allowed ? (
+    <s-banner tone="info">
+      {t("tools.locked")}. <s-link href="/app/plans">{t("tools.upgrade")}</s-link>
+    </s-banner>
+  ) : !data.configured ? (
+    <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>
+  ) : !data.toolEnabled ? (
+    <s-banner tone="warning">
+      {t("marketing.toolOff")}{" "}
+      <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
+    </s-banner>
+  ) : data.cap > 0 && data.sent >= data.cap ? (
+    <s-banner tone="warning">{t("marketing.limitReached")}</s-banner>
+  ) : null;
 
   const { stats } = data;
   return (
@@ -93,21 +118,14 @@ export default function MarketingPage() {
         {t("marketing.push")}
       </s-button>
 
-      {!data.allowed && (
-        <s-banner tone="info">
-          {t("tools.locked")}. <s-link href="/app/plans">{t("tools.upgrade")}</s-link>
-        </s-banner>
-      )}
-      {data.allowed && !data.toolEnabled && (
-        <s-banner tone="warning">
-          {t("marketing.toolOff")}{" "}
-          <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
-        </s-banner>
-      )}
-      {!data.configured && <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>}
-      {data.cap > 0 && data.sent >= data.cap && (
-        <s-banner tone="warning">{t("marketing.limitReached")}</s-banner>
-      )}
+      <FormSaveBar
+        id="marketing-sender"
+        dirty={dirty}
+        saving={fetcher.state !== "idle"}
+        onSave={save}
+        onDiscard={() => setSettings(saved())}
+      />
+      {banner}
 
       <s-grid gridTemplateColumns="repeat(auto-fit, minmax(220px, 1fr))" gap="base">
         <s-section heading={t("marketing.usage")}>
@@ -254,17 +272,6 @@ export default function MarketingPage() {
             value={settings.accent}
             onChange={(e) => set({ accent: e.currentTarget.value })}
           />
-          <s-button
-            onClick={() =>
-              fetcher.submit(JSON.stringify(settings), {
-                method: "POST",
-                encType: "application/json",
-              })
-            }
-            {...(fetcher.state !== "idle" ? { loading: true } : {})}
-          >
-            {t("marketing.saveSender")}
-          </s-button>
         </s-stack>
       </s-section>
     </s-page>

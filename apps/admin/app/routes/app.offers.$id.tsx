@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { redirect, useFetcher, useLoaderData } from "react-router";
+import { redirect, useFetcher, useLoaderData, useNavigate } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 
@@ -20,6 +20,8 @@ import {
   type UpsellPlacement,
 } from "../lib/offers";
 import { useT } from "../lib/i18n";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
+import { useConfirm } from "../components/ConfirmModal";
 
 interface ProductRef {
   id: string;
@@ -418,16 +420,26 @@ function configFor(type: OfferType, d: Draft) {
   }
 }
 
-export default function OfferEditor() {
+export default function OfferPage() {
+  const data = useLoaderData<typeof loader>();
+  // নতুন অফার সেভ হলে ঠিকানা বদলায়; তখন এডিটর সেভ হওয়া অফার দিয়ে নতুন করে শুরু হয়
+  return <OfferEditor key={data.id ?? "new"} />;
+}
+
+function OfferEditor() {
   const data = useLoaderData<typeof loader>();
   const t = useT();
   const shopify = useAppBridge();
+  const navigate = useNavigate();
   const fetcher = useFetcher<typeof action>();
   const [name, setName] = useState(data.name);
   const [active, setActive] = useState(data.active);
   const [draft, setDraft] = useState<Draft>(data.draft as Draft);
+  const { dirty, begin, commit, saved } = useSaveState({ name, active, draft });
+  const confirm = useConfirm("delete-offer");
   const type = data.type;
   const busy = fetcher.state !== "idle";
+  const intent = (fetcher.json as { intent?: string } | undefined)?.intent;
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("saved")) {
@@ -437,9 +449,11 @@ export default function OfferEditor() {
 
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
-    if (fetcher.data.ok) shopify.toast.show(t("offers.saved"));
-    else shopify.toast.show(fetcher.data.error, { isError: true });
-  }, [fetcher.state, fetcher.data, shopify, t]);
+    if (fetcher.data.ok) {
+      commit();
+      shopify.toast.show(t("offers.saved"));
+    } else shopify.toast.show(fetcher.data.error, { isError: true });
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
 
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -466,10 +480,21 @@ export default function OfferEditor() {
   }
 
   function save(intent?: string) {
-    fetcher.submit(JSON.stringify({ intent, type, name, active, config: configFor(type, draft) }), {
-      method: "POST",
-      encType: "application/json",
-    });
+    if (!intent) begin();
+    return fetcher.submit(
+      JSON.stringify({ intent, type, name, active, config: configFor(type, draft) }),
+      {
+        method: "POST",
+        encType: "application/json",
+      },
+    );
+  }
+
+  function discard() {
+    const last = saved();
+    setName(last.name);
+    setActive(last.active);
+    setDraft(last.draft);
   }
 
   return (
@@ -477,25 +502,32 @@ export default function OfferEditor() {
       <s-link slot="breadcrumb-actions" href="/app/offers">
         {t("nav.offers")}
       </s-link>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        {...(busy ? { loading: true } : {})}
-        onClick={() => save()}
-      >
-        {t("offers.save")}
-      </s-button>
+      {/* নতুন অফার এখনো সেভ হয়নি, তাই শুরু থেকেই সেভ বার */}
+      <FormSaveBar
+        id="offer-editor"
+        dirty={!data.id || dirty}
+        saving={busy && intent !== "delete"}
+        onSave={() => save()}
+        onDiscard={data.id ? discard : () => navigate("/app/offers")}
+      />
       {data.id && (
         <s-button
           slot="secondary-actions"
           tone="critical"
-          onClick={() => {
-            if (window.confirm(t("offers.confirmDelete"))) save("delete");
-          }}
+          onClick={() =>
+            confirm.ask({
+              heading: t("offers.confirmDelete"),
+              body: t("common.cantUndo"),
+              action: t("offers.delete"),
+              destructive: true,
+              onConfirm: () => save("delete"),
+            })
+          }
         >
           {t("offers.delete")}
         </s-button>
       )}
+      {confirm.modal}
 
       <s-section>
         <s-stack direction="block" gap="base">

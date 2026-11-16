@@ -4,7 +4,8 @@ Vitals-এর মতো অল-ইন-ওয়ান Shopify অ্যাপ: �
 অ্যাপের আসল নাম পরে ঠিক হবে; নাম, লোগো ও রং [`packages/brand/src/index.ts`](packages/brand/src/index.ts)-এ এক জায়গায় আছে।
 
 - পুরো প্ল্যান ও স্টেজ: [ডেভেলপমেন্ট প্ল্যান](https://claude.ai/artifact/FhhV8ZDDrc7xLbQGaFZ1eV)
-- এখনকার স্টেজ: **স্টেজ ৭, ওয়েবসাইট ও হেল্প সেন্টার**
+- এখনকার স্টেজ: **স্টেজ ৮, হার্ডেনিং ও প্রাইভেট বেটা**
+- Built for Shopify শর্তের সাথে মেলানো: [docs/built-for-shopify.md](docs/built-for-shopify.md)
 
 ## ফোল্ডার কাঠামো
 

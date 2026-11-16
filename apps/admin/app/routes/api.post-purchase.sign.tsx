@@ -1,6 +1,7 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import { z } from "@app/tool-sdk";
 import { authenticate } from "../shopify.server";
+import { readJson } from "../lib/request.server";
 import { signPostPurchase } from "../lib/post-purchase.server";
 import { purchaseSchema, shopFromDest } from "../lib/post-purchase";
 
@@ -18,7 +19,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { cors, sessionToken } = await authenticate.public.checkout(request);
-  const parsed = schema.safeParse(await request.json().catch(() => null));
+  const parsed = schema.safeParse(await readJson(request));
   if (!parsed.success) return cors(Response.json({ token: null }, { status: 400 }));
   const { referenceId, offerId, variantId, purchase } = parsed.data;
   const token = await signPostPurchase(

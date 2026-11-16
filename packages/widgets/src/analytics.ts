@@ -8,6 +8,7 @@ type EventType = "view" | "click" | "add_to_cart";
 const ENDPOINT = "/apps/app-tools/events";
 const ATTRIBUTE = "_app_tools";
 const STORAGE_KEY = "app_tools_attr";
+const MAX_BATCH = 50;
 const queue: Array<{ toolId: string; type: EventType }> = [];
 let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -29,7 +30,9 @@ if (typeof document !== "undefined") {
 
 export function track(toolId: string, type: EventType) {
   queue.push({ toolId, type });
-  if (!timer) timer = setTimeout(flush, 3000);
+  // সার্ভার এক বারে ৫০টা ইভেন্ট নেয়, তাই ৫০ হলেই পাঠিয়ে দেওয়া হয়
+  if (queue.length >= MAX_BATCH) flush();
+  else if (!timer) timer = setTimeout(flush, 3000);
 }
 
 /** কার্টে যোগের পর ডাকুন: এই টুলকে অর্ডারের কৃতিত্ব দেওয়ার জন্য */

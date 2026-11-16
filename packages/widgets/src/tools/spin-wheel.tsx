@@ -7,6 +7,7 @@ import { widgetT, type WidgetString } from "../i18n";
 import { root } from "../product";
 import { proxyPost } from "../proxy";
 import { buttonStyle, type Colors, inputStyle, Modal, overlayHost } from "../ui";
+import { identifyVisitor } from "../visitor";
 
 const TOOL_ID = "spin-wheel";
 const HIDE_KEY = "app_wheel_hidden_until";
@@ -202,6 +203,7 @@ function WheelPopup({
       return;
     }
     track(TOOL_ID, "click");
+    void identifyVisitor({ email });
     onSpun();
     setResult(res.data);
     // কোডটা কুকিতে বসে যায়, তাই চেকআউটে নিজে থেকেই লাগে

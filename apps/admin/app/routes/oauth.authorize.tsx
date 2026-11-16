@@ -1,7 +1,7 @@
 import type { LoaderFunctionArgs, MetaFunction } from "react-router";
 import { data, redirect, useLoaderData } from "react-router";
 import { createT, resolveLocale } from "@app/i18n";
-import { requestIp } from "../lib/mcp/http.server";
+import { directClientIp } from "../lib/request.server";
 import { startAuthorization } from "../lib/mcp/oauth.server";
 
 /**
@@ -11,7 +11,10 @@ import { startAuthorization } from "../lib/mcp/oauth.server";
 export const meta: MetaFunction = () => [{ title: "Connect an AI assistant" }];
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const result = await startAuthorization(new URL(request.url).searchParams, requestIp(request));
+  const result = await startAuthorization(
+    new URL(request.url).searchParams,
+    directClientIp(request),
+  );
   if (result.kind === "redirect") return redirect(result.url);
   if (result.kind === "choose_store") {
     return redirect(`/oauth/store?request=${encodeURIComponent(result.requestId)}`);

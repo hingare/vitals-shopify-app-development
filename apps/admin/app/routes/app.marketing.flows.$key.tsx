@@ -15,6 +15,7 @@ import { allowTestSend, marketingContext } from "../lib/marketing.server";
 import { messageStats } from "../lib/messages.server";
 import { useT } from "../lib/i18n";
 import { EmailFields, EmailPreview, TestSend } from "../components/EmailEditor";
+import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 
 /** প্রতিটা flow-র লেখায় যে নামগুলো বসানো যায় */
 const VARS: Record<FlowKey, string> = {
@@ -95,6 +96,7 @@ export default function FlowPage() {
   const [enabled, setEnabled] = useState(data.enabled);
   const [content, setContent] = useState(data.content);
   const [delay, setDelay] = useState(splitDelay(data.delayMinutes));
+  const { dirty, begin, commit, saved } = useSaveState({ enabled, content, delay });
   const busy = fetcher.state !== "idle";
   const intent = (fetcher.json as { intent?: string } | undefined)?.intent;
 
@@ -102,6 +104,7 @@ export default function FlowPage() {
     if (fetcher.state !== "idle" || !fetcher.data) return;
     const result = fetcher.data;
     if (result.ok) {
+      if (result.intent === "save") commit();
       shopify.toast.show(
         t(result.intent === "test" ? "marketing.email.testSent" : "marketing.saved"),
       );
@@ -116,7 +119,7 @@ export default function FlowPage() {
         isError: true,
       });
     }
-  }, [fetcher.state, fetcher.data, shopify, t]);
+  }, [fetcher.state, fetcher.data, shopify, t, commit]);
 
   const submit = (payload: Record<string, unknown>) =>
     fetcher.submit(JSON.stringify({ content, ...payload }), {
@@ -128,8 +131,17 @@ export default function FlowPage() {
     // সার্ভারও দেরিটা অনুমোদিত সীমার মধ্যে আনে; এখানে একই হিসাব করে ঘরে সেই মানটাই দেখাই
     const asked = joinDelay(delay.value, delay.unit);
     const minutes = Math.min(data.maxDelay, Math.max(data.minDelay, asked));
-    if (minutes !== asked) setDelay(splitDelay(minutes));
+    const sent = minutes === asked ? delay : splitDelay(minutes);
+    if (sent !== delay) setDelay(sent);
+    begin({ enabled, content, delay: sent });
     submit({ intent: "save", enabled, delayMinutes: minutes });
+  }
+
+  function discard() {
+    const last = saved();
+    setEnabled(last.enabled);
+    setContent(last.content);
+    setDelay(last.delay);
   }
 
   return (
@@ -137,22 +149,26 @@ export default function FlowPage() {
       <s-link slot="breadcrumb-actions" href="/app/marketing">
         {t("marketing.back")}
       </s-link>
-      <s-button
-        slot="primary-action"
-        variant="primary"
-        onClick={save}
-        {...(busy && intent === "save" ? { loading: true } : {})}
-      >
-        {t("tools.save")}
-      </s-button>
+      <FormSaveBar
+        id="flow-editor"
+        dirty={dirty}
+        saving={busy && intent === "save"}
+        onSave={save}
+        onDiscard={discard}
+      />
 
-      {data.allowed && !data.toolEnabled && (
-        <s-banner tone="warning">
-          {t("marketing.toolOff")}{" "}
-          <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
-        </s-banner>
+      {/* একসাথে একটাই ব্যানার: ইমেইল চালু না থাকাটা আগে জানানো দরকার */}
+      {!data.configured ? (
+        <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>
+      ) : (
+        data.allowed &&
+        !data.toolEnabled && (
+          <s-banner tone="warning">
+            {t("marketing.toolOff")}{" "}
+            <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
+          </s-banner>
+        )
       )}
-      {!data.configured && <s-banner tone="critical">{t("marketing.notConfigured")}</s-banner>}
 
       <s-section>
         <s-stack direction="block" gap="base">

@@ -25,6 +25,8 @@ import {
 } from "../lib/integrations.server";
 import { enqueueJob } from "../lib/queue.server";
 import { useT } from "../lib/i18n";
+import { useConfirm } from "../components/ConfirmModal";
+import { FormSaveBar } from "../components/FormSaveBar";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -95,9 +97,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       case "disconnect":
         if (isEmailToolId(provider)) await disconnectIntegration(shop.id, provider);
         break;
-      case "lists":
-        if (isEmailToolId(provider)) await saveEspConfig(shop.id, provider, body.config);
+      case "lists": {
+        // সেভ বার একসাথে সব বদলানো সংযোগের তালিকা পাঠায়
+        const configs = (body.configs ?? {}) as Record<string, unknown>;
+        for (const [id, config] of Object.entries(configs)) {
+          if (isEmailToolId(id)) await saveEspConfig(shop.id, id, config);
+        }
         break;
+      }
       case "backfill":
         if (isEmailToolId(provider)) await enqueueJob(shop.id, "esp-backfill", { provider });
         break;
@@ -113,12 +120,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 type Tool = ReturnType<typeof useLoaderData<typeof loader>>["tools"][number];
-type Send = (payload: Record<string, unknown>) => void;
+type Config = Tool["config"];
+type Send = (payload: Record<string, unknown>) => Promise<void>;
 
-function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: string | null }) {
+function EmailToolCard({
+  tool,
+  config,
+  setConfig,
+  forget,
+  send,
+  busy,
+}: {
+  tool: Tool;
+  /** তালিকার বাছাই; সেভ হয় পাতার সেভ বার দিয়ে */
+  config: Config;
+  setConfig: (config: Config) => void;
+  /** সংযোগ কাটলে এই সংযোগের না-সেভ-করা বদল ভুলে যাওয়া */
+  forget: () => void;
+  send: Send;
+  busy: string | null;
+}) {
   const t = useT();
+  const confirm = useConfirm(`disconnect-${tool.id}`);
   const [apiKey, setApiKey] = useState("");
-  const [config, setConfig] = useState(tool.config);
   const name = t(`integrations.${tool.id}`);
   const loading = (intent: string) => (busy === `${intent}:${tool.id}` ? { loading: true } : {});
   const running = tool.backfill?.status === "pending" || tool.backfill?.status === "running";
@@ -169,15 +193,17 @@ function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: str
                 ? t("integrations.lastSync", { when: new Date(tool.lastSyncAt).toLocaleString() })
                 : t("integrations.neverSynced")}
             </s-text>
-            {tool.lastError && (
+            {/* একসাথে একটাই ব্যানার: পাঠানো আটকে থাকাটা আগে */}
+            {tool.lastError ? (
               <s-banner tone="critical">
                 {t("integrations.lastError", { error: tool.lastError })}
               </s-banner>
-            )}
-            {tool.listsError && (
-              <s-banner tone="warning">
-                {t("integrations.listsFailed", { error: tool.listsError })}
-              </s-banner>
+            ) : (
+              tool.listsError && (
+                <s-banner tone="warning">
+                  {t("integrations.listsFailed", { error: tool.listsError })}
+                </s-banner>
+              )
             )}
 
             {tool.hasLists && (
@@ -215,14 +241,6 @@ function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: str
                     ))}
                   </s-select>
                 ))}
-                <s-stack direction="inline">
-                  <s-button
-                    onClick={() => send({ intent: "lists", provider: tool.id, config })}
-                    {...loading("lists")}
-                  >
-                    {t("integrations.saveLists")}
-                  </s-button>
-                </s-stack>
               </s-stack>
             )}
 
@@ -235,9 +253,9 @@ function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: str
               </s-text>
             )}
             {tool.backfill?.status === "failed" && (
-              <s-banner tone="critical">
+              <s-text tone="critical">
                 {t("integrations.syncFailed", { error: tool.backfill.error ?? "" })}
-              </s-banner>
+              </s-text>
             )}
             <s-stack direction="inline" gap="small">
               <s-button
@@ -249,14 +267,22 @@ function EmailToolCard({ tool, send, busy }: { tool: Tool; send: Send; busy: str
               <s-button
                 tone="critical"
                 variant="tertiary"
-                onClick={() => {
-                  if (window.confirm(t("integrations.confirmDisconnect", { name }))) {
-                    send({ intent: "disconnect", provider: tool.id });
-                  }
-                }}
+                onClick={() =>
+                  confirm.ask({
+                    heading: t("integrations.confirmDisconnect", { name }),
+                    body: t("integrations.confirmDisconnectBody", { name }),
+                    action: t("integrations.disconnect"),
+                    destructive: true,
+                    onConfirm: async () => {
+                      await send({ intent: "disconnect", provider: tool.id });
+                      forget();
+                    },
+                  })
+                }
               >
                 {t("integrations.disconnect")}
               </s-button>
+              {confirm.modal}
             </s-stack>
           </s-stack>
         )}
@@ -288,18 +314,41 @@ export default function IntegrationsPage() {
     return () => clearInterval(timer);
   }, [syncing, revalidator]);
 
+  // শুধু মার্চেন্টের বদলানো তালিকা; বাকিগুলো সার্ভারে সেভ হওয়া মান দেখায়
+  const [edits, setEdits] = useState<Record<string, Config>>({});
+  const changed = data.tools.filter(
+    (tool) =>
+      tool.connected &&
+      tool.hasLists &&
+      edits[tool.id] !== undefined &&
+      JSON.stringify(edits[tool.id]) !== JSON.stringify(tool.config),
+  );
+
   useEffect(() => {
     if (fetcher.state !== "idle" || !fetcher.data) return;
     const result = fetcher.data;
+    // সেভের পরে পেজের ডেটা নতুন মান নিয়ে আসে, তখন বদল আর "বদল" থাকে না (changed খালি হয়)
     if (result.ok) shopify.toast.show(t("integrations.saved"));
     else shopify.toast.show(result.error, { isError: true });
   }, [fetcher.state, fetcher.data, shopify, t]);
 
   const send: Send = (payload) =>
     fetcher.submit(JSON.stringify(payload), { method: "POST", encType: "application/json" });
+  const saveLists = () =>
+    void send({
+      intent: "lists",
+      configs: Object.fromEntries(changed.map((tool) => [tool.id, edits[tool.id]])),
+    });
 
   return (
     <s-page heading={t("integrations.title")}>
+      <FormSaveBar
+        id="integration-lists"
+        dirty={changed.length > 0}
+        saving={busy === "lists:"}
+        onSave={saveLists}
+        onDiscard={() => setEdits({})}
+      />
       <s-section heading={t("integrations.assistants")}>
         <s-stack direction="block" gap="base">
           <s-paragraph>{t("integrations.assistantsHelp")}</s-paragraph>
@@ -313,7 +362,19 @@ export default function IntegrationsPage() {
       </s-section>
       {data.tools.map((tool) => (
         // সংযোগ বদলালে কার্ডের ভেতরের ফর্ম নতুন করে শুরু হয়
-        <EmailToolCard key={`${tool.id}:${tool.connected}`} tool={tool} send={send} busy={busy} />
+        <EmailToolCard
+          key={`${tool.id}:${tool.connected}`}
+          tool={tool}
+          config={edits[tool.id] ?? tool.config}
+          setConfig={(config) => setEdits((all) => ({ ...all, [tool.id]: config }))}
+          forget={() =>
+            setEdits((all) =>
+              Object.fromEntries(Object.entries(all).filter(([id]) => id !== tool.id)),
+            )
+          }
+          send={send}
+          busy={busy}
+        />
       ))}
     </s-page>
   );

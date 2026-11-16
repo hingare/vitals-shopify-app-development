@@ -17,6 +17,7 @@ import { findCustomerId } from "../lib/shopify-customers.server";
 import { listSubscribers, subscriberCounts, unsubscribe } from "../lib/subscribers.server";
 import { cleanEmail } from "../lib/tool-state.server";
 import { useT } from "../lib/i18n";
+import { useConfirm } from "../components/ConfirmModal";
 
 const STATUSES = ["subscribed", "unsubscribed", "bounced", "complained"] as const;
 
@@ -109,6 +110,7 @@ export default function SubscribersPage() {
   const data = useLoaderData<typeof loader>();
   const t = useT();
   const fetcher = useFetcher<typeof action>();
+  const confirm = useConfirm("unsubscribe");
   // তথ্য খোঁজার জন্য আলাদা fetcher, যাতে আমদানি বা আনসাবস্ক্রাইবের অবস্থার সাথে না মেশে
   const lookup = useFetcher<typeof action>();
   const [lookupEmail, setLookupEmail] = useState("");
@@ -145,6 +147,7 @@ export default function SubscribersPage() {
       <s-link slot="breadcrumb-actions" href="/app/marketing">
         {t("marketing.back")}
       </s-link>
+      {confirm.modal}
       <s-button
         slot="primary-action"
         onClick={() => send({ intent: "import" })}
@@ -221,14 +224,14 @@ export default function SubscribersPage() {
                       {row.status === "subscribed" && (
                         <s-button
                           variant="tertiary"
-                          onClick={() => {
-                            const question = t("subscribers.confirmUnsubscribe", {
-                              email: row.email,
-                            });
-                            if (window.confirm(question)) {
-                              send({ intent: "unsubscribe", email: row.email });
-                            }
-                          }}
+                          onClick={() =>
+                            confirm.ask({
+                              heading: t("subscribers.confirmUnsubscribe", { email: row.email }),
+                              body: t("subscribers.confirmUnsubscribeBody"),
+                              action: t("subscribers.unsubscribe"),
+                              onConfirm: () => send({ intent: "unsubscribe", email: row.email }),
+                            })
+                          }
                         >
                           {t("subscribers.unsubscribe")}
                         </s-button>

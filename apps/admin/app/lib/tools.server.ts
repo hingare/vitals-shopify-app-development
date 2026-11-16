@@ -90,13 +90,15 @@ export async function syncStoreConfig(
   );
 
   const idRes = await admin.graphql(`#graphql
-    query AppInstallationId { currentAppInstallation { id } shop { id } }`);
+    query AppInstallationId { currentAppInstallation { id app { id } } shop { id } }`);
   const idJson = (await idRes.json()) as {
-    data?: { currentAppInstallation?: { id: string }; shop?: { id: string } };
+    data?: { currentAppInstallation?: { id: string; app?: { id: string } }; shop?: { id: string } };
   };
   const ownerId = idJson.data?.currentAppInstallation?.id;
   const shopGid = idJson.data?.shop?.id;
   if (!ownerId || !shopGid) throw new Error("Could not read app installation id");
+  // স্টোরফ্রন্টের Visitor API-কে জানাতে হয় কোন অ্যাপ ডাকছে (gid://shopify/App/123 থেকে 123)
+  const appId = idJson.data?.currentAppInstallation?.app?.id.split("/").pop() ?? null;
 
   // চেকআউটের অফার discount আর স্টোরফ্রন্ট ও চেকআউটের অফার তালিকাও একই সাথে
   const offersMetafields = await syncOffers(
@@ -119,7 +121,11 @@ export async function syncStoreConfig(
             namespace: CONFIG_NAMESPACE,
             key: CONFIG_KEY,
             type: "json",
-            value: JSON.stringify({ ...config, placement: readPlacement(shopRow?.placement) }),
+            value: JSON.stringify({
+              ...config,
+              placement: readPlacement(shopRow?.placement),
+              appId,
+            }),
           },
           ...offersMetafields,
         ],
@@ -138,6 +144,15 @@ export async function syncStoreConfig(
 export function embedEditorUrl(shopDomain: string): string {
   const handle = shopDomain.replace(".myshopify.com", "");
   return `https://admin.shopify.com/store/${handle}/themes/current/editor?context=apps&activateAppId=${process.env.SHOPIFY_API_KEY}/app-tools-embed`;
+}
+
+/**
+ * থিম এডিটরে পেজটা খুলে মূল সেকশনে আমাদের App widget ব্লক যোগ করে দেয়।
+ * মার্চেন্ট শুধু জায়গা আর উইজেট বেছে থিম সেভ করেন; সেভ না করলে কিছুই বদলায় না।
+ */
+export function addWidgetBlockUrl(shopDomain: string, template: "product" | "cart"): string {
+  const handle = shopDomain.replace(".myshopify.com", "");
+  return `https://admin.shopify.com/store/${handle}/themes/current/editor?template=${template}&addAppBlockId=${process.env.SHOPIFY_API_KEY}/app-widget&target=mainSection`;
 }
 
 /**
