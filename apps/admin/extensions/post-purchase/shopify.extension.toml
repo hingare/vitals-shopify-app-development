@@ -4,3 +4,4 @@
 name = "post-purchase-upsell"
 handle = "post-purchase-upsell"
 type = "checkout_post_purchase"
+uid = "605817b1-8b84-d458-6e77-878311e962ab7fca9c3b"

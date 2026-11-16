@@ -6,6 +6,7 @@ api_version = "2026-10"
 [[extensions]]
 name = "t:name"
 handle = "checkout-upsell"
+uid = "42a78221-416b-44aa-07ba-7ad811835d0691422ded"
 type = "ui_extension"
 
   [[extensions.targeting]]
