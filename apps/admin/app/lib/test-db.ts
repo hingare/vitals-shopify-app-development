@@ -338,6 +338,14 @@ function build() {
       [["shopId", "visitorKey"]],
     ),
     chatMessage: table("chatmsg", () => ({})),
+    supportTicket: table("ticket", () => ({
+      status: "open",
+      lastAuthor: "merchant",
+      lastMessageAt: new Date(),
+      firstResponseAt: null,
+      merchantSeenAt: null,
+    })),
+    supportMessage: table("supmsg", () => ({})),
     recording: table(
       "rec",
       () => ({

@@ -18,6 +18,7 @@ import "./seo-alt.server";
 import "./seo-meta.server";
 import "./stock-alerts.server";
 import "./subscribers.server";
+import { pruneSupport } from "./support.server";
 
 /**
  * ছোট ব্যাকগ্রাউন্ড কাজের ব্যবস্থা, ডাটাবেস দিয়ে (আলাদা Redis লাগে না)।
@@ -115,6 +116,8 @@ export async function pruneMarketingData(now = new Date()) {
   await pruneAiMedia(now);
   // AI সহকারী: পুরনো লগইনের অনুরোধ, বন্ধ সংযোগ, ৯০ দিনের পুরনো পরিবর্তনের অনুরোধ, অব্যবহৃত ক্লায়েন্ট
   await pruneMcp(now);
+  // সাপোর্ট: উত্তরের পরে ১৪ দিন চুপ থাকা টিকিট বন্ধ, এক বছরের পুরনো টিকিট মোছা
+  await pruneSupport(now);
 }
 
 let running = 0;
