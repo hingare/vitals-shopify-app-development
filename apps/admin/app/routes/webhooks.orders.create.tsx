@@ -18,7 +18,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await onOrderCreated(shop.id, payload as OrderPayload);
   } catch (error) {
-    return retryWebhook("flows", error);
+    return retryWebhook("orders/create", error, domain);
   }
   return new Response();
 };

@@ -15,7 +15,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await recordCheckout(shop, payload as CheckoutPayload);
   } catch (error) {
-    return retryWebhook("flows", error);
+    return retryWebhook("checkouts", error, domain);
   }
   return new Response();
 };

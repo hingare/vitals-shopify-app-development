@@ -29,7 +29,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   try {
     await applyCustomerEvent(shop, event, admin);
   } catch (error) {
-    return retryWebhook("subscribers", error);
+    return retryWebhook("customers", error, domain);
   }
   return new Response();
 };

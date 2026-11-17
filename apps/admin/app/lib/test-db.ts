@@ -346,6 +346,19 @@ function build() {
       merchantSeenAt: null,
     })),
     supportMessage: table("supmsg", () => ({})),
+    appError: table(
+      "err",
+      () => ({
+        stack: null,
+        count: 1,
+        firstSeenAt: new Date(),
+        lastSeenAt: new Date(),
+        lastShop: null,
+        resolvedAt: null,
+        notifiedAt: null,
+      }),
+      [["fingerprint"]],
+    ),
     recording: table(
       "rec",
       () => ({

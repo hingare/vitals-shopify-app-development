@@ -5,6 +5,7 @@ import { redactCustomer } from "../lib/privacy.server";
 import { deleteShopAiMedia } from "../lib/ai/media/files.server";
 import { deleteShopRecordings } from "../lib/recordings.server";
 import { retryWebhook } from "../lib/tool-state.server";
+import { forgetShopErrors } from "../lib/errors.server";
 
 /**
  * GDPR বাধ্যতামূলক webhook (App Store-এর শর্ত)।
@@ -13,7 +14,8 @@ import { retryWebhook } from "../lib/tool-state.server";
  *   প্রত্যাহারের বিবৃতি ইত্যাদি); রিভিউ থাকে, তবে নাম-ইমেইল ছাড়া।
  * - customers/data_request: মার্চেন্ট অ্যাডমিনের Subscribers পেজ থেকে ক্রেতার ইমেইল দিয়ে সব তথ্য নামিয়ে
  *   ক্রেতাকে দেন, তাই এখানে শুধু লগ রাখি (লগে ক্রেতার কোনো তথ্য লেখা হয় না)।
- * - shop/redact (আনইনস্টলের ৪৮ ঘণ্টা পরে): স্টোরের সব ডেটা মুছে ফেলি (রেকর্ডিংয়ের ফাইলসহ)।
+ * - shop/redact (আনইনস্টলের ৪৮ ঘণ্টা পরে): স্টোরের সব ডেটা মুছে ফেলি (রেকর্ডিংয়ের ফাইলসহ), আর অ্যাপের
+ *   ত্রুটির খাতা থেকে স্টোরের ঠিকানা।
  * HMAC যাচাই authenticate.webhook করে; ভুল হলে 401 দেয়।
  */
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -46,11 +48,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           await deleteShopRecordings(record.id);
           await deleteShopAiMedia(record.id);
         } catch (error) {
-          return retryWebhook("shop/redact", error);
+          return retryWebhook("shop/redact", error, shop);
         }
       }
       await db.session.deleteMany({ where: { shop } });
       await db.shop.deleteMany({ where: { domain: shop } }); // সব টেবিল cascade-এ মুছে যায়
+      // অ্যাপের ত্রুটির খাতা স্টোরের সাথে বাঁধা নয়; সেখান থেকে শুধু স্টোরের ঠিকানাটা সরে
+      await forgetShopErrors(shop);
       break;
     }
   }

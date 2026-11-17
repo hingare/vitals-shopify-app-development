@@ -373,12 +373,12 @@ export function helpAdminUrl(shopDomain: string, ticketId: string, env = process
     : `https://admin.shopify.com/store/${adminStore(shopDomain)}/apps`;
 }
 
-/** ডেস্কের স্টোরে টিকিটের পাতা; ডেস্ক ঠিক করা না থাকলে null */
-export function deskUrl(ticketId: string, env = process.env): string | null {
+/** ডেস্কের স্টোরে ডেস্কের একটা পাতা (টিকিটের id, বা "errors"); ডেস্ক ঠিক করা না থাকলে null */
+export function deskUrl(page: string, env = process.env): string | null {
   const desk = deskShops(env)[0];
   const app = env.SHOPIFY_API_KEY;
   return desk && app
-    ? `https://admin.shopify.com/store/${adminStore(desk)}/apps/${app}/app/desk/${ticketId}`
+    ? `https://admin.shopify.com/store/${adminStore(desk)}/apps/${app}/app/desk/${page}`
     : null;
 }
 
