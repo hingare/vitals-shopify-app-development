@@ -14,9 +14,17 @@ export interface ShopifyCustomer {
   id: string;
   /** SUBSCRIBED | UNSUBSCRIBED | NOT_SUBSCRIBED | PENDING | INVALID */
   marketingState: string | null;
+  /** সম্মতি শেষ কবে বদলেছে (Shopify-র হিসাবে; জানা না থাকলে null) */
+  marketingUpdatedAt: Date | null;
 }
 
 const quote = (value: string) => `"${value.replace(/["\\]/g, "")}"`;
+
+/** Shopify-র দেওয়া সময়; না থাকলে বা ভুল হলে null */
+export function shopifyTime(value: string | null | undefined): Date | null {
+  const stamp = value ? new Date(value) : null;
+  return stamp && !Number.isNaN(stamp.getTime()) ? stamp : null;
+}
 
 /**
  * এই ইমেইলের Shopify customer; এমন কেউ না থাকলে null।
@@ -32,7 +40,11 @@ export async function findCustomer(
     customers: {
       nodes: Array<{
         id: string;
-        defaultEmailAddress: { emailAddress: string | null; marketingState: string } | null;
+        defaultEmailAddress: {
+          emailAddress: string | null;
+          marketingState: string;
+          marketingUpdatedAt?: string | null;
+        } | null;
       }>;
     };
   }>(
@@ -40,7 +52,7 @@ export async function findCustomer(
     `#graphql
     query CustomerByEmail($query: String!) {
       customers(first: 5, query: $query) {
-        nodes { id defaultEmailAddress { emailAddress marketingState } }
+        nodes { id defaultEmailAddress { emailAddress marketingState marketingUpdatedAt } }
       }
     }`,
     { query: `email:${quote(wanted)}` },
@@ -49,7 +61,11 @@ export async function findCustomer(
     (node) => node.defaultEmailAddress?.emailAddress?.trim().toLowerCase() === wanted,
   );
   return match
-    ? { id: match.id, marketingState: match.defaultEmailAddress?.marketingState ?? null }
+    ? {
+        id: match.id,
+        marketingState: match.defaultEmailAddress?.marketingState ?? null,
+        marketingUpdatedAt: shopifyTime(match.defaultEmailAddress?.marketingUpdatedAt),
+      }
     : null;
 }
 
@@ -109,12 +125,11 @@ export async function customerDetails(
   const customer = data.customer;
   if (!customer) return null;
   const address = customer.defaultEmailAddress;
-  const stamp = address?.marketingUpdatedAt ? new Date(address.marketingUpdatedAt) : null;
   return {
     email: cleanEmail(address?.emailAddress),
     firstName: customer.firstName,
     tags: customer.tags.map((tag) => tag.trim().toLowerCase()),
     marketingState: address?.marketingState ?? null,
-    marketingUpdatedAt: stamp && !Number.isNaN(stamp.getTime()) ? stamp : null,
+    marketingUpdatedAt: shopifyTime(address?.marketingUpdatedAt),
   };
 }

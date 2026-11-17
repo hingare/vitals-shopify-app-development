@@ -1,6 +1,7 @@
 import db from "../db.server";
 import { startDueCampaigns } from "./campaigns.server";
 import { pruneChats } from "./chat.server";
+import { queueConsentChecks } from "./consent-check.server";
 import { pruneAiMedia } from "./ai/media/files.server";
 import { pruneMcp } from "./mcp/oauth.server";
 import { pruneRecordings } from "./recordings.server";
@@ -127,6 +128,7 @@ let sending = false;
 let lastHousekeeping = 0;
 let lastMinute = 0;
 let lastWinback = 0;
+let lastConsentCheck = 0;
 
 /** প্রতিটা পালায় আলাদা try: একটা অংশ ভাঙলেও বাকিগুলো চলে */
 async function step(name: string, fn: () => Promise<unknown>) {
@@ -156,6 +158,11 @@ async function tick() {
   if (now - lastWinback > 6 * 60 * 60_000) {
     lastWinback = now;
     await step("winback", () => queueWinbacks());
+  }
+  // মার্কেটিং সম্মতি Shopify-র সাথে মেলানো: প্রতিটা স্টোরে দিনে একবার (কাজগুলো ৬ ঘণ্টায় ছড়ানো)
+  if (now - lastConsentCheck > 6 * 60 * 60_000) {
+    lastConsentCheck = now;
+    await step("consent-check", () => queueConsentChecks());
   }
 
   await step("speed", async () => {
@@ -213,5 +220,6 @@ export function startJobs() {
   lastMinute = 0;
   // সার্ভার চালুর সাথে সাথে নয়, একটু পরে (ডেভেলপমেন্টে বারবার restart হয়)
   lastWinback = Date.now() - 6 * 60 * 60_000 + 5 * 60_000;
+  lastConsentCheck = Date.now() - 6 * 60 * 60_000 + 10 * 60_000;
   setInterval(() => void tick(), TICK_MS).unref();
 }
