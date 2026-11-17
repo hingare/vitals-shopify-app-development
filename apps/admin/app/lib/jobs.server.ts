@@ -8,6 +8,8 @@ import { pruneRecordings } from "./recordings.server";
 import { queueWinbacks } from "./flows.server";
 import { processMessages, recoverStuckMessages } from "./messages.server";
 import { claimJob, recoverStuckJobs, runJob } from "./queue.server";
+import { sendErrorAlerts } from "./error-alerts.server";
+import { pruneErrors, recordError } from "./errors.server";
 import { measure, primaryDomainUrl, saveSnapshot } from "./speed.server";
 import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
@@ -84,6 +86,9 @@ export async function runSpeedJob(job: ClaimedJob, measureFn = measure) {
         ? { status: "pending", error: message }
         : { status: "failed", error: message, finishedAt: new Date() },
     });
+    if (!retry) {
+      await recordError({ source: "job", location: "speed-check", error, shopId: job.shopId });
+    }
   }
 }
 
@@ -119,12 +124,15 @@ export async function pruneMarketingData(now = new Date()) {
   await pruneMcp(now);
   // সাপোর্ট: উত্তরের পরে ১৪ দিন চুপ থাকা টিকিট বন্ধ, এক বছরের পুরনো টিকিট মোছা
   await pruneSupport(now);
+  // অ্যাপের ত্রুটির খাতা: ৩০ দিন না ঘটা ত্রুটি
+  await pruneErrors(now);
 }
 
 let running = 0;
 let runningJobs = 0;
 let runningAiJobs = 0;
 let sending = false;
+let lastErrorAlert = 0;
 let lastHousekeeping = 0;
 let lastMinute = 0;
 let lastWinback = 0;
@@ -136,6 +144,10 @@ async function step(name: string, fn: () => Promise<unknown>) {
     await fn();
   } catch (error) {
     console.error(`[jobs] ${name} failed`, error);
+    // ত্রুটির ইমেইলের নিজের ব্যর্থতা খাতায় তোলা হয় না (তাতে আবার ইমেইলেরই চেষ্টা হতো)
+    if (name !== "error-alerts") {
+      await recordError({ source: "job", location: `scheduler/${name}`, error });
+    }
   }
 }
 
@@ -150,6 +162,11 @@ async function tick() {
       await pruneVisitorDays();
       await pruneMarketingData();
     });
+  }
+  // নতুন ধরনের ত্রুটির ইমেইল (সাপোর্টের ইনবক্সে), ১০ মিনিটে একবার একসাথে
+  if (now - lastErrorAlert > 10 * 60_000) {
+    lastErrorAlert = now;
+    await step("error-alerts", () => sendErrorAlerts());
   }
   if (now - lastMinute > 60_000) {
     lastMinute = now;

@@ -24,6 +24,6 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     queueNewMeta(shop),
   ]);
   const failed = results.find((result) => result.status === "rejected");
-  if (failed) return retryWebhook("products", failed.reason);
+  if (failed) return retryWebhook("products", failed.reason, domain);
   return new Response();
 };

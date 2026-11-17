@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import db from "../db.server";
+import { recordError } from "./errors.server";
 
 /**
  * সাধারণ ব্যাকগ্রাউন্ড কাজের লাইন (ডাটাবেসে, "FOR UPDATE SKIP LOCKED" দিয়ে)।
@@ -127,6 +128,15 @@ export async function runJob(job: JobContext) {
         ? { status: "pending", error: message, runAt: new Date(Date.now() + job.attempts * 60_000) }
         : { status: "failed", error: message, finishedAt: new Date() },
     });
+    // সাময়িক সমস্যা পরের চেষ্টায় সারে; সব চেষ্টার পরেও ব্যর্থ হলে তবেই অ্যাপের ত্রুটির খাতায়
+    if (!retry) {
+      await recordError({
+        source: "job",
+        location: job.kind.split(":")[0] || job.kind,
+        error,
+        shopId: job.shopId,
+      });
+    }
   }
 }
 

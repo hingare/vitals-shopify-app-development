@@ -1,5 +1,6 @@
 import { canUseTool, type AnyTool, type Plan, type ToolDefinition, type z } from "@app/tool-sdk";
 import db from "../db.server";
+import { recordError } from "./errors.server";
 
 /** স্টোরফ্রন্টের (App Proxy) রাস্তার জন্য: আকার বাঁধা JSON body আর ভিজিটরের IP */
 export { proxyClientIp, readJson } from "./request.server";
@@ -43,8 +44,10 @@ export async function activeShop(domain: string | undefined | null) {
  * (৪ ঘণ্টায় ৮ বার পর্যন্ত), তাই ডাটাবেস বা Shopify-র সাময়িক সমস্যায় খবরটা হারায় না।
  * শুধু সেই webhook-এ ব্যবহার করা হয় যার কাজ দুবার চললেও ফল একই থাকে।
  */
-export function retryWebhook(label: string, error: unknown) {
+export function retryWebhook(label: string, error: unknown, shop?: string | null) {
   console.error(`[${label}] webhook failed; Shopify will send it again`, error);
+  // অ্যাপের ত্রুটির খাতাতেও (ডেস্কের Errors পাতা); সাময়িক সমস্যা হলে গুনতিতেই বোঝা যায়
+  void recordError({ source: "webhook", location: label, error, shop });
   return new Response(null, { status: 503 });
 }
 

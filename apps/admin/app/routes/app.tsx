@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import type { HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { Outlet, useLoaderData, useRouteError } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -9,6 +10,7 @@ import { ensureShop } from "../lib/shop.server";
 import { ensurePixel } from "../lib/web-pixel.server";
 import { localeFromRequest } from "../lib/i18n";
 import { isDeskShop } from "../lib/support.server";
+import { reportClientError } from "../lib/errors";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
@@ -30,6 +32,18 @@ const HOME = { rel: "home" };
 export default function App() {
   const { apiKey, locale, desk } = useLoaderData<typeof loader>();
   const t = createT(locale);
+
+  // বোতাম চাপা বা অপেক্ষার কাজে ব্রাউজারে কোড ভাঙলে অ্যাপের ত্রুটির খাতায় (পাতা আঁকায় ভাঙলে ErrorBoundary পাঠায়)
+  useEffect(() => {
+    const onError = (event: ErrorEvent) => reportClientError(event.error);
+    const onRejection = (event: PromiseRejectionEvent) => reportClientError(event.reason);
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
 
   return (
     <AppProvider apiKey={apiKey}>
@@ -62,7 +76,10 @@ export default function App() {
 
 // Shopify needs React Router to catch some thrown responses, so that their headers are included in the response.
 export function ErrorBoundary() {
-  return boundary.error(useRouteError());
+  const error = useRouteError();
+  // ব্রাউজারে পাতা আঁকতে গিয়ে ভাঙলে খাতায় পাঠানো (একবারই; সার্ভারের ত্রুটি সার্ভারেই লেখা হয়েছে)
+  reportClientError(error);
+  return boundary.error(error);
 }
 
 export const headers: HeadersFunction = (headersArgs) => {

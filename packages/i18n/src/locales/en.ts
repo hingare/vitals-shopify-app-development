@@ -1958,6 +1958,53 @@ export const en = {
   "desk.ticket.close": "Close",
   "desk.ticket.reopen": "Reopen",
   "desk.ticket.sendFailed": "Couldn't send. Try again.",
+  "desk.errors": "Errors",
+  "desk.errorsCount": "Errors ({n})",
+
+  "deskErrors.title": "App errors",
+  "deskErrors.open": "Open errors",
+  "deskErrors.lastDay": "Happened in the last 24 hours",
+  "deskErrors.tab.open": "Open",
+  "deskErrors.tab.openCount": "Open ({n})",
+  "deskErrors.tab.fixed": "Fixed",
+  "deskErrors.empty.open": "No open errors. New ones show up here as they happen.",
+  "deskErrors.empty.fixed": "Nothing marked as fixed yet.",
+  "deskErrors.error": "Error",
+  "deskErrors.where": "Where",
+  "deskErrors.count": "Times",
+  "deskErrors.lastSeen": "Last seen",
+  "deskErrors.store": "Store",
+  "deskErrors.unknownStore": "Unknown store",
+  "deskErrors.source.server": "Server",
+  "deskErrors.source.job": "Background job",
+  "deskErrors.source.webhook": "Webhook",
+  "deskErrors.source.admin": "Admin page",
+  "deskErrors.noAlerts":
+    "Email isn't fully set up, so you get no email when a new kind of error appears. Set the email provider and SUPPORT_INBOX.",
+  "deskErrors.privacy":
+    "Emails, phone numbers, long numbers and keys are removed before an error is saved. Errors that don't happen for 30 days are deleted.",
+  "deskErrors.detail.notFound": "This error doesn't exist or was deleted.",
+  "deskErrors.detail.where": "Where: {source} · {location}",
+  "deskErrors.detail.count": "Times: {n}",
+  "deskErrors.detail.firstSeen": "First seen {when}",
+  "deskErrors.detail.lastSeen": "Last seen {when}",
+  "deskErrors.detail.store": "Last store: {shop}",
+  "deskErrors.detail.stack": "Where in the code",
+  "deskErrors.detail.noStack": "No code location was saved for this error.",
+  "deskErrors.detail.fixed":
+    "Marked as fixed {when}. If it happens again, it moves back to Open and you get an email.",
+  "deskErrors.detail.resolve": "Mark as fixed",
+  "deskErrors.detail.reopen": "Reopen",
+  "deskErrors.detail.resolved": "Marked as fixed",
+  "deskErrors.detail.reopened": "Moved back to Open",
+  "deskErrors.email.subject": "New errors in {brand}: {n}",
+  "deskErrors.email.intro":
+    "New kinds of errors appeared in {brand}. Each kind is emailed once; the support desk shows how often it happens.",
+  "deskErrors.email.line": "{source} · {location} · {count}× · {shop}",
+  "deskErrors.email.more": "{n} more are waiting in the support desk.",
+  "deskErrors.email.button": "Open errors",
+  "deskErrors.email.noDesk":
+    "To see the details in the app, set SUPPORT_DESK_SHOPS to your own store.",
 } as const;
 
 export type MessageKey = keyof typeof en;

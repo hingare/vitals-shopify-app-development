@@ -11,13 +11,14 @@ import {
   supportInbox,
   type DeskView,
 } from "../lib/support.server";
+import { errorStats } from "../lib/errors.server";
 import { durationLabel } from "../lib/support";
 import { ago, minutesSince } from "../lib/ago";
 import { useT } from "../lib/i18n";
 
 /**
- * অ্যাপের মালিকের সাপোর্ট ডেস্ক: সব স্টোরের টিকিট আর উত্তরের সময়। শুধু SUPPORT_DESK_SHOPS-এ লেখা
- * স্টোরে খোলে; অন্য স্টোরে পাতাটা নেই বলে দেখায়।
+ * অ্যাপের মালিকের সাপোর্ট ডেস্ক: সব স্টোরের টিকিট আর উত্তরের সময়, আর অ্যাপের ত্রুটির খাতার লিংক।
+ * শুধু SUPPORT_DESK_SHOPS-এ লেখা স্টোরে খোলে; অন্য স্টোরে পাতাটা নেই বলে দেখায়।
  */
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -25,7 +26,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const param = new URL(request.url).searchParams.get("view");
   const view: DeskView = param === "answered" || param === "closed" ? param : "open";
   const now = new Date();
-  const [tickets, stats] = await Promise.all([deskTickets(view), deskStats(now)]);
+  const [tickets, stats, errors] = await Promise.all([
+    deskTickets(view),
+    deskStats(now),
+    errorStats(now),
+  ]);
   return {
     allowed: true as const,
     view,
@@ -37,6 +42,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       medianReplyMinutes: stats.medianReplyMinutes,
       lastWeek: stats.lastWeek,
     },
+    openErrors: errors.open,
     tickets: tickets.map((ticket) => ({
       id: ticket.id,
       subject: ticket.subject,
@@ -74,6 +80,9 @@ export default function DeskPage() {
       <s-link slot="breadcrumb-actions" href="/app/help">
         {t("helpPage.title")}
       </s-link>
+      <s-button slot="secondary-actions" href="/app/desk/errors">
+        {data.openErrors > 0 ? t("desk.errorsCount", { n: data.openErrors }) : t("desk.errors")}
+      </s-button>
       {!data.emailReady ? (
         <s-banner tone="warning">{t("desk.noEmail")}</s-banner>
       ) : (

@@ -942,3 +942,32 @@ model SupportMessage {
 
   @@index([ticketId, createdAt])
 }
+
+/// অ্যাপের নিজের ত্রুটির খাতা (সার্ভার, ব্যাকগ্রাউন্ড কাজ, webhook, অ্যাডমিন পেজ)। একই ধরনের ত্রুটি এক সারিতে
+/// গোনা হয়। জমার আগে ইমেইল, ফোন নম্বর আর চাবি/টোকেন মুছে ফেলা হয় (app/lib/errors.server.ts)।
+/// কোনো স্টোরের সাথে বাঁধা নয়, তাই স্টোর মুছলেও খাতা থাকে; শুধু lastShop খালি করা হয়।
+model AppError {
+  id          String    @id @default(cuid())
+  /// একই ধরনের ত্রুটি চেনার চাবি: উৎস, জায়গা, নাম, সংখ্যা ছাড়া বার্তা আর কোডের প্রথম লাইন থেকে
+  fingerprint String    @unique
+  /// "server" | "job" | "webhook" | "admin"
+  source      String
+  /// কোথায়: পাতার পথ, কাজের ধরন বা webhook
+  location    String
+  name        String
+  message     String
+  stack       String?
+  count       Int       @default(1)
+  firstSeenAt DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  /// শেষবার যে স্টোরে ঘটেছে (myshopify ঠিকানা), জানা থাকলে
+  lastShop    String?
+  /// ঠিক করা হয়েছে বলে চিহ্নিত; আবার ঘটলে খালি হয়ে খোলা তালিকায় ফেরে
+  resolvedAt  DateTime?
+  /// নতুন ত্রুটির ইমেইল কখন গেছে (খালি = এখনো যায়নি)
+  notifiedAt  DateTime?
+
+  @@index([resolvedAt, lastSeenAt])
+  @@index([notifiedAt])
+  @@index([lastSeenAt])
+}
