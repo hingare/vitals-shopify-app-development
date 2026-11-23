@@ -442,6 +442,12 @@ model EmailCampaign {
   scheduledAt DateTime?
   sentAt      DateTime?
   recipients  Int       @default(0)
+  /// Shopify-র customer segment (gid://shopify/Segment/…); খালি মানে সব subscribed সাবস্ক্রাইবার
+  segmentId   String?
+  /// বেছে নেওয়ার সময়ের সেগমেন্টের নাম (শুধু দেখানোর জন্য)
+  segmentName String?
+  /// পাঠানো থেমে গেলে কেন: segment_missing | segment_timeout | send_failed
+  error       String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   shop        Shop      @relation(fields: [shopId], references: [id], onDelete: Cascade)

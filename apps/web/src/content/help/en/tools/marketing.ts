@@ -25,6 +25,7 @@ export const marketing: Record<string, ToolArticle> = {
       "Open **Marketing** in the app. Under **Sender details**, set the sender name, a reply-to email, your business address (many countries require it in marketing emails) and the button color.",
       "Under **Automatic emails**, open each one, edit the text, set **Send after**, turn on **Send this email** and save.",
       "To send a newsletter, choose **New campaign**, write it, send yourself a test, then press **Send now** or **Schedule**.",
+      "To email only some customers, pick a customer segment under **Audience** in the campaign. You can also start in Shopify: open **Customers**, then **Segments**, open a segment, press **Use segment** and choose **Send an email campaign**.",
       "Open **View subscribers** and use **Import from Shopify** to add customers who already agreed to email marketing. Nobody gets a welcome email from the import.",
     ],
     tips: [
@@ -35,6 +36,10 @@ export const marketing: Record<string, ToolArticle> = {
       {
         q: "Who counts as a subscriber?",
         a: "People who agreed to email marketing: in Shopify, through Pop-up, Spin the Wheel, or the newsletter box in Back in Stock. Consent stays in sync with the customer's record in Shopify.",
+      },
+      {
+        q: "Who gets a campaign sent to a segment?",
+        a: "Customers in the segment who are subscribers. Everyone else in the segment is skipped, so the number sent can be lower than the segment's size.",
       },
       {
         q: "Which emails don't count toward the limit?",

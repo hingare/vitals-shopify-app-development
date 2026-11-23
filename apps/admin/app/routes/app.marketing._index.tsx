@@ -50,6 +50,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       name: c.name,
       status: c.status,
       recipients: c.recipients,
+      segment: c.segmentName,
       when: (c.sentAt ?? c.scheduledAt ?? c.createdAt).toISOString(),
     })),
   };
@@ -222,9 +223,16 @@ export default function MarketingPage() {
               {data.campaigns.map((campaign) => (
                 <s-table-row key={campaign.id}>
                   <s-table-cell>
-                    <s-link href={`/app/marketing/campaigns/${campaign.id}`}>
-                      {campaign.name}
-                    </s-link>
+                    <s-stack direction="block" gap="small-300">
+                      <s-link href={`/app/marketing/campaigns/${campaign.id}`}>
+                        {campaign.name}
+                      </s-link>
+                      {campaign.segment && (
+                        <s-text color="subdued">
+                          {t("marketing.campaign.segmentLabel", { name: campaign.segment })}
+                        </s-text>
+                      )}
+                    </s-stack>
                   </s-table-cell>
                   <s-table-cell>
                     <s-badge tone={campaign.status === "sent" ? "success" : "neutral"}>

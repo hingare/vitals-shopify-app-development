@@ -1235,6 +1235,32 @@ export const en = {
   "marketing.campaign.results": "Results",
   "marketing.campaign.skipped": "Skipped",
   "marketing.campaign.queued": "Waiting to send",
+  "marketing.campaign.audience": "Audience",
+  "marketing.campaign.sendTo": "Send to",
+  "marketing.campaign.sendToHelp":
+    "Pick a customer segment to send only to those customers. Segments come from Customers → Segments in Shopify.",
+  "marketing.campaign.audienceAll": "All subscribers ({n})",
+  "marketing.campaign.allSubscribers": "All subscribers",
+  "marketing.campaign.segmentLabel": "Segment: {name}",
+  "marketing.campaign.segmentSize": "This segment has {n} customers.",
+  "marketing.campaign.segmentConsent":
+    "Only customers in this segment who agreed to receive marketing emails get it.",
+  "marketing.campaign.segmentsUnavailable":
+    "Segments from Shopify could not be loaded right now. You can still send to all subscribers.",
+  "marketing.campaign.segmentsCheckFailed":
+    "Could not check the segment with Shopify. Please try again.",
+  "marketing.campaign.segmentGone":
+    "This segment no longer exists in Shopify. Choose another audience.",
+  "marketing.campaign.confirmSendSegment": "Send this email to the subscribers in “{name}” now?",
+  "marketing.campaign.sentTo": "Sent to: {audience}",
+  "marketing.campaign.stopped.segmentMissing":
+    "Nothing was sent because the segment chosen for this campaign no longer exists in Shopify. Choose another audience and send again.",
+  "marketing.campaign.stopped.segmentTimeout":
+    "Nothing was sent because Shopify took too long to list the customers in this segment. Please send again.",
+  "marketing.campaign.stopped.sendFailed":
+    "Nothing was sent because of a problem while sending. Please send again.",
+  "marketing.campaign.stopped.partial":
+    "Sending stopped early because of a problem. {n} emails were sent before it stopped.",
   "marketing.email.subject": "Subject",
   "marketing.email.preheader": "Preview text",
   "marketing.email.preheaderHelp": "The short line shown after the subject in the inbox.",

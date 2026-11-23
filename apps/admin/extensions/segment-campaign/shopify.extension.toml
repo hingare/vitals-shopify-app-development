@@ -1,0 +1,13 @@
+# Shopify admin-এর Customers → Segments → কোনো সেগমেন্ট → "Use segment" তালিকায় আমাদের অ্যাপের কাজ।
+# বেছে নিলে ছোট একটা জানালা খোলে, সেখান থেকে অ্যাপের ইমেইল ক্যাম্পেইন এডিটর খোলে, সেগমেন্টটা আগে থেকেই বেছে রাখা।
+# Built for Shopify ৫.৬.৩ / ৫.৭.১: অনেক গ্রাহককে লক্ষ্য করা কাজে Shopify-র সেগমেন্ট ব্যবহার করা যায়।
+api_version = "2026-10"
+
+[[extensions]]
+name = "t:name"
+handle = "segment-campaign"
+type = "ui_extension"
+
+  [[extensions.targeting]]
+  module = "./src/ActionExtension.tsx"
+  target = "admin.customer-segment-details.action.render"

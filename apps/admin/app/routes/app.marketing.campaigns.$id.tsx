@@ -20,14 +20,42 @@ import {
 } from "../lib/campaigns.server";
 import { emailContentSchema } from "../lib/email-template";
 import { allowTestSend, marketingContext } from "../lib/marketing.server";
+import {
+  findSegment,
+  isSegmentId,
+  listSegments,
+  segmentSize,
+  type SegmentOption,
+} from "../lib/segments.server";
 import { subscriberCounts } from "../lib/subscribers.server";
+import type { GraphqlClient } from "../lib/tools.server";
 import { useT } from "../lib/i18n";
 import { EmailFields, EmailPreview, TestSend } from "../components/EmailEditor";
 import { FormSaveBar, useSaveState } from "../components/FormSaveBar";
 import { useConfirm } from "../components/ConfirmModal";
 
+/** Shopify-র সেগমেন্টের তালিকা; আনা না গেলে null (তখনও সব সাবস্ক্রাইবারকে পাঠানো যায়) */
+const loadSegments = (admin: GraphqlClient) => listSegments(admin).catch(() => null);
+
+/** বেছে নেওয়া সেগমেন্টে কতজন (শুধু দেখানোর জন্য) */
+const sizeOf = (admin: GraphqlClient, segment: SegmentOption | null) =>
+  segment ? segmentSize(admin, segment.id) : Promise.resolve(null);
+
+/**
+ * সেভ করা সেগমেন্টটা Shopify-তে আর নেই কিনা। তালিকায় না থাকলেই নেই ধরা হয় না (খুব বেশি সেগমেন্ট থাকলে
+ * তালিকায় সব আসে না), Shopify-তে আলাদা করে দেখা হয়; জানা না গেলে false, যাতে পাঠানো আটকে না যায়।
+ */
+async function segmentGone(
+  admin: GraphqlClient,
+  segment: SegmentOption | null,
+  segments: SegmentOption[] | null,
+) {
+  if (!segment || !segments || segments.some((s) => s.id === segment.id)) return false;
+  return (await findSegment(admin, segment.id).catch(() => segment)) === null;
+}
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
   const [context, counts] = await Promise.all([marketingContext(shop), subscriberCounts(shop.id)]);
   const shared = {
@@ -40,6 +68,13 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     subscribed: counts.subscribed,
   };
   if (params.id === "new") {
+    const segments = await loadSegments(admin);
+    // Shopify-র Segments পাতার "Use segment" থেকে এলে (segment-campaign extension) সেগমেন্ট আগে থেকেই বাছা
+    const preset = new URL(request.url).searchParams.get("segment");
+    const segment = isSegmentId(preset)
+      ? (segments?.find((s) => s.id === preset) ??
+        (await findSegment(admin, preset).catch(() => null)))
+      : null;
     return {
       ...shared,
       id: null,
@@ -49,11 +84,26 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       recipients: 0,
       content: { ...DEFAULT_CAMPAIGN, buttonUrl: context.storeUrl },
       stats: null,
+      segments,
+      segment,
+      segmentSize: await sizeOf(admin, segment),
+      segmentGone: false,
+      error: null,
     };
   }
   const campaign = await getCampaign(shop.id, params.id ?? "");
   if (!campaign) throw new Response("Not found", { status: 404 });
   const editable = campaign.status === "draft" || campaign.status === "scheduled";
+  const segment: SegmentOption | null = campaign.segmentId
+    ? { id: campaign.segmentId, name: campaign.segmentName ?? "" }
+    : null;
+  const [segments, stats] = await Promise.all([
+    editable ? loadSegments(admin) : null,
+    editable ? null : campaignStats(shop.id, campaign.id),
+  ]);
+  const [size, gone]: [number | null, boolean] = editable
+    ? await Promise.all([sizeOf(admin, segment), segmentGone(admin, segment, segments)])
+    : [null, false];
   return {
     ...shared,
     id: campaign.id,
@@ -62,19 +112,25 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     scheduledAt: campaign.scheduledAt?.toISOString() ?? null,
     recipients: campaign.recipients,
     content: readCampaignContent(campaign.content),
-    stats: editable ? null : await campaignStats(shop.id, campaign.id),
+    stats,
+    segments,
+    segment,
+    segmentSize: size,
+    segmentGone: gone,
+    error: campaign.error,
   };
 };
 
 type Result = { ok: true; intent: string } | { ok: false; intent: string; error: string };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
-  const { session } = await authenticate.admin(request);
+  const { session, admin } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
   const body = (await request.json()) as {
     intent?: string;
     name?: string;
     content?: unknown;
+    segmentId?: string | null;
     to?: string;
     at?: string;
   };
@@ -99,9 +155,24 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       : fail(result.error ?? "send_failed");
   }
 
+  // বেছে নেওয়া সেগমেন্টটা এখনো স্টোরে আছে কিনা Shopify-তে দেখে নাম সহ রাখা
+  let segment: SegmentOption | null = null;
+  if (body.segmentId) {
+    try {
+      segment = await findSegment(admin, body.segmentId);
+    } catch {
+      return fail("segments_unavailable");
+    }
+    if (!segment) return fail("segment_missing");
+  }
+
   let id: string;
   try {
-    id = await saveCampaign(shop.id, existing, { name: body.name ?? "", content: body.content });
+    id = await saveCampaign(shop.id, existing, {
+      name: body.name ?? "",
+      content: body.content,
+      segment,
+    });
     if (intent === "schedule") {
       const at = new Date(body.at ?? "");
       // অতীতের সময় বা এক বছরের বেশি পরের সময় নয়
@@ -143,7 +214,8 @@ function CampaignEditor() {
   const revalidator = useRevalidator();
   const [name, setName] = useState(data.name);
   const [content, setContent] = useState(data.content);
-  const { dirty, begin, commit, saved } = useSaveState({ name, content });
+  const [segmentId, setSegmentId] = useState(data.segment?.id ?? "");
+  const { dirty, begin, commit, saved } = useSaveState({ name, content, segmentId });
   const confirm = useConfirm("campaign-confirm");
   const whenInput = useRef<HTMLInputElement>(null);
   const editable = data.status === "draft" || data.status === "scheduled";
@@ -185,6 +257,8 @@ function CampaignEditor() {
       already_sent: t("marketing.campaign.sentNote"),
       bad_time: t("marketing.campaign.badTime"),
       tool_off: t("marketing.toolOff"),
+      segment_missing: t("marketing.campaign.segmentGone"),
+      segments_unavailable: t("marketing.campaign.segmentsCheckFailed"),
     };
     shopify.toast.show(
       messages[result.error] ?? t("marketing.email.testFailed", { error: result.error }),
@@ -194,15 +268,19 @@ function CampaignEditor() {
 
   const submit = (payload: { intent: string } & Record<string, unknown>) => {
     if (SAVES.has(payload.intent)) begin();
-    return fetcher.submit(JSON.stringify({ name, content, ...payload }), {
-      method: "POST",
-      encType: "application/json",
-    });
+    return fetcher.submit(
+      JSON.stringify({ name, content, segmentId: segmentId || null, ...payload }),
+      {
+        method: "POST",
+        encType: "application/json",
+      },
+    );
   };
   const discard = () => {
     const last = saved();
     setName(last.name);
     setContent(last.content);
+    setSegmentId(last.segmentId);
   };
   const loading = (name: string) => (busy && intent === name ? { loading: true } : {});
 
@@ -215,17 +293,47 @@ function CampaignEditor() {
     submit({ intent: "schedule", at: at.toISOString() });
   }
 
+  // সেগমেন্টের তালিকা (সেভ করা সেগমেন্ট Shopify-তে আর না থাকলেও বাছাই ঘরে দেখায়)
+  const segmentOptions = [...(data.segments ?? [])];
+  if (data.segment && !segmentOptions.some((s) => s.id === data.segment?.id)) {
+    segmentOptions.push(data.segment);
+  }
+  const chosen = segmentOptions.find((s) => s.id === segmentId) ?? null;
+  // সেভ করা সেগমেন্টটাই শুধু তালিকার বাইরে থাকতে পারে; সেটা Shopify-তে আর না থাকলে পাঠানো যায় না
+  const segmentMissing = !!chosen && chosen.id === data.segment?.id && data.segmentGone;
+  // সংখ্যাটা শুধু পাতা খোলার সময় বাছা সেগমেন্টের জন্য জানা
+  const chosenSize = chosen && chosen.id === data.segment?.id ? data.segmentSize : null;
+  // কতজন পেতে পারেন: সেগমেন্টে subscribed যাঁরা, সর্বোচ্চ সব সাবস্ক্রাইবার
+  const reach = chosen ? Math.min(data.subscribed, chosenSize ?? data.subscribed) : data.subscribed;
+
   function send() {
-    const overLimit = data.subscribed > data.left;
+    const overLimit = reach > data.left;
+    const parts = [
+      chosen ? t("marketing.campaign.segmentConsent") : "",
+      overLimit ? t("marketing.campaign.overLimit", { left: data.left, n: reach }) : "",
+      t("common.cantUndo"),
+    ];
     confirm.ask({
-      heading: t("marketing.campaign.confirmSend", { n: data.subscribed }),
-      body: overLimit
-        ? `${t("marketing.campaign.overLimit", { left: data.left, n: data.subscribed })} ${t("common.cantUndo")}`
-        : t("common.cantUndo"),
+      heading: chosen
+        ? t("marketing.campaign.confirmSendSegment", { name: chosen.name })
+        : t("marketing.campaign.confirmSend", { n: data.subscribed }),
+      body: parts.filter(Boolean).join(" "),
       action: t("marketing.campaign.send"),
       onConfirm: () => submit({ intent: "send" }),
     });
   }
+
+  // আগের পাঠানো থেমে গেলে কেন
+  const stopped: Record<string, string> = {
+    segment_missing: t("marketing.campaign.stopped.segmentMissing"),
+    segment_timeout: t("marketing.campaign.stopped.segmentTimeout"),
+    send_failed: t("marketing.campaign.stopped.sendFailed"),
+  };
+  const stopNote = !data.error
+    ? null
+    : editable
+      ? (stopped[data.error] ?? stopped.send_failed)
+      : t("marketing.campaign.stopped.partial", { n: data.recipients });
 
   // একসাথে একটাই ব্যানার: যেটা আগে ঠিক করতে হবে সেটা
   const banner = !data.configured ? (
@@ -235,6 +343,8 @@ function CampaignEditor() {
       {t("marketing.toolOff")}{" "}
       <s-link href="/app/tools/email-marketing">{t("marketing.toolOff.action")}</s-link>
     </s-banner>
+  ) : stopNote ? (
+    <s-banner tone="warning">{stopNote}</s-banner>
   ) : !editable ? (
     <s-banner tone="info">{t("marketing.campaign.sentNote")}</s-banner>
   ) : null;
@@ -276,6 +386,11 @@ function CampaignEditor() {
 
       {stats && (
         <s-section heading={t("marketing.campaign.results")}>
+          <s-paragraph>
+            {t("marketing.campaign.sentTo", {
+              audience: data.segment ? data.segment.name : t("marketing.campaign.allSubscribers"),
+            })}
+          </s-paragraph>
           <s-grid gridTemplateColumns="repeat(auto-fit, minmax(130px, 1fr))" gap="base">
             {(
               [
@@ -317,6 +432,42 @@ function CampaignEditor() {
       </s-section>
 
       {editable && (
+        <s-section heading={t("marketing.campaign.audience")}>
+          <s-stack direction="block" gap="small">
+            <s-select
+              label={t("marketing.campaign.sendTo")}
+              details={t("marketing.campaign.sendToHelp")}
+              value={segmentId}
+              onChange={(e) => setSegmentId(e.currentTarget.value)}
+            >
+              <s-option value="">
+                {t("marketing.campaign.audienceAll", { n: data.subscribed.toLocaleString() })}
+              </s-option>
+              {segmentOptions.map((segment) => (
+                <s-option key={segment.id} value={segment.id}>
+                  {segment.name}
+                </s-option>
+              ))}
+            </s-select>
+            {data.segments === null && (
+              <s-text color="subdued">{t("marketing.campaign.segmentsUnavailable")}</s-text>
+            )}
+            {segmentMissing ? (
+              <s-text tone="caution">{t("marketing.campaign.segmentGone")}</s-text>
+            ) : (
+              chosen && (
+                <s-text color="subdued">
+                  {chosenSize === null
+                    ? t("marketing.campaign.segmentConsent")
+                    : `${t("marketing.campaign.segmentSize", { n: chosenSize.toLocaleString() })} ${t("marketing.campaign.segmentConsent")}`}
+                </s-text>
+              )
+            )}
+          </s-stack>
+        </s-section>
+      )}
+
+      {editable && (
         <s-section heading={t("marketing.campaign.send")}>
           <s-stack direction="block" gap="base">
             {data.status === "scheduled" && data.scheduledAt && (
@@ -329,9 +480,9 @@ function CampaignEditor() {
             {data.subscribed === 0 ? (
               <s-text color="subdued">{t("marketing.campaign.noSubscribers")}</s-text>
             ) : (
-              data.subscribed > data.left && (
+              reach > data.left && (
                 <s-text tone="caution">
-                  {t("marketing.campaign.overLimit", { left: data.left, n: data.subscribed })}
+                  {t("marketing.campaign.overLimit", { left: data.left, n: reach })}
                 </s-text>
               )
             )}
@@ -339,7 +490,7 @@ function CampaignEditor() {
               <s-button
                 variant="primary"
                 onClick={send}
-                {...(data.subscribed === 0 || !data.allowed || !data.toolEnabled
+                {...(data.subscribed === 0 || segmentMissing || !data.allowed || !data.toolEnabled
                   ? { disabled: true }
                   : {})}
                 {...loading("send")}

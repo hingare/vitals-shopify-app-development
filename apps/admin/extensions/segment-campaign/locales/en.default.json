@@ -1,0 +1,15 @@
+{
+  "name": "Send an email campaign",
+  "heading": "Send an email campaign",
+  "body": "Create an email campaign for the customers in “{{segment}}”.",
+  "bodyNoName": "Create an email campaign for the customers in this segment.",
+  "members": {
+    "one": "This segment has {{total}} customer.",
+    "other": "This segment has {{total}} customers."
+  },
+  "review": "You write and preview the email in the app before anything is sent.",
+  "consent": "Only customers who agreed to receive marketing emails get it.",
+  "missing": "We couldn't read this segment. Close this window and try again.",
+  "create": "Create campaign",
+  "cancel": "Cancel"
+}
