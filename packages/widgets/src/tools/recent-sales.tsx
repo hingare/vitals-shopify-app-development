@@ -4,7 +4,7 @@ import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { timeAgo } from "../dates";
-import { bottomOffset, fill, isMobile } from "../dom";
+import { bottomOffset, fill, isMobile, withBottom } from "../dom";
 import { imageUrl } from "../product";
 
 const TOOL_ID = "recent-sales";
@@ -143,5 +143,5 @@ export async function mount({ config, settings }: ToolContext) {
   const host = document.createElement("div");
   host.id = "app-recent-sales";
   document.body.appendChild(host);
-  render(<Toasts s={s} sales={sales} locale={config.locale} />, host);
+  withBottom(() => render(<Toasts s={s} sales={sales} locale={config.locale} />, host));
 }

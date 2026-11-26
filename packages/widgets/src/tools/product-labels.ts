@@ -38,8 +38,9 @@ export function mount({ config, settings }: ToolContext) {
   if (config.pageType === "product") {
     const p = readPageProduct();
     const section = productForm()?.closest(".shopify-section") ?? document.querySelector("main");
+    // আগে ঘরের নাম দেখা: i.width পড়লে ব্রাউজারকে তখনই পুরো পাতা সাজাতে হয় (forced layout)
     const img = [...(section?.querySelectorAll<HTMLImageElement>("img") ?? [])].find(
-      (i) => i.width >= 200 || i.closest("[class*='media'], [class*='gallery']"),
+      (i) => !!i.closest("[class*='media'], [class*='gallery']") || i.width >= 200,
     );
     const host = imageBox(img ?? null);
     if (p && host) {

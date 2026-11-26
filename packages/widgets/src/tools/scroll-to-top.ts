@@ -35,5 +35,7 @@ export function mount({ config, settings }: ToolContext) {
     button.style.bottom = `${20 + bottomOffset() + (sameCorner ? 64 : 0)}px`;
   };
   addEventListener("scroll", update, { passive: true });
-  update();
+  // প্রথম দেখা পরের frame-এ: এখনই scrollY পড়লে বাকি টুলের সদ্য বসানো জিনিসসহ পুরো পাতা তখনই আবার
+  // সাজাতে হত (forced layout, প্রোডাক্ট পাতায় ~৯ms); frame-এর শুরুতে সেই কাজটা ব্রাউজার এমনিতেই করে
+  requestAnimationFrame(update);
 }

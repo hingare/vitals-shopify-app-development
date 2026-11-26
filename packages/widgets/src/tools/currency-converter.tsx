@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { useState } from "preact/hooks";
 import type { StoreConfig, ToolContext } from "../types";
-import { bottomOffset, fill, store } from "../dom";
+import { bottomOffset, fill, store, withBottom } from "../dom";
 import { currencyForLocale, parseMoney, replaceMoney } from "../money";
 import { widgetT } from "../i18n";
 
@@ -156,17 +156,19 @@ export async function mount({ config, settings }: ToolContext) {
 
   const host = document.createElement("div");
   document.body.appendChild(host);
-  render(
-    <Picker
-      s={s}
-      config={config}
-      current={current}
-      choose={(code) => {
-        current = code;
-        store.set(KEY, code);
-        apply();
-      }}
-    />,
-    host,
+  withBottom(() =>
+    render(
+      <Picker
+        s={s}
+        config={config}
+        current={current}
+        choose={(code) => {
+          current = code;
+          store.set(KEY, code);
+          apply();
+        }}
+      />,
+      host,
+    ),
   );
 }

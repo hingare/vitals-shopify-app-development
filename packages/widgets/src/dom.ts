@@ -35,6 +35,7 @@ export function barHost(position: "top" | "bottom", name: string, sticky = false
     else {
       stack.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:2147482000";
       document.body.appendChild(stack);
+      watchBottom(stack);
     }
   }
   if (position === "top" && sticky) {
@@ -50,15 +51,50 @@ export function barHost(position: "top" | "bottom", name: string, sticky = false
   return host;
 }
 
-/** স্ক্রিনের নিচে আমাদের অন্য কিছু (Sticky ATC, নিচের বার) থাকলে তার উচ্চতা */
+/**
+ * নিচে আটকে থাকা আমাদের জিনিসের (Sticky ATC, নিচের বার) উচ্চতা, ResizeObserver-এ মাপা। offsetHeight
+ * পড়লে বাকি টুলের সদ্য বসানো জিনিসসহ পুরো পাতা তখনই আবার সাজাতে হয় (forced layout, প্রোডাক্ট পাতায়
+ * কয়েক ms); ResizeObserver মাপ দেয় ব্রাউজারের নিজের layout-এর পরে।
+ */
+const heights = new WeakMap<Element, number>();
+let sizes: ResizeObserver | undefined;
+
+/** নিচে আটকে থাকা জিনিস তৈরি হলেই মাপা শুরু, যাতে ভাসমান বোতাম পরে জানতে চাইলে মাপটা তৈরি থাকে */
+export function watchBottom(el: Element | null | undefined) {
+  if (!el || typeof ResizeObserver === "undefined") return;
+  sizes ??= new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      heights.set(entry.target, (entry.target as HTMLElement).offsetHeight);
+    }
+  });
+  sizes.observe(el);
+}
+
+const BOTTOM = "#app-sticky-atc > *, #app-bars-bottom";
+
+/** স্ক্রিনের নিচে আমাদের অন্য কিছু (Sticky ATC, নিচের বার) থাকলে তার উচ্চতা; এখনো না মাপা থাকলে offsetHeight */
 export function bottomOffset(): number {
   let height = 0;
-  for (const el of document.querySelectorAll<HTMLElement>(
-    "#app-sticky-atc > *, #app-bars-bottom",
-  )) {
-    height = Math.max(height, el.offsetHeight);
+  for (const el of document.querySelectorAll<HTMLElement>(BOTTOM)) {
+    let h = heights.get(el);
+    if (h === undefined) {
+      h = el.offsetHeight;
+      watchBottom(el);
+    }
+    height = Math.max(height, h);
   }
   return height;
+}
+
+/**
+ * ভাসমান বোতামের প্রথম আঁকা (যার জায়গা bottomOffset দিয়ে ঠিক হয়)। নিচের জিনিসটা সদ্য বসেছে, এখনো মাপা
+ * হয়নি (যেমন Sticky ATC একই সময়ে চালু হল) তো পরের frame-এ আঁকা: ব্রাউজার তখন পাতা এমনিতেই সাজায়,
+ * আলাদা করে সাজাতে হয় না। নইলে এখনই, যাতে আঁকার কাজটা ব্রাউজারের নিজের আঁকার সাথে জমে না যায়।
+ */
+export function withBottom(draw: () => void) {
+  const pending = [...document.querySelectorAll(BOTTOM)].some((el) => !heights.has(el));
+  if (pending) requestAnimationFrame(draw);
+  else draw();
 }
 
 /**

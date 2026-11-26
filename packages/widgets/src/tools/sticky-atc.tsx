@@ -3,6 +3,7 @@ import { useEffect, useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { attribute, track } from "../analytics";
+import { watchBottom } from "../dom";
 import {
   currentVariantId,
   fetchProduct,
@@ -146,4 +147,6 @@ export function mount({ config, settings }: ToolContext) {
     <StickyBar settings={s} product={product} locale={config.locale} currency={config.currency} />,
     host,
   );
+  // চ্যাট, মুদ্রা আর অন্য ভাসমান বোতাম এর উপরে বসে (bottomOffset); মাপটা আগেভাগে তৈরি থাকে
+  watchBottom(host.firstElementChild);
 }
