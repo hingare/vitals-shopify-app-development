@@ -1,10 +1,12 @@
 import { render } from "preact";
-import { useEffect, useState } from "preact/hooks";
-import type { StoreOffers, ToolContext } from "../types";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import type { ToolContext } from "../types";
 import { widgetT, type WidgetString } from "../i18n";
 import { attribute, track } from "../analytics";
 import { discounted, money, placeAfterProductForm, readPageProduct } from "../product";
-import { offerShown, syncAbGroup } from "../offers";
+import { type Bundle, bundleFor, syncAbGroup } from "../offers";
+import { adopt } from "../early/run";
+import { BUNDLE_ROW, ONE_LINE, TEXT, release, reserve } from "../early/reserve";
 
 const TOOL_ID = "bundles";
 
@@ -26,18 +28,19 @@ interface ShopProduct {
   variants: ShopVariant[];
 }
 
-type Bundle = StoreOffers["bundles"][number];
-
 function BundleBox({
   bundle,
   settings,
   locale,
   currency,
+  onReady,
 }: {
   bundle: Bundle;
   settings: Settings;
   locale: string;
   currency: string | undefined;
+  /** প্রোডাক্ট এসে বাক্স বসলে (বা দেখানোর কিছু না থাকলে), রাখা জায়গা ছাড়তে */
+  onReady: () => void;
 }) {
   const t = (key: WidgetString) => widgetT(locale, key);
   const format = (cents: number) => money(cents, currency, locale);
@@ -60,6 +63,9 @@ function BundleBox({
       setChoice(list.map((p) => p?.variants.find((v) => v.available)?.id ?? 0));
     });
   }, [bundle.id]);
+  useLayoutEffect(() => {
+    if (products) onReady();
+  }, [products]);
 
   if (!products) return null;
   // কোনো প্রোডাক্ট পাওয়া না গেলে বা স্টকে না থাকলে বান্ডেল দেখাই না
@@ -99,21 +105,16 @@ function BundleBox({
   return (
     <section
       aria-label={bundle.title || t("buyTogether")}
-      style={{
-        margin: "16px 0",
-        padding: "16px",
-        border: `1px solid ${colors.accent}`,
-        borderRadius: "8px",
-        background: colors.background,
-        color: colors.text,
-      }}
+      style={`${TEXT};margin:16px 0;padding:16px;border:1px solid ${colors.accent};border-radius:8px;background:${colors.background};color:${colors.text}`}
     >
-      <p style={{ margin: "0 0 12px", fontWeight: 600 }}>{bundle.title || t("buyTogether")}</p>
+      <p style={`${TEXT};${ONE_LINE};margin:0 0 12px;font-weight:600`}>
+        {bundle.title || t("buyTogether")}
+      </p>
       <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {lines.map((l, i) => (
           <li
             key={l.product.handle}
-            style={{ display: "flex", gap: "12px", alignItems: "center", padding: "6px 0" }}
+            style={`display:flex;gap:12px;align-items:center;margin:0;padding:6px 0;height:${BUNDLE_ROW}px;box-sizing:border-box`}
           >
             {l.product.featured_image && (
               <img
@@ -122,11 +123,11 @@ function BundleBox({
                 width={56}
                 height={56}
                 loading="lazy"
-                style={{ objectFit: "cover", borderRadius: "6px" }}
+                style={{ width: "56px", height: "56px", objectFit: "cover", borderRadius: "6px" }}
               />
             )}
-            <div style={{ flex: 1 }}>
-              <div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={ONE_LINE}>
                 {l.qty > 1 ? `${l.qty} × ` : ""}
                 {l.product.title}
               </div>
@@ -139,7 +140,15 @@ function BundleBox({
                     next[i] = Number((e.currentTarget as HTMLSelectElement).value);
                     setChoice(next);
                   }}
-                  style={{ marginTop: "4px", padding: "4px", font: "inherit" }}
+                  style={{
+                    display: "block",
+                    marginTop: "4px",
+                    height: "32px",
+                    maxWidth: "100%",
+                    padding: "0 4px",
+                    boxSizing: "border-box",
+                    font: "inherit",
+                  }}
                 >
                   {l.product.variants.map((v) => (
                     <option key={v.id} value={v.id} disabled={!v.available}>
@@ -149,11 +158,13 @@ function BundleBox({
                 </select>
               )}
             </div>
-            <div style={{ textAlign: "right" }}>{format(l.variant.price * l.qty)}</div>
+            <div style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+              {format(l.variant.price * l.qty)}
+            </div>
           </li>
         ))}
       </ul>
-      <p style={{ margin: "12px 0" }}>
+      <p style={`${TEXT};${ONE_LINE};margin:12px 0`}>
         {t("bundleTotal")}{" "}
         {after < total && <s style={{ opacity: 0.6, marginRight: "6px" }}>{format(total)}</s>}
         <strong style={{ color: colors.accent }}>{format(after)}</strong>
@@ -163,8 +174,11 @@ function BundleBox({
         onClick={() => void addAll()}
         disabled={state === "adding"}
         style={{
+          display: "block",
           width: "100%",
-          minHeight: "44px",
+          height: "44px",
+          padding: "0 12px",
+          boxSizing: "border-box",
           border: 0,
           borderRadius: "8px",
           background: colors.accent,
@@ -185,25 +199,26 @@ function BundleBox({
   );
 }
 
-/** প্রোডাক্ট পেজে "একসাথে কিনুন" বক্স: এই প্রোডাক্ট যে বান্ডেলে আছে তার প্রথমটা */
+/**
+ * প্রোডাক্ট পেজে "একসাথে কিনুন" বক্স: এই প্রোডাক্ট যে বান্ডেলে আছে তার প্রথমটা।
+ * পাতা আঁকার আগেই early.ts বাক্সের জায়গা রাখে; প্রোডাক্ট এলে বাক্স ঠিক সেই জায়গায় বসে।
+ */
 export function mount({ config, settings }: ToolContext) {
   syncAbGroup(config);
   if (config.pageType !== "product") return;
   const product = readPageProduct();
-  if (!product) return;
-  const id = String(product.productId);
-  const bundle = config.offers?.bundles.find(
-    (b) => offerShown(b.rules, config) && b.items.some((i) => i.productId === id),
-  );
+  const bundle = product ? bundleFor(config, product) : undefined;
   if (!bundle) return;
   track(TOOL_ID, "view");
+  const host = adopt(TOOL_ID) ?? reserve(placeAfterProductForm(TOOL_ID), 0);
   render(
     <BundleBox
       bundle={bundle}
       settings={settings as unknown as Settings}
       locale={config.locale}
       currency={config.currency}
+      onReady={() => release(host)}
     />,
-    placeAfterProductForm("bundles"),
+    host,
   );
 }

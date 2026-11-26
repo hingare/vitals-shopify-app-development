@@ -1,4 +1,6 @@
 /** প্রোডাক্ট পেজের তথ্য আর দাম দেখানোর ছোট সাহায্যকারী (কয়েকটা টুল একসাথে ব্যবহার করে) */
+import { parsed } from "./dom";
+
 export interface PageProduct {
   productId: number;
   title: string;
@@ -140,6 +142,22 @@ export function placeAfterProductForm(slot: string): HTMLElement {
   );
 }
 
+/**
+ * early.ts: বাক্স এখনই বসানো যায় কিনা। জায়গাটা থিমের HTML-এ এসেছে, আর বাক্স তার পরে বসলে তার
+ * ভেতরটাও পুরো পড়া হয়েছে; না হলে থিমের বাকি HTML ভেতরে যোগ হয়ে বাক্সটা নিচে ঠেলে দিত, পাতা আঁকার
+ * পরেও (ধীর ফোনে ব্রাউজার HTML পড়ার মাঝেই পাতা আঁকে)।
+ */
+function anchorReady(anchor: Element | null | undefined, where: "after" | "before" = "after") {
+  return !!anchor && (where === "before" || parsed(anchor));
+}
+
+export function productAnchorReady(): boolean {
+  const custom = window.__APP_CONFIG__?.placement;
+  if (custom?.productAnchor) return anchorReady(find(custom.productAnchor), custom.productWhere);
+  const form = productForm();
+  return anchorReady(form?.closest(PRODUCT_FORM_WRAPPERS) ?? form);
+}
+
 export function productForm(): HTMLFormElement | null {
   return document.querySelector<HTMLFormElement>(
     'main form[action*="/cart/add"]:not([id*="installment"])',
@@ -161,6 +179,8 @@ export function onVariantChange(callback: () => void) {
   });
 }
 
+const CHECKOUT_BUTTON = 'main [name="checkout"]';
+
 /**
  * কার্ট পেজে চেকআউট বাটনের কাছে বসায়।
  * ক্রম: থিমের app block → মার্চেন্টের দেওয়া selector → চেকআউট বাটনের ঘর।
@@ -174,10 +194,17 @@ export function placeNearCheckout(slot: string): HTMLElement {
       const custom = window.__APP_CONFIG__?.placement;
       const chosen = custom?.cartAnchor ? find(custom.cartAnchor) : null;
       if (chosen) return put(box, chosen, custom?.cartWhere);
-      put(box, find('main [name="checkout"]')?.parentElement ?? null);
+      put(box, find(CHECKOUT_BUTTON)?.parentElement ?? null);
     },
     slot,
   );
+}
+
+/** early.ts: কার্ট পেজে চেকআউট বাটনের ঘর (বা মার্চেন্টের selector) বাক্স বসানোর মতো তৈরি কিনা */
+export function checkoutAnchorReady(): boolean {
+  const custom = window.__APP_CONFIG__?.placement;
+  if (custom?.cartAnchor) return anchorReady(find(custom.cartAnchor), custom.cartWhere);
+  return anchorReady(find(CHECKOUT_BUTTON)?.parentElement);
 }
 
 /** স্টোরের ভাষা অনুযায়ী পথের শুরু, যেমন "/" বা "/fr/" */

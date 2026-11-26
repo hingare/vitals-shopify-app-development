@@ -1,4 +1,5 @@
-import type { OfferRules, StoreConfig } from "./types";
+import type { OfferRules, StoreConfig, StoreOffers } from "./types";
+import type { PageProduct } from "./product";
 import { storeClock } from "./dates";
 import { store } from "./dom";
 
@@ -50,4 +51,28 @@ export function offerShown(rules: OfferRules | undefined, config: StoreConfig, n
   if (rules.endsOn && today > rules.endsOn) return false;
   if (rules.abGroup && rules.abGroup !== abGroup()) return false;
   return true;
+}
+
+export type Bundle = StoreOffers["bundles"][number];
+
+/** এই প্রোডাক্ট যে বান্ডেলে আছে, এখন দেখানোর মতো তার প্রথমটা */
+export function bundleFor(config: StoreConfig, product: PageProduct): Bundle | undefined {
+  const id = String(product.productId);
+  return config.offers?.bundles.find(
+    (b) => offerShown(b.rules, config) && b.items.some((i) => i.productId === id),
+  );
+}
+
+export type Upsell = NonNullable<StoreOffers["upsells"]>[number];
+type Placement = Upsell["placements"][number];
+
+/** এই প্রোডাক্টগুলোর জন্য এই জায়গায় দেখানোর মতো upsell অফার */
+export function upsellsFor(config: StoreConfig, productIds: string[], placement: Placement) {
+  return (config.offers?.upsells ?? []).filter(
+    (u) =>
+      u.placements.includes(placement) &&
+      offerShown(u.rules, config) &&
+      (u.triggerProductIds.length === 0 ||
+        u.triggerProductIds.some((id) => productIds.includes(id))),
+  );
 }

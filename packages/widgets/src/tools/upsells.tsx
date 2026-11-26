@@ -5,9 +5,11 @@ import { widgetT } from "../i18n";
 import { onCartChange } from "../cart";
 import { getCart } from "../cart-api";
 import { placeAfterProductForm, placeNearCheckout, readPageProduct } from "../product";
-import { syncAbGroup } from "../offers";
-import { type Upsell, UpsellList, upsellsFor } from "../upsell";
+import { type Upsell, syncAbGroup, upsellsFor } from "../offers";
+import { UpsellList } from "../upsell";
 import { holdFocus } from "../ui";
+import { adopt } from "../early/run";
+import { release, reserve } from "../early/reserve";
 
 const TOOL_ID = "upsells";
 
@@ -151,9 +153,17 @@ export async function mount({ config, settings }: ToolContext) {
     const id = product ? String(product.productId) : "";
     const offer = id ? upsellsFor(config, [id], "product")[0] : undefined;
     if (offer) {
+      // পাতা আঁকার আগেই early.ts জায়গা রাখে; প্রোডাক্ট এলে তালিকা ঠিক সেখানে বসে
+      const host = adopt(TOOL_ID) ?? reserve(placeAfterProductForm(TOOL_ID), 0);
       render(
-        <UpsellList offer={offer} config={config} exclude={[id]} colors={s.colors} />,
-        placeAfterProductForm(TOOL_ID),
+        <UpsellList
+          offer={offer}
+          config={config}
+          exclude={[id]}
+          colors={s.colors}
+          onReady={() => release(host)}
+        />,
+        host,
       );
     }
   }

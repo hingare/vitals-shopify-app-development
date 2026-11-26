@@ -1,16 +1,49 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Page, Route } from "@playwright/test";
+import { Liquid } from "liquidjs";
 import { buildStoreConfig, registry } from "@app/tools";
 
 /**
  * পরীক্ষার জন্য নকল Shopify দোকান: Dawn-এর মতো একটা পাতা, Shopify-র Ajax API (/cart.js,
  * /products/x.js ...) আর আমাদের App Proxy-র (/apps/app-tools/*) নকল উত্তর। উইজেটগুলো চলে আসল
  * বিল্ড করা ফাইল থেকে (theme-embed/assets), ঠিক যেমন দোকানে চলে। ইন্টারনেট বা আসল দোকান লাগে না।
+ * app embed-এর Liquid-ও আসলটাই (liquidjs দিয়ে), দোকানের মতো <head>-এ।
  */
 export const ORIGIN = "https://shop.test";
-const ASSETS = fileURLToPath(
-  new URL("../../../apps/admin/extensions/theme-embed/assets/", import.meta.url),
+/** থিম এক্সটেনশনের ফোল্ডার (blocks, snippets, assets) */
+export const THEME = fileURLToPath(
+  new URL("../../../apps/admin/extensions/theme-embed/", import.meta.url),
+);
+const ASSETS = `${THEME}assets/`;
+
+/** Shopify-র নিজস্ব ফিল্টারগুলো এখানে সাধারণ নকল; বাকিগুলো liquidjs-এরই */
+const liquid = new Liquid({
+  root: [`${THEME}snippets`, `${THEME}blocks`],
+  extname: ".liquid",
+  timezoneOffset: "Asia/Dhaka",
+});
+liquid.registerFilter("asset_url", (file: string) => `${ORIGIN}/cdn/assets/${file}`);
+liquid.registerFilter("image_url", (image: { src?: string } | string) => {
+  const src = typeof image === "string" ? image : (image?.src ?? "");
+  return `//shop.test/cdn/shop/${src}`;
+});
+liquid.registerFilter("money", (cents: number) => `$${(cents / 100).toFixed(2)}`);
+liquid.registerFilter(
+  "payment_type_svg_tag",
+  (type: string) =>
+    `<svg role="img" aria-labelledby="pi-${type}" width="38" height="24" viewBox="0 0 38 24"><title id="pi-${type}">${type}</title><rect width="38" height="24" rx="3" fill="#1a1f71"/></svg>`,
+);
+// Shopify-র json nil-কে null লেখে, liquidjs কিছুই লেখে না (তাতে customerId: , হয়ে JS ভাঙত)।
+// < পালটানো হয় যাতে নকল লেখায় </script> থাকলেও পাতা না ভাঙে।
+liquid.registerFilter("json", (value: unknown) =>
+  JSON.stringify(value ?? null).replace(/</g, "\\u003c"),
+);
+const EMBED = liquid.parse(
+  readFileSync(`${THEME}blocks/app-tools-embed.liquid`, "utf8").replace(
+    /{%\s*schema\s*%}[\s\S]*?{%\s*endschema\s*%}/,
+    "",
+  ),
 );
 
 export type PageKind = "product" | "cart" | "collection" | "index";
@@ -173,12 +206,25 @@ class Cart {
   }
 }
 
+interface VariantStock {
+  available: boolean;
+  inventory_policy: "deny" | "continue";
+  inventory_quantity: number;
+}
+
+export interface ProductOptions {
+  /** পাতায় বেছে রাখা ভ্যারিয়েন্ট (ডিফল্ট 111, Small) */
+  variantId?: number;
+  /** ভ্যারিয়েন্টের স্টক বদলানো; ডিফল্ট: 111-এর ৪টা আছে, 112 শেষ */
+  variants?: Record<number, Partial<VariantStock>>;
+}
+
 export interface StoreOptions {
   /** চালু টুল; সেটিংস না দিলে ডিফল্ট */
   tools: Array<{ id: string; settings?: Record<string, unknown> }>;
   page?: PageKind;
-  /** পাতার প্রোডাক্টের তথ্য বদলানো (যেমন স্টক শেষ) */
-  product?: Record<string, unknown>;
+  /** পাতার প্রোডাক্ট: কোন ভ্যারিয়েন্ট বেছে রাখা, কোনটার স্টক কেমন */
+  product?: ProductOptions;
   /** অফার (Volume Discounts, Bundles ...) */
   offers?: Record<string, unknown> | null;
   /** শুরুতেই কার্টে যা থাকে */
@@ -189,7 +235,16 @@ export interface StoreOptions {
   proxy?: Record<string, unknown>;
   locale?: string;
   country?: string;
+  /**
+   * ধীর নেটওয়ার্কের মতো: পাতার HTML কয়েক টুকরোয় আসে (মাঝে মাঝে থিমের একটা ধীর স্ক্রিপ্ট), তাই
+   * ব্রাউজার HTML পড়া শেষ হওয়ার আগেই কয়েকবার পাতা আঁকে। থামার জায়গা: <body>-এর শুরু, Add to cart
+   * ফর্মের মাঝখান, বিবরণের মাঝখান, কার্টের চেকআউট বাটনের পরে।
+   */
+  slow?: boolean;
 }
+
+/** slow পাতায় প্রতিটা থামা কতক্ষণ (এর মধ্যে ব্রাউজার পাতা আঁকে) */
+const PAUSE_MS = 200;
 
 export interface Store {
   cart: Cart;
@@ -273,37 +328,49 @@ function proxyAnswer(path: string, method: string, options: StoreOptions): unkno
   }
 }
 
-/** app embed-এর Liquid যা সার্ভারেই লেখে (blocks/app-tools-embed.liquid), টুল চালু থাকলে */
-function embedExtras(
-  kind: PageKind,
-  settingsOf: (id: string) => Record<string, unknown> | undefined,
-): string {
-  const parts: string[] = [];
-  const hide = settingsOf("hide-dynamic-checkout");
-  if (hide) {
-    parts.push(
-      `<style>${hide.hideOnProduct && kind === "product" ? ".shopify-payment-button{display:none!important}" : ""}${
-        hide.hideOnCart
-          ? '.additional-checkout-buttons,[data-shopify="dynamic-checkout-cart"]{display:none!important}'
-          : ""
-      }</style>`,
-    );
-  }
-  const faq = settingsOf("ai-product-faq");
-  if (faq && kind === "product") {
-    const colors = faq.colors as { text: string; background: string };
-    // snippets/ai-faq.liquid
-    parts.push(`<template id="app-ai-faq">
-    <div class="ats ats-faq app-ai-faq" data-app-ai-faq style="--ats-pad:12px;--ats-fg:${colors.text};--ats-bg:${colors.background};">
-      <h2 class="ats__h" style="text-align:start;font-size:1.3rem">${String(faq.heading)}</h2>
-      <div class="ats-faq__list" style="max-width:none">
-        <details class="ats-faq__item"><summary>Does it shrink?</summary><div>Very little, if you wash it cold.</div></details>
-        <details class="ats-faq__item"><summary>Is it see-through?</summary><div>No, the fabric is 180 gsm.</div></details>
-      </div>
-    </div>
-  </template>`);
-  }
-  return parts.join("\n  ");
+/** Shopify-র Liquid product অবজেক্ট (embed যা পড়ে), টি-শার্টের */
+function liquidProduct(options: ProductOptions) {
+  const variants = TEE.variants.map((v) => ({
+    id: v.id,
+    title: v.title,
+    url: `/products/${TEE.handle}?variant=${v.id}`,
+    price: v.price,
+    compare_at_price: TEE.compareAt,
+    sku: `TEE-${v.id}`,
+    barcode: "",
+    inventory_management: "shopify",
+    available: v.available,
+    inventory_policy: "deny",
+    inventory_quantity: v.available ? 4 : 0,
+    ...options.variants?.[v.id],
+  }));
+  return {
+    id: TEE.id,
+    handle: TEE.handle,
+    title: TEE.title,
+    url: `/products/${TEE.handle}`,
+    vendor: "Test store",
+    tags: TEE.tags,
+    created_at: "2026-11-20T10:00:00+06:00",
+    description: "<p>A soft cotton tee for every day.</p>",
+    images: [{ src: `${TEE.handle}.png` }],
+    selected_or_first_available_variant:
+      variants.find((v) => v.id === (options.variantId ?? 111)) ?? variants[0]!,
+    variants,
+    metafields: {
+      reviews: { rating_count: { value: 2 }, rating: { value: { rating: "4.5" } } },
+      $app: {
+        ai_faq: {
+          value: {
+            items: [
+              { question: "Does it shrink?", answer: "Very little, if you wash it cold." },
+              { question: "Is it see-through?", answer: "No, the fabric is 180 gsm." },
+            ],
+          },
+        },
+      },
+    },
+  };
 }
 
 function page(kind: PageKind, options: StoreOptions): string {
@@ -322,41 +389,56 @@ function page(kind: PageKind, options: StoreOptions): string {
       }
     }
   }
-  const settingsOf = (id: string) => config.tools.find((t) => t.id === id)?.settings;
-  const appConfig = {
-    assetBase: `${ORIGIN}/cdn/assets/`,
-    pageType: kind,
-    locale: options.locale ?? "en",
-    currency: "USD",
-    tzOffset: "+0600",
-    shopCurrency: "USD",
-    moneyFormat: "${{amount}}",
-    marketsCurrencies: 1,
-    customerId: null,
-    country: options.country ?? "BD",
-    defaultSort: kind === "collection" ? "manual" : null,
-    countries: ["BD", "US", "DE"],
-    tools: config.tools,
-    placement: null,
-    offers: options.offers ?? null,
-    appId: "123",
+  const product = liquidProduct(options.product ?? {});
+  const selected = product.selected_or_first_available_variant;
+  const items = options.cart ?? [];
+  const cartTotal = items.reduce(
+    (sum, l) => sum + (byVariant(l.variant_id)?.variant.price ?? 0) * l.quantity,
+    0,
+  );
+  // Shopify-র global অবজেক্ট; app embed (blocks/app-tools-embed.liquid) এগুলো পড়ে
+  const globals = {
+    app: {
+      metafields: {
+        app_config: {
+          tools: { value: { ...config, placement: null, appId: "123" } },
+          offers: { value: options.offers ?? null },
+        },
+      },
+    },
+    request: {
+      page_type: kind,
+      origin: ORIGIN,
+      locale: { iso_code: options.locale ?? "en" },
+    },
+    routes: { root_url: "/" },
+    cart: {
+      currency: { iso_code: "USD" },
+      total_price: cartTotal,
+      item_count: items.reduce((sum, l) => sum + l.quantity, 0),
+    },
+    shop: {
+      name: "Test store",
+      currency: "USD",
+      money_format: "${{amount}}",
+      enabled_currencies: [{ iso_code: "USD" }],
+      enabled_payment_types: ["visa", "master"],
+      brand: { logo: null, short_description: "" },
+    },
+    customer: null,
+    localization: {
+      country: { iso_code: options.country ?? "BD" },
+      available_countries: ["BD", "US", "DE"].map((iso_code) => ({ iso_code })),
+    },
+    product: kind === "product" ? product : null,
+    collection:
+      kind === "collection"
+        ? { title: "All products", url: "/collections/all", default_sort_by: "manual" }
+        : null,
   };
-  const pageProduct = {
-    productId: TEE.id,
-    handle: TEE.handle,
-    tags: TEE.tags,
-    createdAt: "2026-11-20T10:00:00+0600",
-    compareAtCents: TEE.compareAt,
-    title: TEE.title,
-    variantId: 111,
-    price: "$25.00",
-    priceCents: TEE.price,
-    available: true,
-    inventory: { "111": 4, "112": 0 },
-    preorder: [],
-    ...options.product,
-  };
-  const safe = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
+  const embed = liquid.renderSync(EMBED, {}, { globals }) as string;
+  const pause = (where: string) =>
+    options.slow ? `<script src="/__pause/${where}"></script>` : "";
   const card = (p: Product) => `
         <li class="grid__item">
           <div class="card-wrapper product-card-wrapper">
@@ -382,12 +464,13 @@ function page(kind: PageKind, options: StoreOptions): string {
               <form method="post" action="/cart/add" id="product-form-main" class="form" data-type="add-to-cart-form">
                 <label for="variant-select">Size</label>
                 <select id="variant-select" name="id">
-                  <option value="111"${pageProduct.variantId === 111 ? " selected" : ""}>Small</option>
-                  <option value="112"${pageProduct.variantId === 112 ? " selected" : ""}>Large</option>
+                  <option value="111"${selected.id === 111 ? " selected" : ""}>Small</option>
+                  <option value="112"${selected.id === 112 ? " selected" : ""}>Large</option>
                 </select>
                 <label for="quantity">Quantity</label>
                 <input id="quantity" type="number" name="quantity" value="1" min="1">
-                <button type="submit" name="add" class="product-form__submit button">${pageProduct.available ? "Add to cart" : "Sold out"}</button>
+                ${pause("form")}
+                <button type="submit" name="add" class="product-form__submit button">${selected.available ? "Add to cart" : "Sold out"}</button>
                 <div class="shopify-payment-button"><button type="button" class="shopify-payment-button__button">Buy it now</button></div>
               </form>
             </product-form>
@@ -395,6 +478,7 @@ function page(kind: PageKind, options: StoreOptions): string {
               <p>A soft cotton tee for every day.</p>
               <h2>Materials</h2>
               <p>100% organic cotton.</p>
+              ${pause("description")}
               <h2>Care</h2>
               <p>Wash cold, dry flat.</p>
             </div>
@@ -408,6 +492,7 @@ function page(kind: PageKind, options: StoreOptions): string {
           <ul class="cart-items"><li>Cotton tee × 1</li></ul>
           <p class="totals">Subtotal: $25.00</p>
           <button type="submit" name="checkout" class="cart__checkout-button button">Check out</button>
+          ${pause("cart")}
           <div class="additional-checkout-buttons" data-shopify="dynamic-checkout-cart"><button type="button">Express checkout</button></div>
         </form>
       </section>`,
@@ -453,23 +538,7 @@ function page(kind: PageKind, options: StoreOptions): string {
     .card__heading { font-size: 16px; margin: 8px 0 0; }
     footer { border-top: 1px solid #ddd; padding: 24px; margin-top: 48px; }
   </style>
-</head>
-<body>
-  <a class="skip" href="#MainContent">Skip to content</a>
-  <header>
-    <a href="/" class="header__heading-link">Test store</a>
-    <nav aria-label="Main menu"><a href="/collections/all">Shop</a><a href="/pages/about">About</a></nav>
-    <form action="/search" method="get" role="search" class="search">
-      <label for="Search-In-Header">Search</label>
-      <input id="Search-In-Header" type="search" name="q" placeholder="Search">
-    </form>
-    <a href="/cart" id="cart-icon-bubble" class="header__icon--cart">Cart <span class="cart-count-bubble">${options.cart?.length ?? 0}</span></a>
-  </header>
-  <main id="MainContent">${main}</main>
-  <footer role="contentinfo">
-    <p>© 2026 Test store</p>
-    <a href="https://example.com/partner">Partner site</a>
-  </footer>
+  <!-- content_for_header: Shopify নিজে যা বসায় -->
   <script>
     window.Shopify = {
       shop: "test-store.myshopify.com",
@@ -486,7 +555,28 @@ function page(kind: PageKind, options: StoreOptions): string {
         setTrackingConsent: function (consent, callback) { callback(); }
       }
     };
-    window.__APP_CONFIG__ = ${safe(appConfig)};
+  </script>
+  <!-- app embed (target: head), Shopify </head>-এর ঠিক আগে বসায় -->
+  ${embed}
+</head>
+<body>
+  ${pause("body")}
+  <a class="skip" href="#MainContent">Skip to content</a>
+  <header>
+    <a href="/" class="header__heading-link">Test store</a>
+    <nav aria-label="Main menu"><a href="/collections/all">Shop</a><a href="/pages/about">About</a></nav>
+    <form action="/search" method="get" role="search" class="search">
+      <label for="Search-In-Header">Search</label>
+      <input id="Search-In-Header" type="search" name="q" placeholder="Search">
+    </form>
+    <a href="/cart" id="cart-icon-bubble" class="header__icon--cart">Cart <span class="cart-count-bubble">${options.cart?.length ?? 0}</span></a>
+  </header>
+  <main id="MainContent">${main}</main>
+  <footer role="contentinfo">
+    <p>© 2026 Test store</p>
+    <a href="https://example.com/partner">Partner site</a>
+  </footer>
+  <script>
     // থিমের নিজের Ajax কার্ট (Dawn-এর product-form-এর মতো): পেজ না বদলে কার্টে যোগ
     document.addEventListener("submit", function (event) {
       var form = event.target;
@@ -502,17 +592,6 @@ function page(kind: PageKind, options: StoreOptions): string {
         .then(function (cart) { document.querySelector(".cart-count-bubble").textContent = cart.item_count; });
     });
   </script>
-  ${
-    kind === "product"
-      ? `<script type="application/json" id="app-product-json">${safe(pageProduct)}</script>`
-      : ""
-  }
-  ${embedExtras(kind, settingsOf)}
-  <template id="app-payment-icons">
-    <svg role="img" aria-labelledby="pi-visa" width="38" height="24" viewBox="0 0 38 24"><title id="pi-visa">Visa</title><rect width="38" height="24" rx="3" fill="#1a1f71"/></svg>
-    <svg role="img" aria-labelledby="pi-master" width="38" height="24" viewBox="0 0 38 24"><title id="pi-master">Mastercard</title><rect width="38" height="24" rx="3" fill="#eb001b"/></svg>
-  </template>
-  <script src="/cdn/assets/loader.js" type="module" defer></script>
 </body>
 </html>`;
 }
@@ -564,6 +643,10 @@ export async function openStore(pageRef: Page, options: StoreOptions): Promise<S
       } catch {
         return route.fulfill({ status: 404, body: "" });
       }
+    }
+    if (path.startsWith("/__pause/")) {
+      await new Promise((resolve) => setTimeout(resolve, PAUSE_MS));
+      return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });
     }
     if (path.startsWith("/cdn/shop/")) {
       return route.fulfill({ status: 200, contentType: "image/png", body: PNG });
