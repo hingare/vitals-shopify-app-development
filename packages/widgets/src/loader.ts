@@ -1,12 +1,14 @@
+import { runsOn } from "./pages";
 import type { StoreConfig, ToolModule } from "./types";
 
 /**
  * স্টোরফ্রন্ট লোডার (বাজেট: ৫KB gzip)।
- * পেজ লোডের পর ব্রাউজার ফাঁকা হলে চালু টুলগুলো আলাদা আলাদা ফাইল থেকে লোড করে।
- * একটা টুল ভাঙলেও বাকিগুলো চলবে।
+ * পেজ লোডের পর ব্রাউজার ফাঁকা হলে চালু টুলগুলো আলাদা আলাদা ফাইল থেকে লোড করে, শুধু যে টুল এই
+ * পাতায় কিছু করে (src/pages.ts)। একটা টুল ভাঙলেও বাকিগুলো চলবে।
  */
 function start(config: StoreConfig) {
   for (const tool of config.tools) {
+    if (!runsOn(tool.id, config.pageType)) continue;
     const url = `${config.assetBase}tool-${tool.id}.js`;
     import(/* @vite-ignore */ url)
       .then((mod: ToolModule) => mod.mount({ config, settings: tool.settings }))

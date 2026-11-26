@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { Page, Route } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import { Liquid } from "liquidjs";
 import { buildStoreConfig, registry } from "@app/tools";
+import { HERO, SERVER_MS, WEIGHT_ASSETS, weightChrome, weightHead } from "./weight";
 
 /**
  * পরীক্ষার জন্য নকল Shopify দোকান: Dawn-এর মতো একটা পাতা, Shopify-র Ajax API (/cart.js,
@@ -15,7 +16,8 @@ export const ORIGIN = "https://shop.test";
 export const THEME = fileURLToPath(
   new URL("../../../apps/admin/extensions/theme-embed/", import.meta.url),
 );
-const ASSETS = `${THEME}assets/`;
+/** বিল্ড করা উইজেটের ফাইল (loader.js, tool-*.js) */
+export const ASSETS = `${THEME}assets/`;
 
 /** Shopify-র নিজস্ব ফিল্টারগুলো এখানে সাধারণ নকল; বাকিগুলো liquidjs-এরই */
 const liquid = new Liquid({
@@ -23,10 +25,11 @@ const liquid = new Liquid({
   extname: ".liquid",
   timezoneOffset: "Asia/Dhaka",
 });
-liquid.registerFilter("asset_url", (file: string) => `${ORIGIN}/cdn/assets/${file}`);
+// পথগুলো দোকানের নিজের ঠিকানার সাপেক্ষে, যাতে Playwright-এর shop.test আর আসল সার্ভার (serveStore) দুটোতেই চলে
+liquid.registerFilter("asset_url", (file: string) => `/cdn/assets/${file}`);
 liquid.registerFilter("image_url", (image: { src?: string } | string) => {
   const src = typeof image === "string" ? image : (image?.src ?? "");
-  return `//shop.test/cdn/shop/${src}`;
+  return `/cdn/shop/${src}`;
 });
 liquid.registerFilter("money", (cents: number) => `$${(cents / 100).toFixed(2)}`);
 liquid.registerFilter(
@@ -123,8 +126,8 @@ function ajaxProduct(p: Product) {
     price: p.price,
     compare_at_price: p.compareAt,
     available: p.variants.some((v) => v.available),
-    featured_image: `//shop.test/cdn/shop/${p.handle}.png`,
-    images: [`//shop.test/cdn/shop/${p.handle}.png`],
+    featured_image: `/cdn/shop/${p.handle}.png`,
+    images: [`/cdn/shop/${p.handle}.png`],
     tags: p.tags,
     created_at: "2026-11-20T10:00:00+06:00",
     variants: p.variants.map((v) => ({ ...v, name: `${p.title} - ${v.title}` })),
@@ -157,7 +160,7 @@ class Cart {
         title: found.product.title,
         handle: found.product.handle,
         url: `/products/${found.product.handle}?variant=${line.variant_id}`,
-        image: `//shop.test/cdn/shop/${found.product.handle}.png`,
+        image: `/cdn/shop/${found.product.handle}.png`,
         quantity: line.quantity,
         price: found.variant.price,
         original_line_price: total,
@@ -241,15 +244,36 @@ export interface StoreOptions {
    * ফর্মের মাঝখান, বিবরণের মাঝখান, কার্টের চেকআউট বাটনের পরে।
    */
   slow?: boolean;
+  /**
+   * সাধারণ Dawn দোকানের মতো ভারী পাতা: থিমের CSS/JS, Shopify-র স্ক্রিপ্ট, বড় ছবি, সার্ভারের সময়
+   * (e2e/weight.ts)। শুধু গতির পরীক্ষায় (e2e/speed.ts), যাতে Lighthouse-এর স্কোর ১০০-তে আটকে না থাকে।
+   */
+  weight?: boolean;
 }
 
 /** slow পাতায় প্রতিটা থামা কতক্ষণ (এর মধ্যে ব্রাউজার পাতা আঁকে) */
 const PAUSE_MS = 200;
 
+/** দোকানে আসা একটা অনুরোধ; Playwright-এর route বা আসল সার্ভার, দুই জায়গা থেকেই আসে */
+export interface StoreRequest {
+  method: string;
+  /** পুরো ঠিকানা (https://shop.test/cart.js ...) */
+  url: string;
+  body: string | null;
+}
+
+export interface StoreResponse {
+  status: number;
+  contentType: string;
+  body: string | Buffer;
+}
+
 export interface Store {
   cart: Cart;
   /** দোকানে আমাদের সার্ভারে কোন কোন অনুরোধ গেল ("GET reviews" ...) */
   proxyCalls: string[];
+  /** নকল দোকানের সার্ভার: একটা অনুরোধের উত্তর */
+  respond(request: StoreRequest): Promise<StoreResponse>;
 }
 
 const PNG = Buffer.from(
@@ -257,8 +281,11 @@ const PNG = Buffer.from(
   "base64",
 );
 
-const json = (route: Route, body: unknown, status = 200) =>
-  route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+const json = (body: unknown, status = 200): StoreResponse => ({
+  status,
+  contentType: "application/json",
+  body: JSON.stringify(body),
+});
 
 /** App Proxy-র নকল উত্তর: সাধারণ দোকানে যা আসে তার মতো */
 function proxyAnswer(path: string, method: string, options: StoreOptions): unknown {
@@ -301,7 +328,7 @@ function proxyAnswer(path: string, method: string, options: StoreOptions): unkno
           {
             title: "Coffee mug",
             url: "/products/coffee-mug",
-            image: "//shop.test/cdn/shop/coffee-mug.png",
+            image: "/cdn/shop/coffee-mug.png",
             soldAt: new Date(Date.now() - 600_000).toISOString(),
           },
         ],
@@ -373,7 +400,7 @@ function liquidProduct(options: ProductOptions) {
   };
 }
 
-function page(kind: PageKind, options: StoreOptions): string {
+function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0): string {
   const config = buildStoreConfig(
     registry,
     options.tools.map((t) => ({ toolId: t.id, enabled: true, settings: t.settings ?? {} })),
@@ -408,7 +435,7 @@ function page(kind: PageKind, options: StoreOptions): string {
     },
     request: {
       page_type: kind,
-      origin: ORIGIN,
+      origin,
       locale: { iso_code: options.locale ?? "en" },
     },
     routes: { root_url: "/" },
@@ -503,13 +530,14 @@ function page(kind: PageKind, options: StoreOptions): string {
         <ul class="product-grid grid">${PRODUCTS.map(card).join("")}</ul>
       </section>`,
     index: `
-      <section class="shopify-section">
+      <section class="shopify-section">${options.weight ? HERO : ""}
         <h1>Welcome to Test store</h1>
         <p>Everyday clothes and home goods.</p>
         <h2>Featured products</h2>
         <ul class="product-grid grid">${PRODUCTS.map(card).join("")}</ul>
       </section>`,
   }[kind];
+  const chrome = options.weight ? weightChrome(extraKb) : { menu: "", footer: "" };
 
   return `<!doctype html>
 <html lang="${options.locale ?? "en"}">
@@ -537,7 +565,7 @@ function page(kind: PageKind, options: StoreOptions): string {
     .card__media img { width: 100%; height: auto; background: #eee; }
     .card__heading { font-size: 16px; margin: 8px 0 0; }
     footer { border-top: 1px solid #ddd; padding: 24px; margin-top: 48px; }
-  </style>
+  </style>${options.weight ? weightHead(kind) : ""}
   <!-- content_for_header: Shopify নিজে যা বসায় -->
   <script>
     window.Shopify = {
@@ -564,7 +592,7 @@ function page(kind: PageKind, options: StoreOptions): string {
   <a class="skip" href="#MainContent">Skip to content</a>
   <header>
     <a href="/" class="header__heading-link">Test store</a>
-    <nav aria-label="Main menu"><a href="/collections/all">Shop</a><a href="/pages/about">About</a></nav>
+    <nav aria-label="Main menu"><a href="/collections/all">Shop</a><a href="/pages/about">About</a>${chrome.menu}</nav>
     <form action="/search" method="get" role="search" class="search">
       <label for="Search-In-Header">Search</label>
       <input id="Search-In-Header" type="search" name="q" placeholder="Search">
@@ -573,7 +601,7 @@ function page(kind: PageKind, options: StoreOptions): string {
   </header>
   <main id="MainContent">${main}</main>
   <footer role="contentinfo">
-    <p>© 2026 Test store</p>
+    ${chrome.footer}<p>© 2026 Test store</p>
     <a href="https://example.com/partner">Partner site</a>
   </footer>
   <script>
@@ -596,12 +624,163 @@ function page(kind: PageKind, options: StoreOptions): string {
 </html>`;
 }
 
-/** দোকান খোলা: নকল সার্ভার বসিয়ে পাতাটা লোড করে */
-export async function openStore(pageRef: Page, options: StoreOptions): Promise<Store> {
-  const kind = options.page ?? "product";
+/** কোন পাতা কোন ঠিকানায় */
+export const PATHS: Record<PageKind, string> = {
+  product: "/products/cotton-tee",
+  cart: "/cart",
+  collection: "/collections/all",
+  index: "/",
+};
+
+/**
+ * নকল দোকান বানানো: প্রতিটা অনুরোধের উত্তর দেয় (পাতা, উইজেটের ফাইল, কার্ট, App Proxy)।
+ * Playwright-এর পরীক্ষা (openStore) আর Lighthouse-এর আসল সার্ভার (serve.ts) দুটোই এটা ব্যবহার করে।
+ * origin: দোকানের ঠিকানা, পাতার Liquid-এ request.origin হিসেবে যায়।
+ */
+export function createStore(options: StoreOptions, origin = ORIGIN): Store {
   const cart = new Cart();
   cart.add(options.cart ?? []);
   const proxyCalls: string[] = [];
+
+  async function respond({ method, url: href, body: raw }: StoreRequest): Promise<StoreResponse> {
+    const url = new URL(href);
+    const path = url.pathname;
+    let body: Record<string, unknown> = {};
+    if (raw) {
+      try {
+        body = (JSON.parse(raw) as Record<string, unknown> | null) ?? {};
+      } catch {
+        // form data
+        body = Object.fromEntries(new URLSearchParams(raw));
+      }
+    }
+
+    if (path.startsWith("/cdn/assets/")) {
+      const file = path.slice("/cdn/assets/".length);
+      try {
+        const content = readFileSync(ASSETS + file);
+        return {
+          status: 200,
+          contentType: file.endsWith(".css") ? "text/css" : "application/javascript",
+          body: content,
+        };
+      } catch {
+        return { status: 404, contentType: "text/plain", body: "" };
+      }
+    }
+    if (path.startsWith("/__pause/")) {
+      await new Promise((resolve) => setTimeout(resolve, PAUSE_MS));
+      return { status: 200, contentType: "application/javascript", body: "" };
+    }
+    const heavy = options.weight ? WEIGHT_ASSETS[path] : undefined;
+    if (heavy) return { status: 200, contentType: heavy.contentType, body: heavy.body() };
+    if (path.startsWith("/cdn/shop/")) {
+      return { status: 200, contentType: "image/png", body: PNG };
+    }
+    if (path === "/cart.js") return json(cart.json());
+    if (path === "/cart/add.js" || path === "/cart/add") {
+      const items = Array.isArray(body.items)
+        ? (body.items as Array<Record<string, unknown>>).map((i) => ({
+            variant_id: Number(i.id),
+            quantity: Number(i.quantity) || 1,
+            properties: (i.properties as Record<string, string>) ?? null,
+          }))
+        : [{ variant_id: Number(body.id), quantity: Number(body.quantity) || 1 }];
+      cart.add(items);
+      const added = cart
+        .json()
+        .items.filter((i) => items.some((x) => x.variant_id === i.variant_id));
+      return json(Array.isArray(body.items) ? { items: added } : (added[0] ?? {}));
+    }
+    if (path === "/cart/change.js") {
+      cart.change(Number(body.line) || 1, Number(body.quantity));
+      return json(cart.json());
+    }
+    if (path === "/cart/update.js") {
+      if (body.attributes) Object.assign(cart.attributes, body.attributes);
+      if (typeof body.note === "string") cart.note = body.note;
+      return json(cart.json());
+    }
+    if (path === "/cart/clear.js") {
+      cart.lines = [];
+      return json(cart.json());
+    }
+    const productJs = path.match(/^\/products\/([\w-]+)\.js$/);
+    if (productJs) {
+      const product = PRODUCTS.find((p) => p.handle === productJs[1]);
+      return product ? json(ajaxProduct(product)) : json({}, 404);
+    }
+    if (path === "/recommendations/products.json") {
+      return json({ products: PRODUCTS.slice(1).map(ajaxProduct) });
+    }
+    if (path === "/search/suggest.json") {
+      const q = (url.searchParams.get("q") ?? "").toLowerCase();
+      const products = PRODUCTS.filter((p) => p.title.toLowerCase().includes(q)).map((p) => ({
+        ...ajaxProduct(p),
+        image: `/cdn/shop/${p.handle}.png`,
+        price: (p.price / 100).toFixed(2),
+      }));
+      return json({
+        resources: {
+          results: {
+            products,
+            collections: [],
+            pages: [],
+            articles: [],
+            queries: q ? [{ text: `${q} tee`, styled_text: `${q} tee` }] : [],
+          },
+        },
+      });
+    }
+    if (path === "/browsing_context_suggestions.json") {
+      return json({
+        detected_values: { country: { handle: "DE", name: "Germany" } },
+        suggestions: [],
+      });
+    }
+    if (path === "/contact" || path === "/discount/" || path.startsWith("/discount/")) {
+      return { status: 200, contentType: "text/html", body: "<p>ok</p>" };
+    }
+    if (path.startsWith("/apps/app-tools/")) {
+      const sub = path.slice("/apps/app-tools/".length) + url.search;
+      proxyCalls.push(`${method} ${sub}`);
+      if (sub.startsWith("sw.js")) {
+        return { status: 200, contentType: "application/javascript", body: "" };
+      }
+      return json(proxyAnswer(sub, method, options));
+    }
+    if (
+      method === "GET" &&
+      (path === "/" ||
+        path.startsWith("/products/") ||
+        path.startsWith("/collections/") ||
+        path === "/cart" ||
+        path.startsWith("/pages/"))
+    ) {
+      const kindFor: PageKind = path.startsWith("/products/")
+        ? "product"
+        : path.startsWith("/collections/")
+          ? "collection"
+          : path === "/cart"
+            ? "cart"
+            : "index";
+      if (options.weight) await new Promise((resolve) => setTimeout(resolve, SERVER_MS));
+      return {
+        status: 200,
+        contentType: "text/html; charset=utf-8",
+        // ?extra=KB: ভারী পাতায় থিমের ডেটা এতটা বেশি (চাপা অবস্থায়), পাতার আকার বদলে মাপতে (e2e/speed.ts)
+        body: page(kindFor, options, origin, Number(url.searchParams.get("extra")) || 0),
+      };
+    }
+    return { status: 404, contentType: "text/plain", body: "not found" };
+  }
+
+  return { cart, proxyCalls, respond };
+}
+
+/** দোকান খোলা: Playwright-এর পাতায় নকল দোকান বসিয়ে পাতাটা লোড করে */
+export async function openStore(pageRef: Page, options: StoreOptions): Promise<Store> {
+  const store = createStore(options);
 
   // Headless Chromium-এ অনুমতি সবসময় "denied"; নতুন ক্রেতার ব্রাউজারে থাকে "default"
   await pageRef.addInitScript(() => {
@@ -619,140 +798,14 @@ export async function openStore(pageRef: Page, options: StoreOptions): Promise<S
 
   await pageRef.route(`${ORIGIN}/**`, async (route) => {
     const request = route.request();
-    const url = new URL(request.url());
-    const path = url.pathname;
-    const method = request.method();
-    let body: Record<string, unknown> = {};
-    try {
-      body = (request.postDataJSON() as Record<string, unknown> | null) ?? {};
-    } catch {
-      // form data
-      const raw = request.postData() ?? "";
-      body = Object.fromEntries(new URLSearchParams(raw));
-    }
-
-    if (path.startsWith("/cdn/assets/")) {
-      const file = path.slice("/cdn/assets/".length);
-      try {
-        const content = readFileSync(ASSETS + file);
-        return route.fulfill({
-          status: 200,
-          contentType: file.endsWith(".css") ? "text/css" : "application/javascript",
-          body: content,
-        });
-      } catch {
-        return route.fulfill({ status: 404, body: "" });
-      }
-    }
-    if (path.startsWith("/__pause/")) {
-      await new Promise((resolve) => setTimeout(resolve, PAUSE_MS));
-      return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });
-    }
-    if (path.startsWith("/cdn/shop/")) {
-      return route.fulfill({ status: 200, contentType: "image/png", body: PNG });
-    }
-    if (path === "/cart.js") return json(route, cart.json());
-    if (path === "/cart/add.js" || path === "/cart/add") {
-      const items = Array.isArray(body.items)
-        ? (body.items as Array<Record<string, unknown>>).map((i) => ({
-            variant_id: Number(i.id),
-            quantity: Number(i.quantity) || 1,
-            properties: (i.properties as Record<string, string>) ?? null,
-          }))
-        : [{ variant_id: Number(body.id), quantity: Number(body.quantity) || 1 }];
-      cart.add(items);
-      const added = cart
-        .json()
-        .items.filter((i) => items.some((x) => x.variant_id === i.variant_id));
-      return json(route, Array.isArray(body.items) ? { items: added } : (added[0] ?? {}));
-    }
-    if (path === "/cart/change.js") {
-      cart.change(Number(body.line) || 1, Number(body.quantity));
-      return json(route, cart.json());
-    }
-    if (path === "/cart/update.js") {
-      if (body.attributes) Object.assign(cart.attributes, body.attributes);
-      if (typeof body.note === "string") cart.note = body.note;
-      return json(route, cart.json());
-    }
-    if (path === "/cart/clear.js") {
-      cart.lines = [];
-      return json(route, cart.json());
-    }
-    const productJs = path.match(/^\/products\/([\w-]+)\.js$/);
-    if (productJs) {
-      const product = PRODUCTS.find((p) => p.handle === productJs[1]);
-      return product ? json(route, ajaxProduct(product)) : json(route, {}, 404);
-    }
-    if (path === "/recommendations/products.json") {
-      return json(route, { products: PRODUCTS.slice(1).map(ajaxProduct) });
-    }
-    if (path === "/search/suggest.json") {
-      const q = (url.searchParams.get("q") ?? "").toLowerCase();
-      const products = PRODUCTS.filter((p) => p.title.toLowerCase().includes(q)).map((p) => ({
-        ...ajaxProduct(p),
-        image: `//shop.test/cdn/shop/${p.handle}.png`,
-        price: (p.price / 100).toFixed(2),
-      }));
-      return json(route, {
-        resources: {
-          results: {
-            products,
-            collections: [],
-            pages: [],
-            articles: [],
-            queries: q ? [{ text: `${q} tee`, styled_text: `${q} tee` }] : [],
-          },
-        },
-      });
-    }
-    if (path === "/browsing_context_suggestions.json") {
-      return json(route, {
-        detected_values: { country: { handle: "DE", name: "Germany" } },
-        suggestions: [],
-      });
-    }
-    if (path === "/contact" || path === "/discount/" || path.startsWith("/discount/")) {
-      return route.fulfill({ status: 200, contentType: "text/html", body: "<p>ok</p>" });
-    }
-    if (path.startsWith("/apps/app-tools/")) {
-      const sub = path.slice("/apps/app-tools/".length) + url.search;
-      proxyCalls.push(`${method} ${sub}`);
-      if (sub.startsWith("sw.js")) {
-        return route.fulfill({ status: 200, contentType: "application/javascript", body: "" });
-      }
-      return json(route, proxyAnswer(sub, method, options));
-    }
-    if (
-      method === "GET" &&
-      (path === "/" ||
-        path.startsWith("/products/") ||
-        path.startsWith("/collections/") ||
-        path === "/cart" ||
-        path.startsWith("/pages/"))
-    ) {
-      const kindFor: PageKind = path.startsWith("/products/")
-        ? "product"
-        : path.startsWith("/collections/")
-          ? "collection"
-          : path === "/cart"
-            ? "cart"
-            : "index";
-      return route.fulfill({
-        status: 200,
-        contentType: "text/html; charset=utf-8",
-        body: page(kindFor, options),
-      });
-    }
-    return route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+    const answer = await store.respond({
+      method: request.method(),
+      url: request.url(),
+      body: request.postData(),
+    });
+    return route.fulfill(answer);
   });
 
-  const url = {
-    product: "/products/cotton-tee",
-    cart: "/cart",
-    collection: "/collections/all",
-    index: "/",
-  }[kind];
-  await pageRef.goto(ORIGIN + url);
-  return { cart, proxyCalls };
+  await pageRef.goto(ORIGIN + PATHS[options.page ?? "product"]);
+  return store;
 }

@@ -8,7 +8,8 @@
     "size": "node scripts/check-size.mjs",
     "test": "vitest run && vite build && node scripts/build-early.mjs --check && node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "speed": "playwright test -c playwright.speed.config.ts"
   },
   "dependencies": {
     "@rrweb/record": "2.2.0",
@@ -19,6 +20,8 @@
     "@playwright/test": "1.63.0",
     "@types/node": "^25.5.2",
     "axe-core": "4.14.0",
+    "chrome-launcher": "1.2.3",
+    "lighthouse": "13.6.0",
     "liquidjs": "10.30.1",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",

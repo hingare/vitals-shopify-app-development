@@ -46,6 +46,34 @@ jobs:
           path: packages/widgets/test-results
           retention-days: 7
 
+  speed:
+    # দোকানের গতি: নকল Dawn দোকানে মোবাইল Lighthouse, অ্যাপ ছাড়া আর সব টুল চালু করে (packages/widgets/e2e/speed.ts)।
+    # Built for Shopify-র নিয়মে স্কোর কতটা কমে (৫-এর বেশি হলে ব্যর্থ, লক্ষ্য ২), আর আমাদের নিজের খরচ (HTML-এ কত KB
+    # যোগ, JS-এর KB আর CPU) সীমার মধ্যে কিনা। ফলাফল রানের Summary-তে আর artifact-এ (docs/storefront-tests.md)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Chromium for Playwright
+        run: pnpm --filter @app/widgets exec playwright install --with-deps chromium
+      - run: pnpm --filter @app/widgets build
+      - run: pnpm --filter @app/widgets speed
+      - name: Show the report on the run page
+        if: always()
+        run: cat packages/widgets/test-results/speed/report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - name: Keep the report and every measurement
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-speed
+          path: packages/widgets/test-results/speed
+          retention-days: 30
+
   backup-restore:
     # ব্যাকআপ নিয়ে নতুন ডাটাবেসে ফেরত আনা যায় কিনা, আর প্রতিটা টেবিল মেলে কিনা (docs/backup-restore.md)
     # ubuntu-latest (26.04)-এ PostgreSQL 16-এর client টুল নেই; সার্ভারের সংস্করণের টুল লাগে, তাই 24.04

@@ -8,6 +8,34 @@ export function separators(moneyFormat = ""): { thousands: string; decimal: stri
   return { thousands: ",", decimal: "." };
 }
 
+/** money_format-এর {{...}} জায়গা → [দশমিকের ঘর, হাজারের চিহ্ন, দশমিক চিহ্ন] (Shopify-র তালিকা) */
+const AMOUNTS: Record<string, [number, string, string]> = {
+  amount: [2, ",", "."],
+  amount_no_decimals: [0, ",", "."],
+  amount_with_comma_separator: [2, ".", ","],
+  amount_no_decimals_with_comma_separator: [0, ".", ","],
+  amount_with_apostrophe_separator: [2, "'", "."],
+  amount_no_decimals_with_space_separator: [0, " ", "."],
+  amount_with_space_separator: [2, " ", ","],
+  amount_with_period_and_space_separator: [2, " ", "."],
+};
+
+/**
+ * থিম যেভাবে দাম লেখে, স্টোরের money_format দিয়ে: 125000, "Tk {{amount}}" → "Tk 1,250.00"।
+ * format-এ চেনা জায়গা না থাকলে null (তখন Intl)।
+ */
+export function formatShopMoney(cents: number, moneyFormat: string): string | null {
+  const match = /\{\{\s*(\w+)\s*\}\}/.exec(moneyFormat);
+  const spec = match ? AMOUNTS[match[1]!] : undefined;
+  if (!match || !spec) return null;
+  // ছাড়ের মতো ঋণাত্মক দাম: চিহ্নের আগে "-" (Intl আর Shopify-র money ফিল্টারের মতো)
+  if (cents < 0) return `-${formatShopMoney(-cents, moneyFormat)}`;
+  const [decimals, thousands, decimal] = spec;
+  const [whole = "0", fraction] = (cents / 100).toFixed(decimals).split(".");
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, thousands);
+  return moneyFormat.replace(match[0], fraction ? `${grouped}${decimal}${fraction}` : grouped);
+}
+
 /** "$1,234.50" → 1234.5 ; দাম না থাকলে null */
 export function parseMoney(text: string, moneyFormat?: string): number | null {
   const match = /\d[\d.,'\s ]*/.exec(text);
