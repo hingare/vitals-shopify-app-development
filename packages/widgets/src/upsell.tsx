@@ -1,26 +1,15 @@
-import { useEffect, useState } from "preact/hooks";
-import type { StoreConfig, StoreOffers } from "./types";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import type { StoreConfig } from "./types";
 import { widgetT } from "./i18n";
 import { attribute, track } from "./analytics";
 import { cartPost } from "./cart-api";
 import { type AjaxProduct, discounted, fetchProduct, imageUrl, money } from "./product";
-import { offerShown } from "./offers";
+import { type Upsell, upsellsFor } from "./offers";
+import { ONE_LINE, TEXT, UPSELL_ROW } from "./early/reserve";
+
+export { type Upsell, upsellsFor };
 
 const TOOL_ID = "upsells";
-
-export type Upsell = NonNullable<StoreOffers["upsells"]>[number];
-type Placement = Upsell["placements"][number];
-
-/** এই প্রোডাক্টগুলোর জন্য এই জায়গায় দেখানোর মতো upsell অফার */
-export function upsellsFor(config: StoreConfig, productIds: string[], placement: Placement) {
-  return (config.offers?.upsells ?? []).filter(
-    (u) =>
-      u.placements.includes(placement) &&
-      offerShown(u.rules, config) &&
-      (u.triggerProductIds.length === 0 ||
-        u.triggerProductIds.some((id) => productIds.includes(id))),
-  );
-}
 
 /** অফারের প্রোডাক্টগুলো (যেগুলো এখনই আছে বা ট্রিগার নয়) */
 export async function loadUpsellProducts(offer: Upsell, exclude: string[]) {
@@ -65,7 +54,9 @@ function Row({
   }
 
   return (
-    <li style={{ display: "flex", gap: "12px", alignItems: "center", padding: "8px 0" }}>
+    <li
+      style={`display:flex;gap:12px;align-items:center;margin:0;padding:8px 0;height:${UPSELL_ROW}px;box-sizing:border-box`}
+    >
       {product.featured_image && (
         <img
           src={imageUrl(product.featured_image, 160)}
@@ -80,11 +71,11 @@ function Row({
         <a
           href={product.url ?? `/products/${product.handle}`}
           onClick={() => track(TOOL_ID, "click")}
-          style={{ color: "inherit", fontWeight: 600, textDecoration: "none" }}
+          style={`${ONE_LINE};display:block;color:inherit;font-weight:600;text-decoration:none`}
         >
           {product.title}
         </a>
-        <div>
+        <div style={ONE_LINE}>
           <span style={{ color: accent, fontWeight: 600 }}>{format(offerPrice)}</span>
           {offerPrice < price && <s style={{ marginLeft: "6px", opacity: 0.6 }}>{format(price)}</s>}
         </div>
@@ -93,7 +84,15 @@ function Row({
             aria-label={`${product.title} ${t("option")}`}
             value={variantId}
             onChange={(e) => setVariantId(Number((e.target as HTMLSelectElement).value))}
-            style={{ marginTop: "4px", maxWidth: "100%" }}
+            style={{
+              display: "block",
+              marginTop: "4px",
+              height: "32px",
+              maxWidth: "100%",
+              padding: "0 4px",
+              boxSizing: "border-box",
+              font: "inherit",
+            }}
           >
             {variants.map((v) => (
               <option key={v.id} value={v.id}>
@@ -108,7 +107,11 @@ function Row({
         onClick={() => void add()}
         disabled={state === "busy" || state === "done"}
         style={{
-          padding: "8px 14px",
+          flex: "none",
+          height: "36px",
+          padding: "0 14px",
+          boxSizing: "border-box",
+          font: "inherit",
           border: 0,
           borderRadius: "6px",
           background: accent,
@@ -135,12 +138,15 @@ export function UpsellList({
   exclude,
   colors,
   onAdded,
+  onReady,
 }: {
   offer: Upsell;
   config: StoreConfig;
   exclude: string[];
   colors: { background: string; text: string; accent: string };
   onAdded?: () => void;
+  /** প্রোডাক্ট এসে তালিকা বসলে (বা দেখানোর কিছু না থাকলে), রাখা জায়গা ছাড়তে */
+  onReady?: () => void;
 }) {
   const [products, setProducts] = useState<AjaxProduct[] | null>(null);
   useEffect(() => {
@@ -150,14 +156,17 @@ export function UpsellList({
     });
     // exclude বদলালে (কার্টে যোগ হলে) আবার বাছাই
   }, [offer.id, exclude.join(",")]);
+  useLayoutEffect(() => {
+    if (products) onReady?.();
+  }, [products]);
   if (!products || products.length === 0) return null;
   const heading = offer.title || widgetT(config.locale, "upsellHeading");
   return (
     <section
       aria-label={heading}
-      style={{ margin: "16px 0", color: colors.text, background: colors.background }}
+      style={`${TEXT};margin:16px 0;color:${colors.text};background:${colors.background}`}
     >
-      <p style={{ margin: "0 0 4px", fontWeight: 700 }}>{heading}</p>
+      <p style={`${TEXT};${ONE_LINE};margin:0 0 4px;font-weight:700`}>{heading}</p>
       <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
         {products.map((p) => (
           <Row

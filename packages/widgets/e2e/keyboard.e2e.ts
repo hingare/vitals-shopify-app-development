@@ -198,7 +198,7 @@ test("agree to terms: checkout waits for the box, then goes on", async ({ page }
 
 test("back in stock: the whole form works from the keyboard", async ({ page }) => {
   const store = await openStore(page, {
-    product: { variantId: 112, available: false },
+    product: { variantId: 112 },
     tools: [{ id: "back-in-stock" }],
   });
   const notify = page.locator('[data-app-widget="back-in-stock"] button');

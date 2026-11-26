@@ -7,6 +7,8 @@ export interface StoreConfig {
   locale: string;
   /** কার্টের মুদ্রা (দাম দেখানোর জন্য) */
   currency?: string;
+  /** পাতা লেখার সময়ের কার্ট (সেন্টে, ক্রেতার মুদ্রায়); স্পেন্ডিং গোল পাতা আঁকার আগেই দেখাতে */
+  cart?: { total: number; count: number } | null;
   /** স্টোরের টাইমজোন, যেমন "+0600" */
   tzOffset?: string;
   /** স্টোরের মূল মুদ্রা ও দাম লেখার ধরন (Currency Converter) */
@@ -111,6 +113,8 @@ export type ToolModule = { mount: (ctx: ToolContext) => void | Promise<void> };
 declare global {
   interface Window {
     __APP_CONFIG__?: StoreConfig;
+    /** Agree to Terms চালু হয়ে গেছে (early.ts বা টুলের ফাইল, যে আগে আসে), যাতে দুবার না হয় */
+    __APP_TERMS__?: boolean;
     Shopify?: {
       currency?: { active?: string; rate?: string };
       routes?: { root?: string };

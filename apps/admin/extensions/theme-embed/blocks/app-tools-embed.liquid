@@ -2,14 +2,21 @@
   একটি মাত্র app embed সব টুল চালায়।
   চালু টুলের কনফিগ app-owned metafield (app_config.tools) থেকে আসে, তাই কোনো API কল লাগে না।
   লোডার ৫KB-র কম, আর শুধু চালু টুলগুলোর ফাইল আলাদাভাবে লোড করে।
+  embed পাতার <head>-এ বসে (target: head), যাতে app-early স্নিপেট থিমের HTML পড়ার সময়েই
+  পাতার ভেতরের উইজেটের জায়গা নিতে পারে; তাতে পাতা আঁকার পরে লেখা নিচে সরে না (CLS)।
 {% endcomment %}
 {%- assign app_config = app.metafields.app_config.tools.value -%}
 {%- if app_config and app_config.tools.size > 0 -%}
   {%- assign reviews_on = false -%}
   {%- assign seo_schema = nil -%}
+  {%- assign early = false -%}
   {%- for tool in app_config.tools -%}
     {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
     {%- if tool.id == 'ai-seo-schema' -%}{%- assign seo_schema = tool.settings -%}{%- endif -%}
+    {%- case tool.id -%}
+      {%- when 'announcement-bar', 'spending-goal', 'countdown-timer', 'volume-discounts', 'bundles', 'upsells', 'cart-notice', 'agree-to-terms', 'description-tabs' -%}
+        {%- assign early = true -%}
+    {%- endcase -%}
   {%- endfor -%}
   {%- comment -%}
     Best Sellers Protection: কেউ ?sort_by=best-selling লিংকে এলে সাধারণ ক্রমে পাঠানো হয়।
@@ -82,6 +89,7 @@
       pageType: {{ request.page_type | json }},
       locale: {{ request.locale.iso_code | json }},
       currency: {{ cart.currency.iso_code | json }},
+      cart: { total: {{ cart.total_price | json }}, count: {{ cart.item_count | json }} },
       tzOffset: {{ 'now' | date: '%z' | json }},
       shopCurrency: {{ shop.currency | json }},
       moneyFormat: {{ shop.money_format | strip_html | json }},
@@ -199,13 +207,21 @@
   {%- if seo_schema -%}
     {%- render 'ai-seo-schema', s: seo_schema, reviews_on: reviews_on, product: product, collection: collection -%}
   {%- endif -%}
+  {%- comment -%}
+    পাতার ভেতরে বসা উইজেট (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস, বিবরণের ট্যাব) থিমের
+    HTML পড়ার সময়েই বসে যায়, পাতা আঁকার আগে। স্নিপেটটা packages/widgets/src/early.ts থেকে বানানো;
+    হাতে বদলাবেন না, `pnpm --filter @app/widgets build` চালান।
+  {%- endcomment -%}
+  {%- if early -%}
+    {%- render 'app-early' -%}
+  {%- endif -%}
   <script src="{{ 'loader.js' | asset_url }}" type="module" defer></script>
 {%- endif -%}
 
 {% schema %}
 {
   "name": "t:name",
-  "target": "body",
+  "target": "head",
   "settings": []
 }
 {% endschema %}

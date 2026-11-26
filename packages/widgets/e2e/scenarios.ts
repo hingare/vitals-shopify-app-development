@@ -98,7 +98,11 @@ export const SCENARIOS: Record<string, Scenario> = {
   "pre-orders": {
     page: "product",
     store: {
-      product: { variantId: 112, available: true, inventory: { "111": 4 }, preorder: [112] },
+      // Large-এর স্টক শেষ, কিন্তু "স্টক না থাকলেও বিক্রি" চালু
+      product: {
+        variantId: 112,
+        variants: { 112: { available: true, inventory_policy: "continue" } },
+      },
     },
     expect: after("pre-orders"),
   },
@@ -157,7 +161,7 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
   "back-in-stock": {
     page: "product",
-    store: { product: { variantId: 112, available: false, priceCents: 2500 } },
+    store: { product: { variantId: 112 } },
     expect: after("back-in-stock"),
   },
   "spin-wheel": {

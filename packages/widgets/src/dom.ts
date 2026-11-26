@@ -1,6 +1,17 @@
 /** ছোট DOM সাহায্যকারী */
 export const isMobile = () => window.matchMedia("(max-width: 749px)").matches;
 
+/**
+ * পাতার HTML পড়ার সময়: এই উপাদানের পরে কিছু এসেছে কিনা, মানে এর ভেতরটা পুরো পড়া হয়ে গেছে
+ * (ব্রাউজার বন্ধ-ট্যাগ পেরোলে তবেই পরের জিনিস বসায়)।
+ */
+export function parsed(el: Node): boolean {
+  for (let node: Node | null = el; node; node = node.parentNode) {
+    if (node.nextSibling) return true;
+  }
+  return false;
+}
+
 /** "{n} left" → "3 left" */
 export function fill(template: string, vars: Record<string, string | number>) {
   return template.replace(/\{(\w+)\}/g, (match, key: string) =>

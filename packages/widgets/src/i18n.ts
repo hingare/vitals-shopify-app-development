@@ -1,10 +1,14 @@
+import { earlyStrings } from "./i18n-early";
+
 /**
  * স্টোরে ক্রেতারা যে লেখা দেখে। এখন শুধু ইংরেজি।
  * নতুন ভাষা: নিচে একটা ব্লক যোগ করুন (যেমন `bn: { addToCart: "কার্টে যোগ করুন", ... }`)।
  * স্টোরের ভাষা (request.locale) মিলে গেলে সেটাই দেখাবে, না মিললে ইংরেজি।
+ * পাতা আঁকার আগেই লাগে এমন কয়েকটা লেখা i18n-early.ts-এ; সেগুলো এখানে মিশে যায়।
  */
 const strings = {
   en: {
+    ...earlyStrings.en,
     addToCart: "Add to cart",
     added: "Added",
     soldOut: "Sold out",
@@ -33,11 +37,6 @@ const strings = {
     showMore: "Show more reviews",
     photos: "Photos (optional, up to 3)",
     photo: "Customer photo",
-    buyMoreSave: "Buy more, save more",
-    buyQty: "Buy {n}",
-    saveValue: "Save {v}",
-    each: "each",
-    appliedAtCheckout: "Discount is applied in the cart and at checkout.",
     buyTogether: "Buy together and save",
     bundleTotal: "Total:",
     addBundle: "Add all to cart",
@@ -50,11 +49,6 @@ const strings = {
     "easy-returns": "Easy returns",
     support: "Customer support",
     quality: "Quality guaranteed",
-    days: "Days",
-    hours: "Hours",
-    minutes: "Mins",
-    seconds: "Secs",
-    close: "Close",
     emailPlaceholder: "Email address",
     subscribeFailed: "Could not subscribe. Please try again.",
     copy: "Copy",
