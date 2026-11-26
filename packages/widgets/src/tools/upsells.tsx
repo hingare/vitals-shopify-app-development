@@ -1,4 +1,5 @@
 import { render } from "preact";
+import { useEffect, useRef } from "preact/hooks";
 import type { StoreConfig, ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { onCartChange } from "../cart";
@@ -6,6 +7,7 @@ import { getCart } from "../cart-api";
 import { placeAfterProductForm, placeNearCheckout, readPageProduct } from "../product";
 import { syncAbGroup } from "../offers";
 import { type Upsell, UpsellList, upsellsFor } from "../upsell";
+import { holdFocus } from "../ui";
 
 const TOOL_ID = "upsells";
 
@@ -37,12 +39,22 @@ function Popup({
   s: Settings;
 }) {
   const close = widgetT(config.locale, "close");
+  const box = useRef<HTMLDivElement>(null);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  // ফোকাস × বাটনে: Enter দুবার চাপলে ভুল করে কিছু কার্টে যায় না
+  useEffect(
+    () =>
+      box.current
+        ? holdFocus(box.current, closePopup, { initial: closeButton.current })
+        : undefined,
+    [],
+  );
   return (
     <div
+      ref={box}
       role="dialog"
       aria-modal="true"
       aria-label={offer.title || widgetT(config.locale, "upsellHeading")}
-      onKeyDown={(e) => e.key === "Escape" && closePopup()}
       style={{
         position: "fixed",
         inset: 0,
@@ -68,10 +80,10 @@ function Popup({
         }}
       >
         <button
+          ref={closeButton}
           type="button"
           aria-label={close}
           onClick={closePopup}
-          autoFocus
           style={{
             position: "absolute",
             top: "8px",

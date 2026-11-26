@@ -100,7 +100,8 @@ export const chatButton = defineTool({
     label: text(40, "Chat with us"),
     position: z.enum(["bottom-right", "bottom-left"]).default("bottom-right"),
     showOnMobile: z.boolean().default(true),
-    colors: themeColors({ background: "#25D366", text: "#FFFFFF", accent: "#25D366" }),
+    // WhatsApp-এর উজ্জ্বল সবুজে (#25D366) সাদা লেখা পড়া কঠিন (১.৯৮:১); এই গাঢ় সবুজে ৫:১, WCAG AA পাস
+    colors: themeColors({ background: "#1A7F4B", text: "#FFFFFF", accent: "#1A7F4B" }),
   }),
   attribution: ["click"],
 });

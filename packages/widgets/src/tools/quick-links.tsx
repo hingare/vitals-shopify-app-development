@@ -1,5 +1,5 @@
 import { render } from "preact";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { track } from "../analytics";
 import { bottomOffset, isMobile } from "../dom";
@@ -25,10 +25,43 @@ export function links(s: Record<string, unknown>): Array<{ label: string; url: s
 
 function Menu({ s, items }: { s: Settings; items: Array<{ label: string; url: string }> }) {
   const [open, setOpen] = useState(false);
+  const toggle = useRef<HTMLButtonElement>(null);
   const side = s.position === "bottom-right" ? "right" : "left";
   const bottom = 20 + bottomOffset();
   return (
-    <div onKeyDown={(e) => e.key === "Escape" && setOpen(false)}>
+    // বাটন আগে, তালিকা পরে: Tab চাপলে বাটন থেকে সোজা লিংকগুলোতে যায়
+    <div
+      onKeyDown={(e) => {
+        if (e.key !== "Escape" || !open) return;
+        setOpen(false);
+        toggle.current?.focus();
+      }}
+    >
+      <button
+        ref={toggle}
+        type="button"
+        aria-expanded={open}
+        aria-controls="app-quick-links-menu"
+        onClick={() => setOpen(!open)}
+        style={{
+          position: "fixed",
+          [side]: "20px",
+          bottom: `${bottom}px`,
+          zIndex: 2147482400,
+          minHeight: "44px",
+          padding: "0 16px",
+          border: 0,
+          borderRadius: "22px",
+          background: s.colors.background,
+          color: s.colors.text,
+          boxShadow: "0 4px 14px rgba(0,0,0,.2)",
+          cursor: "pointer",
+          fontSize: "14px",
+          fontWeight: 600,
+        }}
+      >
+        {open ? "×" : "☰"} {s.buttonText}
+      </button>
       {open && (
         <ul
           id="app-quick-links-menu"
@@ -66,30 +99,6 @@ function Menu({ s, items }: { s: Settings; items: Array<{ label: string; url: st
           ))}
         </ul>
       )}
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls="app-quick-links-menu"
-        onClick={() => setOpen(!open)}
-        style={{
-          position: "fixed",
-          [side]: "20px",
-          bottom: `${bottom}px`,
-          zIndex: 2147482400,
-          minHeight: "44px",
-          padding: "0 16px",
-          border: 0,
-          borderRadius: "22px",
-          background: s.colors.background,
-          color: s.colors.text,
-          boxShadow: "0 4px 14px rgba(0,0,0,.2)",
-          cursor: "pointer",
-          fontSize: "14px",
-          fontWeight: 600,
-        }}
-      >
-        {open ? "×" : "☰"} {s.buttonText}
-      </button>
     </div>
   );
 }

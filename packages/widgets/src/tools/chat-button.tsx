@@ -55,12 +55,14 @@ export function mount({ config, settings }: ToolContext) {
   if (!s.showOnMobile && isMobile()) return;
   const href = chatLink(s.channel, s.contact, s.greeting);
   if (!href) return;
-  const host = document.createElement("div");
+  const label = s.label || widgetT(config.locale, "chat");
+  // aside: ভাসমান বাটনটা পাতার একটা আলাদা অংশ (landmark), স্ক্রিন রিডারের তালিকায় নাম নিয়ে দেখায়
+  const host = document.createElement("aside");
   host.id = "app-chat-button";
+  host.setAttribute("aria-label", label);
   document.body.appendChild(host);
   const side = s.position === "bottom-left" ? "left" : "right";
   const icon = s.channel === "phone" ? "phone" : s.channel === "email" ? "email" : "chat";
-  const label = s.label || widgetT(config.locale, "chat");
   const showLabel = Boolean(s.label) && !isMobile();
 
   const draw = () =>

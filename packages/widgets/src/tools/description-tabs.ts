@@ -63,13 +63,27 @@ function tabs(el: HTMLElement, parts: Part[], s: Settings) {
     button.style.cssText = `background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;cursor:pointer;color:${s.colors.text};font:inherit;min-height:44px`;
     button.addEventListener("click", () => select(i));
     button.addEventListener("keydown", (e) => {
-      const step = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if (step) select((i + step + parts.length) % parts.length, true);
+      const last = parts.length - 1;
+      const to =
+        e.key === "ArrowRight"
+          ? (i + 1) % parts.length
+          : e.key === "ArrowLeft"
+            ? (i + last) % parts.length
+            : e.key === "Home"
+              ? 0
+              : e.key === "End"
+                ? last
+                : -1;
+      if (to < 0) return;
+      e.preventDefault();
+      select(to, true);
     });
     const panel = document.createElement("div");
     panel.id = `${id}-panel-${i}`;
     panel.setAttribute("role", "tabpanel");
     panel.setAttribute("aria-labelledby", button.id);
+    // লিংক ছাড়া লেখা থাকলেও Tab দিয়ে প্যানেলে পৌঁছানো যায় (ARIA-র ট্যাব নিয়ম)
+    panel.tabIndex = 0;
     panel.append(...part.nodes);
     buttons.push(button);
     panels.push(panel);

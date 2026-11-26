@@ -12,3 +12,6 @@ Thumbs.db
 coverage
 # Visitor Recordings-এর লোকাল স্টোরেজ (ডেভেলপমেন্টে)
 .data
+# Playwright (packages/widgets/e2e) চালানোর ফল
+test-results
+playwright-report
