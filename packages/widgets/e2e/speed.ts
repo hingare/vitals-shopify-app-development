@@ -223,7 +223,7 @@ test("our tools barely change the Lighthouse score", async () => {
       ? [
           "",
           `**লক্ষ্যের (${TARGET}) ওপরে।** একবার আবার চালিয়ে দেখুন (ফল কয়েক পয়েন্ট ওঠানামা করে); বারবার হলে ` +
-            "নিচের খরচের তালিকা দেখে সবচেয়ে ভারী ফাইল হালকা করুন।",
+            "নিচের খরচ দেখুন, আর কোনো ফাইল হালকা করার আগে Chrome-এর Performance profiler-এ মিলিয়ে নিন।",
         ]
       : []),
     "",
@@ -244,7 +244,9 @@ test("our tools barely change the Lighthouse score", async () => {
             `প্রোডাক্ট ${BUDGET.product.kb} KB/${BUDGET.product.ms} ms, ` +
             `কালেকশন ${BUDGET.collection.kb} KB/${BUDGET.collection.ms} ms।`,
           "",
-          "সবচেয়ে বেশি CPU নেওয়া ফাইল (তিন পাতার ওজনে গড়):",
+          "সবচেয়ে বেশি CPU নেওয়া ফাইল (তিন পাতার ওজনে গড়), Lighthouse-এর হিসাবে। Lighthouse একটা পুরো কাজ " +
+            "(ব্রাউজারের নিজের style আর layout-সহ) সেই কাজে চলা প্রথম স্ক্রিপ্টের নামে লেখে, যেমন কোনো " +
+            "MutationObserver-এর ডাক, তাই ফাইল ধরে ভাগটা আনুমানিক:",
           "",
           "| ফাইল | KB | CPU (ms) |",
           "| --- | --- | --- |",
