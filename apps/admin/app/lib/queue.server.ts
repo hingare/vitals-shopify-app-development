@@ -26,7 +26,8 @@ export type JobResult = void | {
 type Handler = (job: JobContext) => Promise<JobResult>;
 
 const handlers = new Map<string, Handler>();
-const MAX_ATTEMPTS = 3;
+/** একটা ধাপ কতবার চেষ্টা হয়; শেষ চেষ্টাতেও ব্যর্থ হলে কাজটা failed */
+export const MAX_ATTEMPTS = 3;
 const STUCK_MS = 10 * 60_000;
 
 export function registerJob(kind: string, handler: Handler) {

@@ -294,6 +294,9 @@ function build() {
       scheduledAt: null,
       sentAt: null,
       recipients: 0,
+      segmentId: null,
+      segmentName: null,
+      error: null,
     })),
     emailFlow: table("flow", () => ({ enabled: false }), [["shopId", "key"]]),
     abandonedCheckout: table("checkout", () => ({ completedAt: null, acceptsMarketing: false }), [

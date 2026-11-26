@@ -9,16 +9,34 @@ import {
   type EmailContent,
 } from "./email-template";
 import { sendEmail, type SendResult } from "./email-transport.server";
+import { offlineAdmin } from "./admin-client.server";
 import { messageStats, shopDisplayName, type EmailPayload } from "./messages.server";
-import { enqueueJob, registerJob } from "./queue.server";
+import { MAX_ATTEMPTS, enqueueJob, registerJob } from "./queue.server";
+import {
+  membersPage,
+  membersQueryDone,
+  startMembersQuery,
+  type SegmentMember,
+  type SegmentOption,
+} from "./segments.server";
 import { cleanEmail, enabledSettings } from "./tool-state.server";
 
 /**
  * একবারের ইমেইল ক্যাম্পেইন: খসড়া → (চাইলে সময় ঠিক করা) → পাঠানো।
  * পাঠানো মানে প্রতিটা গ্রাহকের জন্য `Message` লাইনে দেওয়া; আসল পাঠানো, সীমা আর
  * সম্মতি যাচাই হয় messages.server.ts-এ। বড় তালিকা ৫০০ জন করে ধাপে ধাপে লাইনে পড়ে।
+ * Shopify-র কোনো customer segment বেছে নিলে শুধু সেই সেগমেন্টের subscribed গ্রাহকেরা পান
+ * (সেগমেন্টের তালিকা Shopify থেকে ২৫০ জন করে আসে)।
  */
 const SLICE = 500;
+/** সেগমেন্টের তালিকা তৈরি হওয়ার জন্য কতক্ষণ পরপর দেখা, আর সর্বোচ্চ কতবার (৫ সেকেন্ড × ১২০ = ১০ মিনিট) */
+const POLL_MS = 5_000;
+const MAX_POLLS = 120;
+/**
+ * সেগমেন্টের এক পাতা (২৫০ জন) আনতে Shopify-র ~৫০০ পয়েন্ট লাগে, আর সাধারণ স্টোরে সেকেন্ডে ১০০ পয়েন্ট ফেরে;
+ * তাই পাতার মাঝে ৫ সেকেন্ড বিরতি, যাতে বড় সেগমেন্টে Shopify থামিয়ে না দেয় (আর স্টোরের অন্য কাজও চলে)
+ */
+const PAGE_MS = 5_000;
 
 export const DEFAULT_CAMPAIGN: EmailContent = {
   subject: "News from {shop}",
@@ -56,6 +74,9 @@ export class CampaignError extends Error {
   }
 }
 
+/** পাঠানো কেন থেমে গেছে (ক্যাম্পেইনের `error`) */
+export type CampaignStop = "segment_missing" | "segment_timeout" | "send_failed";
+
 /**
  * Email Marketing বন্ধ থাকলে (বা প্ল্যানে না থাকলে) ক্যাম্পেইন পাঠানো বা সময় ঠিক করা যায় না।
  * ক্যাম্পেইন একবারই পাঠানো যায়; বন্ধ অবস্থায় শুরু হলে তার সব ইমেইল বাদ পড়ত আর ক্যাম্পেইনটা নষ্ট হতো।
@@ -70,21 +91,34 @@ async function requireMarketingOn(shopId: string) {
   }
 }
 
-/** নতুন খসড়া বা আগের খসড়া সেভ; পাঠানো শুরু হয়ে গেলে আর বদলানো যায় না */
+/**
+ * নতুন খসড়া বা আগের খসড়া সেভ; পাঠানো শুরু হয়ে গেলে আর বদলানো যায় না।
+ * `segment`: null মানে সব সাবস্ক্রাইবার, না দিলে আগেরটাই থাকে। সেগমেন্টটা স্টোরে আছে কিনা
+ * route আগেই Shopify-তে দেখে নেয়।
+ */
 export async function saveCampaign(
   shopId: string,
   id: string | null,
-  input: { name: string; content: unknown },
+  input: { name: string; content: unknown; segment?: SegmentOption | null },
 ): Promise<string> {
   const content = emailContentSchema.parse(input.content) as Prisma.InputJsonValue;
   const name = input.name.trim().slice(0, 120) || "Untitled campaign";
+  const audience =
+    input.segment === undefined
+      ? {}
+      : {
+          segmentId: input.segment?.id ?? null,
+          segmentName: input.segment?.name.slice(0, 255) ?? null,
+        };
   if (!id) {
-    const created = await db.emailCampaign.create({ data: { shopId, name, content } });
+    const created = await db.emailCampaign.create({
+      data: { shopId, name, content, ...audience },
+    });
     return created.id;
   }
   const { count } = await db.emailCampaign.updateMany({
     where: { id, shopId, status: { in: ["draft", "scheduled"] } },
-    data: { name, content },
+    data: { name, content, ...audience, error: null },
   });
   if (count === 0) throw new CampaignError("This campaign was already sent");
   return id;
@@ -110,7 +144,7 @@ export async function startCampaign(shopId: string, id: string, now = new Date()
   await requireMarketingOn(shopId);
   const { count } = await db.emailCampaign.updateMany({
     where: { id, shopId, status: { in: ["draft", "scheduled"] } },
-    data: { status: "sending", sentAt: now },
+    data: { status: "sending", sentAt: now, error: null },
   });
   if (count === 0) return false;
   await enqueueJob(shopId, "campaign-send", { campaignId: id });
@@ -140,6 +174,30 @@ export async function startDueCampaigns(now = new Date()) {
   return started;
 }
 
+type Recipient = { id: string; email: string; firstName: string | null };
+
+/** গ্রাহকদের জন্য বার্তা লাইনে দেয়; একই ক্যাম্পেইন একজনের কাছে একবারই যায়, ধাপটা আবার চললেও */
+async function queueMessages(shopId: string, campaignId: string, recipients: Recipient[]) {
+  if (recipients.length === 0) return 0;
+  const { count } = await db.message.createMany({
+    data: recipients.map((sub) => ({
+      shopId,
+      channel: "email",
+      kind: "campaign",
+      refId: campaignId,
+      recipient: sub.email,
+      dedupeKey: `campaign:${campaignId}:${sub.id}`,
+      payload: {
+        campaignId,
+        marketing: true,
+        vars: { first_name: sub.firstName?.trim() || "there" },
+      } satisfies EmailPayload as Prisma.InputJsonValue,
+    })),
+    skipDuplicates: true,
+  });
+  return count;
+}
+
 /** এক ধাপ: পরের ৫০০ গ্রাহকের জন্য বার্তা লাইনে দেয় */
 export async function queueCampaignSlice(
   shopId: string,
@@ -153,58 +211,141 @@ export async function queueCampaignSlice(
     select: { id: true, email: true, firstName: true },
   });
   if (batch.length === 0) return { queued: 0, next: null };
-  const { count } = await db.message.createMany({
-    data: batch.map((sub) => ({
-      shopId,
-      channel: "email",
-      kind: "campaign",
-      refId: campaignId,
-      recipient: sub.email,
-      // একই ক্যাম্পেইন একজনের কাছে একবারই যায়, ধাপটা আবার চললেও
-      dedupeKey: `campaign:${campaignId}:${sub.id}`,
-      payload: {
-        campaignId,
-        marketing: true,
-        vars: { first_name: sub.firstName?.trim() || "there" },
-      } satisfies EmailPayload as Prisma.InputJsonValue,
-    })),
-    skipDuplicates: true,
-  });
   return {
-    queued: count,
+    queued: await queueMessages(shopId, campaignId, batch),
     next: batch.length < SLICE ? null : (batch[batch.length - 1]?.id ?? null),
   };
 }
 
-registerJob("campaign-send", async (job) => {
-  const {
-    campaignId,
-    cursor = "",
-    queued = 0,
-  } = job.payload as {
-    campaignId: string;
-    cursor?: string;
-    queued?: number;
-  };
-  const campaign = await db.emailCampaign.findFirst({
-    where: { id: campaignId, shopId: job.shopId, status: "sending" },
-    select: { id: true },
+/**
+ * সেগমেন্টের এক পাতা গ্রাহকের মধ্যে যাঁরা আমাদের তালিকায় subscribed, তাঁদের জন্য বার্তা লাইনে দেয়।
+ * Shopify customer id দিয়ে মেলানো হয়, আর id জানা না থাকলে ইমেইল দিয়ে।
+ */
+export async function queueSegmentMembers(
+  shopId: string,
+  campaignId: string,
+  members: SegmentMember[],
+): Promise<number> {
+  const ids = [...new Set(members.map((m) => m.customerId).filter(Boolean))];
+  const emails = [...new Set(members.map((m) => m.email).filter((e): e is string => !!e))];
+  const match: Prisma.SubscriberWhereInput[] = [];
+  if (ids.length > 0) match.push({ customerId: { in: ids } });
+  if (emails.length > 0) match.push({ email: { in: emails } });
+  if (match.length === 0) return 0;
+  const subscribers = await db.subscriber.findMany({
+    where: { shopId, status: "subscribed", OR: match },
+    orderBy: { id: "asc" },
+    select: { id: true, email: true, firstName: true },
   });
-  if (!campaign) return;
-  const slice = await queueCampaignSlice(job.shopId, campaignId, cursor);
-  const total = queued + slice.queued;
-  if (slice.next) {
+  return queueMessages(shopId, campaignId, subscribers);
+}
+
+/**
+ * পাঠানো থামানো। কিছুই লাইনে না পড়লে ক্যাম্পেইন খসড়ায় ফেরে (অন্য audience বেছে আবার পাঠানো যায়);
+ * কিছু পড়ে থাকলে সেগুলো যায়, আর ক্যাম্পেইনটা "sent" হয় কারণ লেখা থাকে।
+ */
+export async function stopCampaign(campaignId: string, queued: number, reason: CampaignStop) {
+  await db.emailCampaign.updateMany({
+    where: { id: campaignId, status: "sending" },
+    data:
+      queued > 0
+        ? { status: "sent", recipients: queued, error: reason }
+        : { status: "draft", sentAt: null, scheduledAt: null, error: reason },
+  });
+}
+
+type SendPayload = {
+  campaignId: string;
+  cursor?: string;
+  queued?: number;
+  /** সেগমেন্টের গ্রাহক তালিকার কাজ (Shopify-র CustomerSegmentMembersQuery) */
+  queryId?: string;
+  ready?: boolean;
+  polls?: number;
+};
+
+/** সেগমেন্টের ক্যাম্পেইনের এক ধাপ: তালিকা চাওয়া → তৈরি হওয়ার অপেক্ষা → ২৫০ জন করে লাইনে দেওয়া */
+async function segmentStep(
+  shopId: string,
+  segmentId: string,
+  payload: SendPayload,
+): Promise<
+  { again: true; payload: SendPayload; delayMs?: number } | { done: number } | CampaignStop
+> {
+  const queued = payload.queued ?? 0;
+  const shop = await db.shop.findUnique({ where: { id: shopId }, select: { domain: true } });
+  if (!shop) return { done: queued };
+  const admin = await offlineAdmin(shop.domain);
+  if (!payload.queryId) {
+    const query = await startMembersQuery(admin, segmentId);
+    if (!query) return "segment_missing";
     return {
       again: true,
-      payload: { campaignId, cursor: slice.next, queued: total },
-      progress: { queued: total },
+      payload: { ...payload, queryId: query.id, ready: query.done, polls: 0 },
+      ...(query.done ? {} : { delayMs: POLL_MS }),
     };
   }
-  await db.emailCampaign.update({
-    where: { id: campaignId },
-    data: { status: "sent", recipients: total },
+  if (!payload.ready) {
+    if (await membersQueryDone(admin, payload.queryId)) {
+      return { again: true, payload: { ...payload, ready: true } };
+    }
+    const polls = (payload.polls ?? 0) + 1;
+    if (polls >= MAX_POLLS) return "segment_timeout";
+    return { again: true, payload: { ...payload, polls }, delayMs: POLL_MS };
+  }
+  const page = await membersPage(admin, payload.queryId, payload.cursor || null);
+  const total = queued + (await queueSegmentMembers(shopId, payload.campaignId, page.members));
+  if (page.next) {
+    return {
+      again: true,
+      payload: { ...payload, cursor: page.next, queued: total },
+      delayMs: PAGE_MS,
+    };
+  }
+  return { done: total };
+}
+
+registerJob("campaign-send", async (job) => {
+  const payload = job.payload as SendPayload;
+  const { campaignId, cursor = "", queued = 0 } = payload;
+  const campaign = await db.emailCampaign.findFirst({
+    where: { id: campaignId, shopId: job.shopId, status: "sending" },
+    select: { id: true, segmentId: true },
   });
-  return { progress: { queued: total } };
+  if (!campaign) return;
+  try {
+    let total: number;
+    if (campaign.segmentId) {
+      const step = await segmentStep(job.shopId, campaign.segmentId, payload);
+      if (typeof step === "string") {
+        await stopCampaign(campaignId, queued, step);
+        return { progress: { queued, stopped: step } };
+      }
+      if ("again" in step) {
+        return { ...step, progress: { queued: step.payload.queued ?? queued } };
+      }
+      total = step.done;
+    } else {
+      const slice = await queueCampaignSlice(job.shopId, campaignId, cursor);
+      total = queued + slice.queued;
+      if (slice.next) {
+        return {
+          again: true,
+          payload: { campaignId, cursor: slice.next, queued: total },
+          progress: { queued: total },
+        };
+      }
+    }
+    await db.emailCampaign.update({
+      where: { id: campaignId },
+      data: { status: "sent", recipients: total },
+    });
+    return { progress: { queued: total } };
+  } catch (error) {
+    // শেষ চেষ্টাতেও ব্যর্থ: ক্যাম্পেইন "sending" অবস্থায় আটকে না থেকে থামে (কাজের ত্রুটি খাতায় যায়)
+    if (job.attempts >= MAX_ATTEMPTS) await stopCampaign(campaignId, queued, "send_failed");
+    throw error;
+  }
 });
 
 export const campaignStats = (shopId: string, campaignId: string) =>
