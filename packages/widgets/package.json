@@ -7,13 +7,18 @@
     "build": "vite build",
     "size": "node scripts/check-size.mjs",
     "test": "vitest run && vite build && node scripts/check-size.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@rrweb/record": "2.2.0",
     "preact": "^10.27.2"
   },
   "devDependencies": {
+    "@app/tools": "workspace:*",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^25.5.2",
+    "axe-core": "4.14.0",
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^3.2.7"

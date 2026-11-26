@@ -6,7 +6,7 @@ import { widgetT, type WidgetString } from "../i18n";
 import { newKey } from "../keys";
 import { proxyPost } from "../proxy";
 import type { StoreConfig, ToolContext } from "../types";
-import { inputStyle, type Colors } from "../ui";
+import { holdFocus, inputStyle, type Colors } from "../ui";
 import { identifyVisitor } from "../visitor";
 
 /**
@@ -131,7 +131,7 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
     if (!res.ok || !res.data) return;
     setOnline(res.data.online);
     setHasEmail(res.data.hasEmail);
-    const incoming = res.data.messages;
+    const incoming = Array.isArray(res.data.messages) ? res.data.messages : [];
     setMessages((previous) => mergeMessages(previous, incoming));
   }
 
@@ -170,6 +170,17 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
       store.set(SEEN_STORE, last.at);
     }
   }, [open, messages]);
+
+  // খুললে ফোকাস লেখার ঘরে, Escape বন্ধ করে আর ফোকাস চ্যাট বাটনে ফেরে; ফোনে পুরো পর্দা, তাই Tab ভেতরেই
+  const panel = useRef<HTMLDivElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open || !panel.current) return;
+    return holdFocus(panel.current, () => setOpen(false), {
+      trap: mobile,
+      returnTo: () => launcher.current,
+    });
+  }, [open]);
 
   function toggle() {
     if (!open) track(TOOL_ID, "view");
@@ -225,6 +236,7 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
     <>
       {open && (
         <div
+          ref={panel}
           role="dialog"
           aria-label={s.title}
           style={{
@@ -262,7 +274,7 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <strong style={{ display: "block" }}>{s.title}</strong>
               {online !== null && (
-                <span style={{ fontSize: "13px", opacity: 0.9 }}>
+                <span style={{ fontSize: "13px" }}>
                   {online ? `● ${t("chatOnline")}` : t("chatAway")}
                 </span>
               )}
@@ -392,6 +404,7 @@ function Chat({ s, t, config }: { s: Settings; t: T; config: StoreConfig }) {
       )}
       {!(open && mobile) && (
         <button
+          ref={launcher}
           type="button"
           aria-label={s.title}
           aria-expanded={open}

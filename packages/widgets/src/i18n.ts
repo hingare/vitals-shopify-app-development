@@ -61,6 +61,7 @@ const strings = {
     copied: "Copied",
     chat: "Chat with us",
     backToTop: "Back to top",
+    currency: "Currency",
     share: "Share on",
     copyLink: "Copy link",
     linkCopied: "Link copied",

@@ -22,6 +22,30 @@ jobs:
         run: pnpm test
       - run: pnpm build
 
+  storefront:
+    # দোকানের পাতায় প্রতিটা উইজেট, নকল দোকানে (packages/widgets/e2e): axe-core, কীবোর্ড আর লেআউট সরে যাওয়া
+    # Playwright-এর ব্রাউজারের লাইব্রেরি জানা Ubuntu সংস্করণে বসে, তাই 24.04
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Chromium for Playwright
+        run: pnpm --filter @app/widgets exec playwright install --with-deps chromium
+      - run: pnpm --filter @app/widgets build
+      - run: pnpm --filter @app/widgets e2e
+      - name: Keep the failure screenshots and page snapshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-test-results
+          path: packages/widgets/test-results
+          retention-days: 7
+
   backup-restore:
     # ব্যাকআপ নিয়ে নতুন ডাটাবেসে ফেরত আনা যায় কিনা, আর প্রতিটা টেবিল মেলে কিনা (docs/backup-restore.md)
     # ubuntu-latest (26.04)-এ PostgreSQL 16-এর client টুল নেই; সার্ভারের সংস্করণের টুল লাগে, তাই 24.04

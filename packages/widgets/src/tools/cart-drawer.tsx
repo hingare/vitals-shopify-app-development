@@ -7,6 +7,7 @@ import { type CartLine, type FullCart, cartPost, getCart, isQuietAddUrl } from "
 import { imageUrl, money, root } from "../product";
 import { Notice, type NoticeSettings } from "../notice";
 import { UpsellList, upsellsFor } from "../upsell";
+import { holdFocus } from "../ui";
 
 const TOOL_ID = "cart-drawer";
 const GIFT_PROPERTY = "_app_gift";
@@ -176,33 +177,17 @@ function Drawer({ config, s }: { config: StoreConfig; s: Settings }) {
   }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
-    panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-      // ফোকাস drawer-এর ভেতরেই রাখা
-      if (e.key === "Tab" && panel.current) {
-        const items = panel.current.querySelectorAll<HTMLElement>(
-          "a,button:not([disabled]),select",
-        );
-        const first = items[0];
-        const last = items[items.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", onKey);
+    if (!isOpen || !panel.current) return;
+    // ফোকাস প্যানেলে (স্ক্রিন রিডার শিরোনাম পড়ে), Tab প্যানেলের ভেতরেই ঘোরে
+    const release = holdFocus(panel.current, () => setOpen(false), {
+      initial: panel.current,
+      returnTo: () => returnFocus.current as HTMLElement | null,
+    });
     const overflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = "hidden";
     return () => {
-      document.removeEventListener("keydown", onKey);
+      release();
       document.documentElement.style.overflow = overflow;
-      (returnFocus.current as HTMLElement | null)?.focus?.();
     };
   }, [isOpen]);
 

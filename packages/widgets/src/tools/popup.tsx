@@ -5,6 +5,7 @@ import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { isMobile, store } from "../dom";
 import { identifyVisitor } from "../visitor";
+import { holdFocus } from "../ui";
 
 const TOOL_ID = "popup";
 const HIDE_KEY = "app_popup_hidden_until";
@@ -54,16 +55,11 @@ function Popup({ s, locale, onClose }: { s: Settings; locale: string; onClose: (
   const first = useRef<HTMLInputElement | HTMLAnchorElement | HTMLButtonElement>(null);
   const t = (key: Parameters<typeof widgetT>[1]) => widgetT(locale, key);
 
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    first.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      previous?.focus?.();
-    };
-  }, []);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(
+    () => (box.current ? holdFocus(box.current, onClose, { initial: first.current }) : undefined),
+    [],
+  );
 
   async function submit(e: Event) {
     e.preventDefault();
@@ -106,6 +102,7 @@ function Popup({ s, locale, onClose }: { s: Settings; locale: string; onClose: (
       }}
     >
       <div
+        ref={box}
         role="dialog"
         aria-modal="true"
         aria-labelledby="app-popup-heading"

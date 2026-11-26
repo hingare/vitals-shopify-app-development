@@ -6,7 +6,7 @@ import { fill, isMobile, store } from "../dom";
 import { widgetT, type WidgetString } from "../i18n";
 import { imageUrl, money, root } from "../product";
 import type { StoreConfig, ToolContext } from "../types";
-import { buttonStyle, type Colors } from "../ui";
+import { buttonStyle, type Colors, holdFocus } from "../ui";
 
 /**
  * Instant Search: স্টোরের সার্চ ঘরে ক্লিক করলে উপরে একটা খোঁজার প্যানেল খোলে, আর টাইপ করতেই
@@ -239,7 +239,8 @@ function SearchPanel({
   t: T;
   config: StoreConfig;
   initial: string;
-  onClose: () => void;
+  /** byKeyboard: Escape বা কীবোর্ডে × চাপা (তখন ফোকাস আগের জায়গায় ফেরে) */
+  onClose: (byKeyboard: boolean) => void;
 }) {
   const [query, setQuery] = useState(initial);
   const [results, setResults] = useState<Results | null>(null);
@@ -253,9 +254,12 @@ function SearchPanel({
 
   useEffect(() => {
     track(TOOL_ID, "view");
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    // Tab প্যানেলের ভেতরেই ঘোরে; বন্ধ হলে ফোকাস কোথায় যাবে তা mount ঠিক করে
+    if (!panel.current) return;
+    return holdFocus(panel.current, () => onClose(true), {
+      initial: panel.current.querySelector<HTMLInputElement>("input[name=q]"),
+      returnTo: () => null,
+    });
   }, []);
 
   useEffect(() => {
@@ -336,7 +340,7 @@ function SearchPanel({
 
   return (
     <div
-      onClick={(event) => event.target === event.currentTarget && onClose()}
+      onClick={(event) => event.target === event.currentTarget && onClose(false)}
       style={{
         position: "fixed",
         inset: 0,
@@ -422,7 +426,7 @@ function SearchPanel({
           <button
             type="button"
             aria-label={t("close")}
-            onClick={onClose}
+            onClick={(event) => onClose(event.detail === 0)}
             style={{
               background: "none",
               border: 0,
@@ -622,7 +626,7 @@ export function mount({ config, settings }: ToolContext) {
   let quietUntil = 0;
   let overflow = "";
 
-  const close = () => {
+  const close = (byKeyboard: boolean) => {
     if (!host) return;
     render(null, host);
     host.remove();
@@ -630,7 +634,8 @@ export function mount({ config, settings }: ToolContext) {
     document.documentElement.style.overflow = overflow;
     // থিমের সার্চ ঘরে ফোকাস ফিরলে প্যানেল আবার খুলে যেত, তাই কিছুক্ষণ চুপ
     quietUntil = Date.now() + 500;
-    returnTo?.focus?.();
+    // কীবোর্ডের ক্রেতা যেখানে ছিলেন সেখানে ফেরেন; আঙুলে বন্ধ করলে সার্চ ঘরে ফোকাস দিয়ে ফোনের কিবোর্ড তুলি না
+    if (returnTo && (byKeyboard || !(returnTo instanceof HTMLInputElement))) returnTo.focus();
     returnTo = null;
   };
 
@@ -654,7 +659,7 @@ export function mount({ config, settings }: ToolContext) {
       if (host || Date.now() < quietUntil || !isSearchInput(event.target)) return;
       const input = event.target;
       input.blur();
-      open(input.value, null);
+      open(input.value, input);
     },
     true,
   );

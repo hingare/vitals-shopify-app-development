@@ -3,6 +3,7 @@ import { useState } from "preact/hooks";
 import type { StoreConfig, ToolContext } from "../types";
 import { bottomOffset, fill, store } from "../dom";
 import { currencyForLocale, parseMoney, replaceMoney } from "../money";
+import { widgetT } from "../i18n";
 
 const KEY = "app_currency";
 const PRICE =
@@ -44,8 +45,11 @@ function Picker({
   const [value, setValue] = useState(current);
   const side = s.position === "bottom-left" ? "left" : "right";
   const options = [...new Set([config.shopCurrency!, ...s.currencies])];
+  const label = widgetT(config.locale, "currency");
+  // aside: ভাসমান বাক্সটা পাতার একটা আলাদা অংশ (landmark), স্ক্রিন রিডারের তালিকায় নাম নিয়ে দেখায়
   return (
-    <div
+    <aside
+      aria-label={label}
       data-app-widget="currency"
       style={{
         position: "fixed",
@@ -62,7 +66,7 @@ function Picker({
       }}
     >
       <select
-        aria-label="Currency"
+        aria-label={label}
         value={value}
         onChange={(e) => {
           const code = e.currentTarget.value;
@@ -90,7 +94,7 @@ function Picker({
           </a>
         </p>
       )}
-    </div>
+    </aside>
   );
 }
 
