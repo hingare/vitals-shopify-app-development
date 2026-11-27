@@ -2,7 +2,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 import {
-  ALL_TOOLS,
   METRICS,
   launchChrome,
   measure,
@@ -11,6 +10,7 @@ import {
   type Measure,
   type Metric,
 } from "./lighthouse";
+import { ALL_TOOLS } from "./scenarios";
 import { serveStore, type Served } from "./serve";
 import { PATHS, type PageKind } from "./store";
 

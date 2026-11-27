@@ -74,6 +74,7 @@ export async function mount({ config, settings }: ToolContext) {
     // পুরনো ব্রাউজার: Shopify-র দেওয়া নাম
   }
   const host = document.createElement("div");
+  host.dataset.appWidget = "geolocation-redirect";
   document.body.appendChild(host);
   const close = () => {
     store.set(KEY, visitor);

@@ -1,8 +1,9 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
-import { Liquid } from "liquidjs";
+import { Liquid, type Context } from "liquidjs";
 import { buildStoreConfig, registry } from "@app/tools";
+import { formatShopMoney } from "../src/money";
 import { HERO, SERVER_MS, WEIGHT_ASSETS, weightChrome, weightHead } from "./weight";
 
 /**
@@ -25,13 +26,29 @@ const liquid = new Liquid({
   extname: ".liquid",
   timezoneOffset: "Asia/Dhaka",
 });
-// পথগুলো দোকানের নিজের ঠিকানার সাপেক্ষে, যাতে Playwright-এর shop.test আর আসল সার্ভার (serveStore) দুটোতেই চলে
-liquid.registerFilter("asset_url", (file: string) => `/cdn/assets/${file}`);
+/** ফিল্টারের ভেতর থেকে পাতার global পড়া (liquidjs ফিল্টারকে this.context দেয়) */
+type Filter = { context: Context };
+// পথগুলো দোকানের নিজের ঠিকানার সাপেক্ষে, যাতে Playwright-এর shop.test আর আসল সার্ভার (serveStore) দুটোতেই চলে।
+// asset_base Shopify-র global নয়: আসল থিমের পরীক্ষা (e2e/themes.ts) আমাদের ফাইল অন্য পথে দেয়
+liquid.registerFilter("asset_url", function (this: Filter, file: string) {
+  const base = this.context.getSync(["asset_base"]);
+  return `${typeof base === "string" ? base : "/cdn/assets/"}${file}`;
+});
 liquid.registerFilter("image_url", (image: { src?: string } | string) => {
   const src = typeof image === "string" ? image : (image?.src ?? "");
+  // আসল দোকানের ছবি (//cdn.shopify.com/...) যেমন আছে তেমন
+  if (src.startsWith("//")) return `https:${src}`;
+  if (/^https?:/.test(src)) return src;
   return `/cdn/shop/${src}`;
 });
-liquid.registerFilter("money", (cents: number) => `$${(cents / 100).toFixed(2)}`);
+// দোকানের money_format দিয়ে, Shopify-র money ফিল্টারের মতো
+liquid.registerFilter("money", function (this: Filter, cents: number) {
+  const format = this.context.getSync(["shop", "money_format"]);
+  return (
+    formatShopMoney(cents, typeof format === "string" ? format : "${{amount}}") ??
+    (cents / 100).toFixed(2)
+  );
+});
 liquid.registerFilter(
   "payment_type_svg_tag",
   (type: string) =>
@@ -42,8 +59,10 @@ liquid.registerFilter(
 liquid.registerFilter("json", (value: unknown) =>
   JSON.stringify(value ?? null).replace(/</g, "\\u003c"),
 );
+/** app embed block-এর নাম (blocks/<নাম>.liquid); Shopify এই নামে block-টাকে চেনে */
+export const EMBED_HANDLE = "app-tools-embed";
 const EMBED = liquid.parse(
-  readFileSync(`${THEME}blocks/app-tools-embed.liquid`, "utf8").replace(
+  readFileSync(`${THEME}blocks/${EMBED_HANDLE}.liquid`, "utf8").replace(
     /{%\s*schema\s*%}[\s\S]*?{%\s*endschema\s*%}/,
     "",
   ),
@@ -130,7 +149,11 @@ function ajaxProduct(p: Product) {
     images: [`/cdn/shop/${p.handle}.png`],
     tags: p.tags,
     created_at: "2026-11-20T10:00:00+06:00",
-    variants: p.variants.map((v) => ({ ...v, name: `${p.title} - ${v.title}` })),
+    variants: p.variants.map((v) => ({
+      ...v,
+      name: `${p.title} - ${v.title}`,
+      inventory_management: "shopify",
+    })),
   };
 }
 
@@ -249,6 +272,11 @@ export interface StoreOptions {
    * (e2e/weight.ts)। শুধু গতির পরীক্ষায় (e2e/speed.ts), যাতে Lighthouse-এর স্কোর ১০০-তে আটকে না থাকে।
    */
   weight?: boolean;
+  /**
+   * ডেভেলপমেন্ট স্টোরের মতো পাসওয়ার্ড: না দিলে সব পাতা /password-এ পাঠায় (আসল থিমের পরীক্ষার নিজের
+   * পরীক্ষায়, e2e/themes.ts)। /password-এ সঠিক পাসওয়ার্ড POST করলে কুকি দেয়।
+   */
+  password?: string;
 }
 
 /** slow পাতায় প্রতিটা থামা কতক্ষণ (এর মধ্যে ব্রাউজার পাতা আঁকে) */
@@ -260,12 +288,16 @@ export interface StoreRequest {
   /** পুরো ঠিকানা (https://shop.test/cart.js ...) */
   url: string;
   body: string | null;
+  /** ব্রাউজারের Cookie হেডার */
+  cookie?: string | null;
 }
 
 export interface StoreResponse {
   status: number;
   contentType: string;
   body: string | Buffer;
+  /** বাকি হেডার (location, set-cookie), ছোট হাতের নামে */
+  headers?: Record<string, string>;
 }
 
 export interface Store {
@@ -287,8 +319,44 @@ const json = (body: unknown, status = 200): StoreResponse => ({
   body: JSON.stringify(body),
 });
 
+const redirect = (location: string, headers: Record<string, string> = {}): StoreResponse => ({
+  status: 302,
+  contentType: "text/html; charset=utf-8",
+  body: "",
+  headers: { location, ...headers },
+});
+
+/** পাসওয়ার্ড দেওয়ার পরে দোকানের কুকি (আসল দোকানে _shopify_essential বা storefront_digest) */
+const UNLOCKED = "storefront_digest=test-unlocked";
+
+/** ডেভেলপমেন্ট স্টোরের পাসওয়ার্ড পাতার মতো */
+const passwordPage = (wrong: boolean): StoreResponse => ({
+  status: 200,
+  contentType: "text/html; charset=utf-8",
+  body: `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Opening soon</title></head>
+<body>
+  <main>
+    <h1>Opening soon</h1>
+    <form method="post" action="/password" class="storefront-password-form">
+      <input type="hidden" name="form_type" value="storefront_password">
+      <label for="Password">Password</label>
+      <input type="password" name="password" id="Password">
+      ${wrong ? '<p role="alert">Wrong password</p>' : ""}
+      <button type="submit">Enter</button>
+    </form>
+  </main>
+</body>
+</html>`,
+});
+
 /** App Proxy-র নকল উত্তর: সাধারণ দোকানে যা আসে তার মতো */
-function proxyAnswer(path: string, method: string, options: StoreOptions): unknown {
+export function proxyAnswer(
+  path: string,
+  method: string,
+  options: Pick<StoreOptions, "proxy">,
+): unknown {
   const key = path.split("?")[0]!;
   if (options.proxy && key in options.proxy) return options.proxy[key];
   switch (key) {
@@ -355,9 +423,58 @@ function proxyAnswer(path: string, method: string, options: StoreOptions): unkno
   }
 }
 
+/** Shopify-র Liquid variant অবজেক্টের যে অংশ embed পড়ে */
+export interface LiquidVariant {
+  id: number;
+  title: string;
+  url: string;
+  price: number;
+  compare_at_price: number | null;
+  sku: string;
+  barcode: string;
+  inventory_management: string | null;
+  available: boolean;
+  inventory_policy: "deny" | "continue";
+  inventory_quantity: number;
+}
+
+/**
+ * আমাদের অ্যাপের metafield (রিভিউর রেটিং, AI FAQ), নকল। আসল থিমের পরীক্ষাতেও এগুলোই, যাতে দোকানে অ্যাপ
+ * না থাকলেও উইজেটগুলো দেখা যায়।
+ */
+const METAFIELDS = {
+  reviews: { rating_count: { value: 2 }, rating: { value: { rating: "4.5" } } },
+  $app: {
+    ai_faq: {
+      value: {
+        items: [
+          { question: "Does it shrink?", answer: "Very little, if you wash it cold." },
+          { question: "Is it see-through?", answer: "No, the fabric is 180 gsm." },
+        ],
+      },
+    },
+  },
+};
+
+/** Shopify-র Liquid product অবজেক্টের যে অংশ embed পড়ে */
+export interface LiquidProduct {
+  id: number;
+  handle: string;
+  title: string;
+  url: string;
+  vendor: string;
+  tags: string[];
+  created_at: string;
+  description: string;
+  images: Array<{ src: string }>;
+  selected_or_first_available_variant: LiquidVariant;
+  variants: LiquidVariant[];
+  metafields: typeof METAFIELDS;
+}
+
 /** Shopify-র Liquid product অবজেক্ট (embed যা পড়ে), টি-শার্টের */
-function liquidProduct(options: ProductOptions) {
-  const variants = TEE.variants.map((v) => ({
+function liquidProduct(options: ProductOptions): LiquidProduct {
+  const variants = TEE.variants.map((v): LiquidVariant => ({
     id: v.id,
     title: v.title,
     url: `/products/${TEE.handle}?variant=${v.id}`,
@@ -384,30 +501,101 @@ function liquidProduct(options: ProductOptions) {
     selected_or_first_available_variant:
       variants.find((v) => v.id === (options.variantId ?? 111)) ?? variants[0]!,
     variants,
-    metafields: {
-      reviews: { rating_count: { value: 2 }, rating: { value: { rating: "4.5" } } },
-      $app: {
-        ai_faq: {
-          value: {
-            items: [
-              { question: "Does it shrink?", answer: "Very little, if you wash it cold." },
-              { question: "Is it see-through?", answer: "No, the fabric is 180 gsm." },
-            ],
-          },
-        },
-      },
-    },
+    metafields: METAFIELDS,
   };
 }
 
-function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0): string {
+/** আসল দোকানের /products/x.js-এর যে অংশ লাগে */
+export interface AjaxProductData {
+  id: number;
+  handle: string;
+  title: string;
+  vendor?: string;
+  tags?: string[];
+  created_at?: string;
+  description?: string;
+  images?: string[];
+  variants: Array<{
+    id: number;
+    title: string;
+    price: number;
+    compare_at_price?: number | null;
+    available: boolean;
+    sku?: string | null;
+    barcode?: string | null;
+    inventory_management?: string | null;
+  }>;
+}
+
+/**
+ * আসল দোকানের প্রোডাক্ট (/products/x.js) → embed-এর Liquid product। x.js-এ স্টকের সংখ্যা থাকে না, তাই
+ * Shopify যে ভ্যারিয়েন্টের স্টক গোনে তার নকল ৪টা (স্টক কমের বার্তা দেখাতে)।
+ */
+export function liquidFromAjax(p: AjaxProductData): LiquidProduct {
+  const variants = p.variants.map((v): LiquidVariant => ({
+    id: v.id,
+    title: v.title,
+    url: `/products/${p.handle}?variant=${v.id}`,
+    price: v.price,
+    compare_at_price: v.compare_at_price ?? null,
+    sku: v.sku ?? "",
+    barcode: v.barcode ?? "",
+    inventory_management: v.inventory_management ?? null,
+    available: v.available,
+    inventory_policy: "deny",
+    inventory_quantity: v.available ? 4 : 0,
+  }));
+  return {
+    id: p.id,
+    handle: p.handle,
+    title: p.title,
+    url: `/products/${p.handle}`,
+    vendor: p.vendor ?? "",
+    tags: p.tags ?? [],
+    created_at: p.created_at ?? "2026-01-01T00:00:00Z",
+    description: p.description ?? "",
+    images: (p.images ?? []).map((src) => ({ src })),
+    selected_or_first_available_variant: variants.find((v) => v.available) ?? variants[0]!,
+    variants,
+    metafields: METAFIELDS,
+  };
+}
+
+/**
+ * পাতার যে তথ্য app embed-এর Liquid পড়ে (Shopify-র global অবজেক্ট থেকে)। নকল দোকানে আমাদের নকল
+ * প্রোডাক্ট আর কার্ট থেকে; আসল থিমের পরীক্ষায় (e2e/themes.ts) আসল দোকানের পাতা আর Ajax API থেকে।
+ */
+export interface PageFacts {
+  kind: PageKind;
+  /** request.origin */
+  origin: string;
+  /** asset_url-এর শুরু: নকল দোকানে /cdn/assets/ */
+  assetBase: string;
+  locale: string;
+  country: string;
+  /** দোকান যে দেশগুলোতে বিক্রি করে (Geolocation Redirect) */
+  countries: string[];
+  /** ক্রেতা যে মুদ্রায় দেখছে (cart.currency) */
+  currency: string;
+  shopCurrency: string;
+  moneyFormat: string;
+  shopName: string;
+  /** routes.root_url, যেমন "/" বা "/fr" */
+  root: string;
+  cart: { total: number; count: number };
+  product: LiquidProduct | null;
+  collection: { title: string; url: string; default_sort_by: string } | null;
+}
+
+/** চালু টুলের কনফিগ, দোকানের app_config.tools metafield-এর মতো */
+function storeConfig(tools: StoreOptions["tools"]) {
   const config = buildStoreConfig(
     registry,
-    options.tools.map((t) => ({ toolId: t.id, enabled: true, settings: t.settings ?? {} })),
+    tools.map((t) => ({ toolId: t.id, enabled: true, settings: t.settings ?? {} })),
     "professional",
   );
   // ভুল সেটিংস দিলে buildStoreConfig চুপচাপ ডিফল্ট বসায়; পরীক্ষায় সেটা ধরা দরকার
-  for (const tool of options.tools) {
+  for (const tool of tools) {
     const built = config.tools.find((t) => t.id === tool.id);
     if (!built) throw new Error(`${tool.id} is not a storefront tool`);
     for (const [key, value] of Object.entries(tool.settings ?? {})) {
@@ -416,14 +604,16 @@ function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0
       }
     }
   }
-  const product = liquidProduct(options.product ?? {});
-  const selected = product.selected_or_first_available_variant;
-  const items = options.cart ?? [];
-  const cartTotal = items.reduce(
-    (sum, l) => sum + (byVariant(l.variant_id)?.variant.price ?? 0) * l.quantity,
-    0,
-  );
-  // Shopify-র global অবজেক্ট; app embed (blocks/app-tools-embed.liquid) এগুলো পড়ে
+  return config;
+}
+
+/** app embed-এর HTML (blocks/app-tools-embed.liquid), দোকান যেভাবে <head>-এ বসায় */
+export function embedFor(
+  options: Pick<StoreOptions, "tools" | "offers">,
+  facts: PageFacts,
+): string {
+  const config = storeConfig(options.tools);
+  // Shopify-র global অবজেক্ট; app embed এগুলো পড়ে
   const globals = {
     app: {
       metafields: {
@@ -433,37 +623,70 @@ function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0
         },
       },
     },
+    asset_base: facts.assetBase,
     request: {
-      page_type: kind,
-      origin,
-      locale: { iso_code: options.locale ?? "en" },
+      page_type: facts.kind,
+      origin: facts.origin,
+      locale: { iso_code: facts.locale },
     },
-    routes: { root_url: "/" },
+    routes: { root_url: facts.root },
     cart: {
-      currency: { iso_code: "USD" },
-      total_price: cartTotal,
-      item_count: items.reduce((sum, l) => sum + l.quantity, 0),
+      currency: { iso_code: facts.currency },
+      total_price: facts.cart.total,
+      item_count: facts.cart.count,
     },
     shop: {
-      name: "Test store",
-      currency: "USD",
-      money_format: "${{amount}}",
-      enabled_currencies: [{ iso_code: "USD" }],
+      name: facts.shopName,
+      currency: facts.shopCurrency,
+      money_format: facts.moneyFormat,
+      enabled_currencies: [{ iso_code: facts.shopCurrency }],
       enabled_payment_types: ["visa", "master"],
       brand: { logo: null, short_description: "" },
     },
     customer: null,
     localization: {
-      country: { iso_code: options.country ?? "BD" },
-      available_countries: ["BD", "US", "DE"].map((iso_code) => ({ iso_code })),
+      country: { iso_code: facts.country },
+      available_countries: facts.countries.map((iso_code) => ({ iso_code })),
+    },
+    product: facts.product,
+    collection: facts.collection,
+  };
+  const html = liquid.renderSync(EMBED, {}, { globals }) as string;
+  // Shopify প্রতিটা app block এই মন্তব্যের মাঝে রাখে; আসল থিমের পরীক্ষা এটা দেখে দোকানে বসানো embed সরায়
+  return html.trim()
+    ? `<!-- BEGIN app block: shopify://apps/app-tools/blocks/${EMBED_HANDLE}/0b6f2a52-6b8e-4c43-9e6f-2f4f3b1c5d10 -->${html}<!-- END app block -->`
+    : html;
+}
+
+function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0): string {
+  const product = liquidProduct(options.product ?? {});
+  const selected = product.selected_or_first_available_variant;
+  const items = options.cart ?? [];
+  const embed = embedFor(options, {
+    kind,
+    origin,
+    assetBase: "/cdn/assets/",
+    locale: options.locale ?? "en",
+    country: options.country ?? "BD",
+    countries: ["BD", "US", "DE"],
+    currency: "USD",
+    shopCurrency: "USD",
+    moneyFormat: "${{amount}}",
+    shopName: "Test store",
+    root: "/",
+    cart: {
+      total: items.reduce(
+        (sum, l) => sum + (byVariant(l.variant_id)?.variant.price ?? 0) * l.quantity,
+        0,
+      ),
+      count: items.reduce((sum, l) => sum + l.quantity, 0),
     },
     product: kind === "product" ? product : null,
     collection:
       kind === "collection"
         ? { title: "All products", url: "/collections/all", default_sort_by: "manual" }
         : null,
-  };
-  const embed = liquid.renderSync(EMBED, {}, { globals }) as string;
+  });
   const pause = (where: string) =>
     options.slow ? `<script src="/__pause/${where}"></script>` : "";
   const card = (p: Product) => `
@@ -572,6 +795,7 @@ function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0
       shop: "test-store.myshopify.com",
       routes: { root: "/" },
       currency: { active: "USD", rate: "1.0" },
+      theme: { name: "Test theme", id: 1, schema_name: "Test theme", schema_version: "1.0.0", theme_store_id: null, role: "main" },
       country: "${options.country ?? "BD"}",
       locale: "${options.locale ?? "en"}",
       loadFeatures: function (features, callback) { callback(); },
@@ -642,7 +866,12 @@ export function createStore(options: StoreOptions, origin = ORIGIN): Store {
   cart.add(options.cart ?? []);
   const proxyCalls: string[] = [];
 
-  async function respond({ method, url: href, body: raw }: StoreRequest): Promise<StoreResponse> {
+  async function respond({
+    method,
+    url: href,
+    body: raw,
+    cookie,
+  }: StoreRequest): Promise<StoreResponse> {
     const url = new URL(href);
     const path = url.pathname;
     let body: Record<string, unknown> = {};
@@ -652,6 +881,20 @@ export function createStore(options: StoreOptions, origin = ORIGIN): Store {
       } catch {
         // form data
         body = Object.fromEntries(new URLSearchParams(raw));
+      }
+    }
+
+    if (options.password !== undefined) {
+      if (path === "/password") {
+        if (method !== "POST") return passwordPage(false);
+        return body.password === options.password
+          ? redirect("/", { "set-cookie": `${UNLOCKED}; Path=/; Secure; HttpOnly; SameSite=Lax` })
+          : passwordPage(true);
+      }
+      const unlocked = (cookie ?? "").split(/;\s*/).includes(UNLOCKED);
+      // CDN-এর ফাইল খোলা, বাকি সব (পাতা, Ajax API) পাসওয়ার্ডের পরে
+      if (!unlocked && !path.startsWith("/cdn/") && !path.startsWith("/__pause/")) {
+        return redirect("/password");
       }
     }
 
@@ -704,6 +947,33 @@ export function createStore(options: StoreOptions, origin = ORIGIN): Store {
     if (path === "/cart/clear.js") {
       cart.lines = [];
       return json(cart.json());
+    }
+    if (path === "/products.json") {
+      // Shopify-র /products.json: দাম টাকায় লেখা ("25.00"), x.js-এর মতো সেন্টে নয়
+      return json({
+        products: PRODUCTS.map((p) => ({
+          id: p.id,
+          title: p.title,
+          handle: p.handle,
+          vendor: "Test store",
+          tags: p.tags,
+          images: [{ src: `${origin}/cdn/shop/${p.handle}.png` }],
+          variants: p.variants.map((v) => ({
+            id: v.id,
+            title: v.title,
+            price: (v.price / 100).toFixed(2),
+            available: v.available,
+          })),
+        })),
+      });
+    }
+    if (path === "/meta.json") {
+      return json({
+        name: "Test store",
+        currency: "USD",
+        money_format: "${{amount}}",
+        myshopify_domain: "test-store.myshopify.com",
+      });
     }
     const productJs = path.match(/^\/products\/([\w-]+)\.js$/);
     if (productJs) {
@@ -778,11 +1048,8 @@ export function createStore(options: StoreOptions, origin = ORIGIN): Store {
   return { cart, proxyCalls, respond };
 }
 
-/** দোকান খোলা: Playwright-এর পাতায় নকল দোকান বসিয়ে পাতাটা লোড করে */
-export async function openStore(pageRef: Page, options: StoreOptions): Promise<Store> {
-  const store = createStore(options);
-
-  // Headless Chromium-এ অনুমতি সবসময় "denied"; নতুন ক্রেতার ব্রাউজারে থাকে "default"
+/** Headless Chromium-এ নোটিফিকেশনের অনুমতি সবসময় "denied"; নতুন ক্রেতার ব্রাউজারে থাকে "default" */
+export async function likeNewVisitor(pageRef: Page) {
   await pageRef.addInitScript(() => {
     try {
       Object.defineProperty(Notification, "permission", { get: () => "default" });
@@ -790,6 +1057,13 @@ export async function openStore(pageRef: Page, options: StoreOptions): Promise<S
       // Notification নেই
     }
   });
+}
+
+/** দোকান খোলা: Playwright-এর পাতায় নকল দোকান বসিয়ে পাতাটা লোড করে */
+export async function openStore(pageRef: Page, options: StoreOptions): Promise<Store> {
+  const store = createStore(options);
+
+  await likeNewVisitor(pageRef);
   if (options.storage) {
     await pageRef.addInitScript((items: Record<string, string>) => {
       for (const [key, value] of Object.entries(items)) localStorage.setItem(key, value);
@@ -802,6 +1076,7 @@ export async function openStore(pageRef: Page, options: StoreOptions): Promise<S
       method: request.method(),
       url: request.url(),
       body: request.postData(),
+      cookie: await request.headerValue("cookie"),
     });
     return route.fulfill(answer);
   });
