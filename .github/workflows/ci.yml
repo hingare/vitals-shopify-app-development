@@ -38,6 +38,11 @@ jobs:
         run: pnpm --filter @app/widgets exec playwright install --with-deps chromium
       - run: pnpm --filter @app/widgets build
       - run: pnpm --filter @app/widgets e2e
+      # আসল থিমে সব টুল একসাথের পরীক্ষাটা নিজে ঠিক চলে কিনা, দুটো নকল দোকানে (docs/storefront-tests.md)
+      - run: pnpm --filter @app/widgets themes
+      - name: Show the theme test report on the run page
+        if: always()
+        run: cat packages/widgets/test-results/themes/report.md >> "$GITHUB_STEP_SUMMARY" || true
       - name: Keep the failure screenshots and page snapshots
         if: failure()
         uses: actions/upload-artifact@v4
