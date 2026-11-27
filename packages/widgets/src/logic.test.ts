@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deliveryWindow, formatDuration, offsetMinutes } from "./dates";
 import { labelsFor } from "./labels";
-import { currencyForLocale, parseMoney, replaceMoney } from "./money";
+import { currencyForLocale, formatShopMoney, parseMoney, replaceMoney } from "./money";
 import { parseChart } from "./tools/size-chart";
 import { parseRedirects } from "./tools/geolocation-redirect";
 import { remember } from "./tools/recently-viewed";
@@ -72,6 +72,26 @@ describe("money", () => {
     expect(parseMoney("1.234,50 €", "{{amount_with_comma_separator}} €")).toBe(1234.5);
     expect(parseMoney("Tk 1,200")).toBe(1200);
     expect(parseMoney("Free")).toBeNull();
+  });
+
+  it("writes prices the way the theme does", () => {
+    expect(formatShopMoney(113465, "${{amount}}")).toBe("$1,134.65");
+    expect(formatShopMoney(113465, "Tk {{ amount }}")).toBe("Tk 1,134.65");
+    expect(formatShopMoney(113465, "{{amount_no_decimals}} kr")).toBe("1,135 kr");
+    expect(formatShopMoney(113465, "€{{amount_with_comma_separator}}")).toBe("€1.134,65");
+    expect(formatShopMoney(113465, "{{amount_no_decimals_with_comma_separator}}")).toBe("1.135");
+    expect(formatShopMoney(113465, "{{amount_with_apostrophe_separator}} CHF")).toBe(
+      "1'134.65 CHF",
+    );
+    expect(formatShopMoney(113465, "{{amount_no_decimals_with_space_separator}}")).toBe("1 135");
+    expect(formatShopMoney(113465, "{{amount_with_space_separator}} zł")).toBe("1 134,65 zł");
+    expect(formatShopMoney(113465, "{{amount_with_period_and_space_separator}}")).toBe("1 134.65");
+    expect(formatShopMoney(123456789, "${{amount}}")).toBe("$1,234,567.89");
+    expect(formatShopMoney(-2550, "${{amount}}")).toBe("-$25.50");
+    expect(formatShopMoney(0, "${{amount}}")).toBe("$0.00");
+    // চেনা জায়গা না থাকলে Intl-এ ফেরা
+    expect(formatShopMoney(100, "{{price}}")).toBeNull();
+    expect(formatShopMoney(100, "$")).toBeNull();
   });
 
   it("replaces only the price part of a text", () => {

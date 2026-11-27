@@ -2,7 +2,7 @@ import { render } from "preact";
 import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { track } from "../analytics";
-import { bottomOffset, isMobile } from "../dom";
+import { bottomOffset, isMobile, withBottom } from "../dom";
 
 const TOOL_ID = "chat-button";
 
@@ -108,7 +108,7 @@ export function mount({ config, settings }: ToolContext) {
       </a>,
       host,
     );
-  draw();
+  withBottom(draw);
   // Sticky ATC বা নিচের বার পরে এলে বাটন তার উপরে সরে যায়
   setTimeout(draw, 2500);
 }

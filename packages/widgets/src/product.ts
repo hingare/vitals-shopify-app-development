@@ -1,5 +1,6 @@
 /** প্রোডাক্ট পেজের তথ্য আর দাম দেখানোর ছোট সাহায্যকারী (কয়েকটা টুল একসাথে ব্যবহার করে) */
 import { parsed } from "./dom";
+import { formatShopMoney } from "./money";
 
 export interface PageProduct {
   productId: number;
@@ -28,7 +29,30 @@ export function readPageProduct(): PageProduct | null {
   }
 }
 
+/** money_format-এ "&euro;" ধরনের HTML লেখা থাকলে আসল চিহ্ন (শেষ ফলটা মনে রাখা) */
+let plain: [string, string] | undefined;
+function plainFormat(format: string): string {
+  if (!format.includes("&")) return format;
+  if (plain?.[0] !== format) {
+    // textarea-র ভেতরে HTML শুধু লেখা হয়ে যায়, কোনো ট্যাগ বা স্ক্রিপ্ট তৈরি হয় না
+    const box = document.createElement("textarea");
+    box.innerHTML = format;
+    plain = [format, box.value];
+  }
+  return plain[1];
+}
+
+/**
+ * দাম লেখা। স্টোরের নিজের মুদ্রায় থিম যেভাবে লেখে সেভাবেই (money_format, যেমন "Tk 1,250.00");
+ * অন্য মুদ্রায় (Markets) ব্রাউজারের Intl। পাতায় Intl-এর প্রথম ব্যবহার ফোনে ~৪০ms নেয়, আর উপরের বার
+ * বা ভলিউম টেবিল সেটা পাতা আঁকার আগেই করত।
+ */
 export function money(cents: number, currency: string | undefined, locale: string): string {
+  const config = window.__APP_CONFIG__;
+  if (config?.moneyFormat && (!currency || currency === config.shopCurrency)) {
+    const text = formatShopMoney(cents, plainFormat(config.moneyFormat));
+    if (text !== null) return text;
+  }
   const amount = cents / 100;
   try {
     return new Intl.NumberFormat(locale, { style: "currency", currency: currency || "USD" }).format(

@@ -2,7 +2,7 @@ import { render } from "preact";
 import { useRef, useState } from "preact/hooks";
 import type { ToolContext } from "../types";
 import { track } from "../analytics";
-import { bottomOffset, isMobile } from "../dom";
+import { bottomOffset, isMobile, withBottom } from "../dom";
 
 const TOOL_ID = "quick-links";
 
@@ -111,5 +111,5 @@ export function mount({ settings }: ToolContext) {
   const host = document.createElement("div");
   host.id = "app-quick-links";
   document.body.appendChild(host);
-  render(<Menu s={s} items={items} />, host);
+  withBottom(() => render(<Menu s={s} items={items} />, host));
 }

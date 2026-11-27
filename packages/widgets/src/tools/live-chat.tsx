@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { track } from "../analytics";
-import { bottomOffset, isMobile, store } from "../dom";
+import { bottomOffset, isMobile, store, withBottom } from "../dom";
 import { widgetT, type WidgetString } from "../i18n";
 import { newKey } from "../keys";
 import { proxyPost } from "../proxy";
@@ -472,5 +472,5 @@ export function mount({ config, settings }: ToolContext) {
   host.id = "app-live-chat";
   document.body.appendChild(host);
   const t: T = (key) => widgetT(config.locale, key);
-  render(<Chat s={s} t={t} config={config} />, host);
+  withBottom(() => render(<Chat s={s} t={t} config={config} />, host));
 }

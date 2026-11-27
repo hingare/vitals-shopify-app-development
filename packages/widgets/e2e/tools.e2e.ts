@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   axe,
   blocking,
@@ -9,8 +9,10 @@ import {
   settle,
   watchLayout,
 } from "./checks";
+import { ONLY_ON } from "../src/pages";
+import type { ToolModule } from "../src/types";
 import { SCENARIOS, STOREFRONT_TOOLS } from "./scenarios";
-import { THEME, openStore, type PageKind } from "./store";
+import { PATHS, THEME, openStore, type PageKind } from "./store";
 
 /**
  * প্রতিটা টুল একা চালু করে নকল দোকানের পাতায়: টুলটা দেখা যায় কিনা, axe-core-এ serious বা critical
@@ -106,5 +108,73 @@ for (const id of EARLY_TOOLS) {
     const { cls, shifts } = await layoutShift(page);
     expect(cls, `layout shift:\n${shifts.join("\n")}`).toBeLessThan(MAX_CLS);
     expect(errors).toEqual([]);
+  });
+}
+
+/** window আর document-এ বসানো event listener (ধরন অনুযায়ী গোনা), Chrome DevTools দিয়ে */
+async function listeners(page: Page): Promise<string[]> {
+  const cdp = await page.context().newCDPSession(page);
+  const found: string[] = [];
+  for (const expression of ["window", "document"]) {
+    const { result } = await cdp.send("Runtime.evaluate", { expression });
+    const { listeners } = await cdp.send("DOMDebugger.getEventListeners", {
+      objectId: result.objectId!,
+    });
+    found.push(...listeners.map((l) => `${expression} ${l.type}`));
+  }
+  await cdp.detach();
+  return found.sort();
+}
+
+/**
+ * লোডার যে টুলগুলো শুধু কয়েক ধরনের পাতায় আনে (src/pages.ts): বাকি পাতায় লোডার ফাইলটা আনে না, আর
+ * জোর করে চালালেও টুলটা কিছুই করে না (পাতা বদলায় না, কোনো listener বসে না, কোনো অনুরোধ বা ভুল হয়
+ * না)। তাই তালিকাটা কখনো কোনো টুলের কাজ বন্ধ করে না। টুলের নিজের পরীক্ষাটা (উপরে) তালিকার পাতাতেই চলে, লোডারের পথ ধরে।
+ */
+for (const [id, pages] of Object.entries(ONLY_ON)) {
+  test(`${id} is only loaded where it does something`, async ({ page }) => {
+    const scenario = SCENARIOS[id];
+    expect(scenario, `${id} in src/pages.ts is not a storefront tool`).toBeDefined();
+    if (!scenario) return;
+    expect(pages).toContain(scenario.page);
+    for (const kind of (Object.keys(PATHS) as PageKind[]).filter((k) => !pages.includes(k))) {
+      const requests: string[] = [];
+      const listen = (request: { url(): string }) => requests.push(request.url());
+      page.on("request", listen);
+      const errors = collectErrors(page);
+      await openStore(page, {
+        ...scenario.store,
+        page: kind,
+        tools: [{ id, settings: scenario.settings }],
+      });
+      await settle(page);
+      expect(
+        requests.filter((url) => url.endsWith(`/tool-${id}.js`)),
+        kind,
+      ).toEqual([]);
+
+      // ফাইলটা আনা (ভাগের chunk-এর নিজের কাজ, যেমন analytics-এর listener, এর মধ্যেই), তারপর শুধু mount
+      await page.evaluate(async (tool) => {
+        const url = `${window.__APP_CONFIG__!.assetBase}tool-${tool}.js`;
+        (window as unknown as { __tool: unknown }).__tool = await import(url);
+      }, id);
+      requests.length = 0;
+      const before = await page.evaluate(() => document.documentElement.outerHTML);
+      const listening = await listeners(page);
+      await page.evaluate(async (tool) => {
+        const config = window.__APP_CONFIG__!;
+        const settings = config.tools.find((t) => t.id === tool)!.settings;
+        const mod = (window as unknown as { __tool: ToolModule }).__tool;
+        await mod.mount({ config, settings });
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }, id);
+      expect(await page.evaluate(() => document.documentElement.outerHTML), kind).toBe(before);
+      expect(await listeners(page), `${id} listens for events on the ${kind} page`).toEqual(
+        listening,
+      );
+      expect(requests, `${id} sent requests on the ${kind} page`).toEqual([]);
+      expect(errors, kind).toEqual([]);
+      page.off("request", listen);
+    }
   });
 }
