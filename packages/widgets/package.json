@@ -9,7 +9,8 @@
     "test": "vitest run && vite build && node scripts/build-early.mjs --check && node scripts/check-size.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p e2e",
     "e2e": "playwright test",
-    "speed": "playwright test -c playwright.speed.config.ts"
+    "speed": "playwright test -c playwright.speed.config.ts",
+    "themes": "playwright test -c playwright.themes.config.ts"
   },
   "dependencies": {
     "@rrweb/record": "2.2.0",

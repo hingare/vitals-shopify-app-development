@@ -6,5 +6,10 @@
     "declaration": false,
     "noEmit": true
   },
-  "include": [".", "../playwright.config.ts", "../playwright.speed.config.ts"]
+  "include": [
+    ".",
+    "../playwright.config.ts",
+    "../playwright.speed.config.ts",
+    "../playwright.themes.config.ts"
+  ]
 }

@@ -109,10 +109,11 @@ async function answer(
   path: string,
   raw: string | null,
   accepts: string,
+  cookie: string | null = null,
 ): Promise<Answer> {
-  const reply = await store.respond({ method, url: origin + path, body: raw });
+  const reply = await store.respond({ method, url: origin + path, body: raw, cookie });
   let body = typeof reply.body === "string" ? Buffer.from(reply.body) : reply.body;
-  const headers: Record<string, string> = { "content-type": reply.contentType };
+  const headers: Record<string, string> = { ...reply.headers, "content-type": reply.contentType };
   if (TEXT.test(reply.contentType) && /\bbr\b/.test(accepts) && body.length > 0) {
     body = brotli(body, path.startsWith("/cdn/"));
     headers["content-encoding"] = "br";
@@ -139,6 +140,7 @@ export async function serveStore(options: StoreOptions): Promise<Served> {
         req.url ?? "/",
         raw,
         String(req.headers["accept-encoding"] ?? ""),
+        req.headers.cookie ?? null,
       )
         .then(({ status, headers, body }) => {
           res.writeHead(status, headers);

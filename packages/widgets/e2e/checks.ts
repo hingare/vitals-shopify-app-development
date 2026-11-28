@@ -16,31 +16,48 @@ export interface Violation {
   nodes: string[];
 }
 
-/** পুরো পাতায় axe চালায়; শুধু দেখা যায় এমন অংশ পরীক্ষা হয় */
-export async function axe(page: Page): Promise<Violation[]> {
+/**
+ * পুরো পাতায় axe চালায়; শুধু দেখা যায় এমন অংশ পরীক্ষা হয়। include দিলে শুধু সেই selector-গুলোর ভেতরে
+ * (যেমন আসল থিমে শুধু আমাদের উইজেট); একটাও না মিললে কিছুই পরীক্ষা হয় না।
+ */
+export async function axe(page: Page, include?: string[]): Promise<Violation[]> {
+  const found = include
+    ? await page.evaluate(
+        (list) => list.filter((selector) => document.querySelector(selector)),
+        include,
+      )
+    : null;
+  if (found?.length === 0) return [];
   if (!(await page.evaluate(() => "axe" in window))) await page.addScriptTag({ content: AXE });
-  return page.evaluate(async (tags) => {
-    interface AxeResult {
-      violations: Array<{
-        id: string;
-        impact: string | null;
-        help: string;
-        nodes: Array<{ target: string[]; failureSummary?: string }>;
-      }>;
-    }
-    const axe = (window as unknown as { axe: { run: (...args: unknown[]) => Promise<AxeResult> } })
-      .axe;
-    const result = await axe.run(document, {
-      runOnly: { type: "tag", values: tags },
-      resultTypes: ["violations"],
-    });
-    return result.violations.map((v) => ({
-      id: v.id,
-      impact: v.impact,
-      help: v.help,
-      nodes: v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`.trim()),
-    }));
-  }, AXE_TAGS);
+  return page.evaluate(
+    async ([tags, scope]) => {
+      interface AxeResult {
+        violations: Array<{
+          id: string;
+          impact: string | null;
+          help: string;
+          nodes: Array<{ target: string[]; failureSummary?: string }>;
+        }>;
+      }
+      const axe = (
+        window as unknown as { axe: { run: (...args: unknown[]) => Promise<AxeResult> } }
+      ).axe;
+      const result = await axe.run(
+        scope ? { include: scope.map((selector) => [selector]) } : document,
+        {
+          runOnly: { type: "tag", values: tags },
+          resultTypes: ["violations"],
+        },
+      );
+      return result.violations.map((v) => ({
+        id: v.id,
+        impact: v.impact,
+        help: v.help,
+        nodes: v.nodes.map((n) => `${n.target.join(" ")}: ${n.failureSummary ?? ""}`.trim()),
+      }));
+    },
+    [AXE_TAGS, found] as const,
+  );
 }
 
 /** যেগুলো থাকলে পরীক্ষা ব্যর্থ: serious আর critical */

@@ -4,9 +4,7 @@ import { join } from "node:path";
 import { chromium } from "@playwright/test";
 import * as chromeLauncher from "chrome-launcher";
 import lighthouse from "lighthouse";
-import { OFFERS, SCENARIOS, STOREFRONT_TOOLS } from "./scenarios";
 import { tls } from "./serve";
-import type { StoreOptions } from "./store";
 
 /** মোবাইল Lighthouse দিয়ে একটা পাতা মাপা (e2e/speed.ts) */
 
@@ -153,16 +151,6 @@ export const median = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
-};
-
-/** সব স্টোরফ্রন্ট টুল, ডিফল্ট সেটিংসে; শুধু যেগুলো সেটিংস ছাড়া কিছুই দেখায় না তাদের ন্যূনতম সেটিংস */
-export const ALL_TOOLS: StoreOptions = {
-  offers: OFFERS,
-  tools: STOREFRONT_TOOLS.map((id) => ({
-    id,
-    settings:
-      id === "countdown-timer" || id === "chat-button" ? SCENARIOS[id]!.settings : undefined,
-  })),
 };
 
 /** Playwright-এর Chromium, নকল দোকানের নিজে বানানো সার্টিফিকেট বিশ্বাস করে */

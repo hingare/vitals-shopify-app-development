@@ -153,7 +153,10 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
   "currency-converter": { page: "product", expect: '[data-app-widget="currency"] select' },
   "cookies-banner": { page: "product", expect: "#app-cookies-banner > *" },
-  "geolocation-redirect": { page: "product", expect: "[role=dialog]" },
+  "geolocation-redirect": {
+    page: "product",
+    expect: '[data-app-widget="geolocation-redirect"] [role=dialog]',
+  },
   "push-notifications": {
     page: "product",
     settings: { delaySeconds: 0 },
@@ -184,3 +187,13 @@ export const SCENARIOS: Record<string, Scenario> = {
 export const STOREFRONT_TOOLS = registry.all
   .filter((tool) => tool.delivery !== "admin" && tool.delivery !== "pixel")
   .map((tool) => tool.id);
+
+/** সব স্টোরফ্রন্ট টুল, ডিফল্ট সেটিংসে; শুধু যেগুলো সেটিংস ছাড়া কিছুই দেখায় না তাদের ন্যূনতম সেটিংস */
+export const ALL_TOOLS: StoreOptions = {
+  offers: OFFERS,
+  tools: STOREFRONT_TOOLS.map((id) => ({
+    id,
+    settings:
+      id === "countdown-timer" || id === "chat-button" ? SCENARIOS[id]!.settings : undefined,
+  })),
+};
