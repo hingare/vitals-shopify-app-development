@@ -4,7 +4,7 @@ process.env.APP_ENCRYPTION_KEY = Buffer.alloc(32, 5).toString("base64");
 
 vi.mock("../db.server", async () => ({ default: (await import("./test-db")).fakeDb }));
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
-const { ensureShop, trialEnd } = await import("./shop.server");
+const { ensureShop, isDevelopmentStore, isTestBilling, trialEnd } = await import("./shop.server");
 
 beforeEach(() => resetFakeDb());
 
@@ -62,5 +62,63 @@ describe("trialEnd", () => {
     expect(trialEnd({ trialDays: 0, createdAt: "2026-11-01T12:00:00Z" })).toBeNull();
     expect(trialEnd({ trialDays: 7, createdAt: "not a date" })).toBeNull();
     expect(trialEnd(undefined)).toBeNull();
+  });
+});
+
+/** Shopify-র admin.graphql-এর নকল: shop.plan.partnerDevelopment-এর উত্তর দেয়, কয়বার ডাকা হলো গোনে */
+function fakeAdmin(answer: boolean | "error" | "missing") {
+  const calls: string[] = [];
+  const admin = {
+    graphql: async (query: string) => {
+      calls.push(query);
+      if (answer === "error") throw new Error("network");
+      const plan = answer === "missing" ? {} : { partnerDevelopment: answer };
+      return new Response(JSON.stringify({ data: { shop: { plan } } }));
+    },
+  };
+  return { admin: admin as unknown as Parameters<typeof isDevelopmentStore>[0], calls };
+}
+
+describe("test billing on development stores", () => {
+  it("asks Shopify once per store and remembers the answer for ten minutes", async () => {
+    const { admin, calls } = fakeAdmin(true);
+    const start = Date.parse("2026-11-28T10:00:00Z");
+    expect(await isDevelopmentStore(admin, "dev-a.myshopify.com", start)).toBe(true);
+    expect(await isDevelopmentStore(admin, "dev-a.myshopify.com", start + 9 * 60_000)).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toContain("partnerDevelopment");
+    expect(await isDevelopmentStore(admin, "dev-a.myshopify.com", start + 11 * 60_000)).toBe(true);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("treats a store as a real one when Shopify can't say, and asks again next time", async () => {
+    for (const answer of ["error", "missing"] as const) {
+      const { admin, calls } = fakeAdmin(answer);
+      const shop = `unknown-${answer}.myshopify.com`;
+      expect(await isDevelopmentStore(admin, shop)).toBe(false);
+      expect(await isDevelopmentStore(admin, shop)).toBe(false);
+      expect(calls).toHaveLength(2);
+    }
+  });
+
+  it("bills real stores for real in production, and development stores with test charges", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("BILLING_TEST", "");
+    try {
+      expect(await isTestBilling(fakeAdmin(false).admin, "real.myshopify.com")).toBe(false);
+      expect(await isTestBilling(fakeAdmin(true).admin, "dev-b.myshopify.com")).toBe(true);
+      vi.stubEnv("BILLING_TEST", "true");
+      const { admin, calls } = fakeAdmin(false);
+      expect(await isTestBilling(admin, "staging.myshopify.com")).toBe(true);
+      expect(calls).toHaveLength(0);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("always uses test charges outside production", async () => {
+    const { admin, calls } = fakeAdmin(false);
+    expect(await isTestBilling(admin, "local.myshopify.com")).toBe(true);
+    expect(calls).toHaveLength(0);
   });
 });
