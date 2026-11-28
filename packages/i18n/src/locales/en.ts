@@ -2,6 +2,11 @@ export const en = {
   "common.cancel": "Cancel",
   "common.cantUndo": "This can't be undone.",
 
+  "landing.body":
+    "To use {app}, add it to your store from the Shopify App Store. If it's already installed, open it from Apps in your Shopify admin.",
+  "landing.admin": "Open Shopify admin",
+  "landing.appStore": "View on the Shopify App Store",
+
   "nav.dashboard": "Dashboard",
   "nav.tools": "Tools",
   "nav.speed": "Speed Guard",
