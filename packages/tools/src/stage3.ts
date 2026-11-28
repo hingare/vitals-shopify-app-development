@@ -30,7 +30,8 @@ export const recentSales = defineTool({
   surfaces: ["all"],
   delivery: "embed",
   settings: z.object({
-    saleMessage: text(100, "Someone just bought {product}"),
+    // সময়টা নিচে আলাদা লেখা থাকে ("৩ দিন আগে"), তাই লেখায় "just" নেই: পুরনো বিক্রিকে নতুন বলা হবে না
+    saleMessage: text(100, "Someone bought {product}"),
     maxAgeDays: z.number().int().min(1).max(30).default(7),
     firstDelaySeconds: z.number().int().min(2).max(120).default(8),
     intervalSeconds: z.number().int().min(5).max(300).default(25),
