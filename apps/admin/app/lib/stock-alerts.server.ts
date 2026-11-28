@@ -230,7 +230,26 @@ registerJob(STOCK_JOB, async (job) => {
   return result.more ? { again: true } : undefined;
 });
 
-/** অ্যাডমিনের জন্য: কোন প্রোডাক্টে কয়জন অপেক্ষায় */
+/** জানানোর পরে এত দিন রাখা হয়, যাতে ক্রেতা বা মার্চেন্ট জিজ্ঞেস করলে দেখা যায় কবে জানানো হয়েছিল */
+export const NOTIFIED_KEEP_DAYS = 30;
+/** প্রোডাক্ট এত দিনেও স্টকে না ফিরলে অনুরোধটা মোছা হয়, যাতে ক্রেতার ইমেইল অনির্দিষ্টকাল জমে না থাকে */
+export const WAITING_KEEP_DAYS = 365;
+
+/** পুরনো অনুরোধ মোছে (প্রতি ঘণ্টার পরিষ্কারের কাজ থেকে); কয়টা মুছল তা ফেরত দেয় */
+export async function pruneStockAlerts(now = new Date()) {
+  const daysAgo = (days: number) => new Date(now.getTime() - days * 86_400_000);
+  const { count } = await db.stockAlert.deleteMany({
+    where: {
+      OR: [
+        { status: "notified", notifiedAt: { lt: daysAgo(NOTIFIED_KEEP_DAYS) } },
+        { status: "waiting", createdAt: { lt: daysAgo(WAITING_KEEP_DAYS) } },
+      ],
+    },
+  });
+  return count;
+}
+
+/** অ্যাডমিনের জন্য: কয়জন অপেক্ষায়, আর শেষ ৩০ দিনে কয়জনকে জানানো হয়েছে (তার আগেরগুলো মোছা হয়ে যায়) */
 export async function stockAlertCounts(shopId: string) {
   const [waiting, notified] = await Promise.all([
     db.stockAlert.count({ where: { shopId, status: "waiting" } }),

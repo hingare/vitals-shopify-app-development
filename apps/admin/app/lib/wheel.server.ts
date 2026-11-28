@@ -176,6 +176,20 @@ export async function spin(
   };
 }
 
+/**
+ * কে কবে ঘুরিয়েছেন তার হিসাব এত দিন থাকে: আবার ঘোরানোর অপেক্ষা মার্চেন্ট সর্বোচ্চ ৩৬৫ দিন দিতে পারেন
+ * (frequencyDays), আর জেতা কোডের মেয়াদ ৬০ দিনের বেশি নয়। এর পরে ইমেইলসহ সারিটা আর কোনো কাজে লাগে না।
+ */
+export const SPIN_KEEP_DAYS = 365;
+
+/** পুরনো ঘোরানোর হিসাব মোছে (প্রতি ঘণ্টার পরিষ্কারের কাজ থেকে); কয়টা মুছল তা ফেরত দেয় */
+export async function pruneWheelSpins(now = new Date()) {
+  const { count } = await db.wheelSpin.deleteMany({
+    where: { createdAt: { lt: new Date(now.getTime() - SPIN_KEEP_DAYS * 86_400_000) } },
+  });
+  return count;
+}
+
 export async function wheelStats(shopId: string, days = 30) {
   const since = new Date(Date.now() - days * 86_400_000);
   const [spins, wins] = await Promise.all([

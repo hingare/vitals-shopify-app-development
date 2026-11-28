@@ -11,6 +11,7 @@ import { claimJob, recoverStuckJobs, runJob } from "./queue.server";
 import { sendErrorAlerts } from "./error-alerts.server";
 import { pruneErrors, recordError } from "./errors.server";
 import { measure, primaryDomainUrl, saveSnapshot } from "./speed.server";
+import { pruneStockAlerts } from "./stock-alerts.server";
 import { pruneVisitorDays } from "./store-analytics.server";
 import type { GraphqlClient } from "./tools.server";
 // এই ফাইলগুলো নিজেদের ব্যাকগ্রাউন্ড কাজ (registerJob) নথিভুক্ত করে, তাই সার্ভার চালুর সময়ই আনতে হয়
@@ -19,9 +20,9 @@ import "./integrations.server";
 import "./push.server";
 import "./seo-alt.server";
 import "./seo-meta.server";
-import "./stock-alerts.server";
 import "./subscribers.server";
 import { pruneSupport } from "./support.server";
+import { pruneWheelSpins } from "./wheel.server";
 
 /**
  * ছোট ব্যাকগ্রাউন্ড কাজের ব্যবস্থা, ডাটাবেস দিয়ে (আলাদা Redis লাগে না)।
@@ -116,6 +117,10 @@ export async function pruneMarketingData(now = new Date()) {
   await db.message.deleteMany({ where: { createdAt: { lt: daysAgo(180) } } });
   // Live Chat: ১৮০ দিন নতুন বার্তা না আসা কথোপকথন
   await pruneChats(now);
+  // Back in Stock: জানানোর ৩০ দিন পরে, আর এক বছরেও স্টকে না ফেরা প্রোডাক্টের অনুরোধ
+  await pruneStockAlerts(now);
+  // Spin Wheel: এক বছরের পুরনো ঘোরানো (সবচেয়ে লম্বা অপেক্ষার নিয়মও এর মধ্যে শেষ)
+  await pruneWheelSpins(now);
   // Visitor Recordings: ৩০ দিনের পুরনো রেকর্ডিং আর তার ফাইল
   await pruneRecordings(now);
   // AI-র বানানো ছবি ও ভিডিও: ৩০ দিন পরে আমাদের স্টোরেজ থেকে মোছে (প্রোডাক্টে বসানোগুলো Shopify-তে থাকে)

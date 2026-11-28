@@ -6,6 +6,7 @@ import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { join } from "node:path";
+import { pipeline } from "node:stream/promises";
 
 /** ঠিকানার যে প্যারামিটারগুলো PostgreSQL-এর টুল বোঝে (বাকিগুলো, যেমন connection_limit, শুধু Prisma-র) */
 const PARAMS = {
@@ -77,19 +78,14 @@ export function toolMajorVersion(name) {
   return match ? Number(match[1]) : null;
 }
 
-/** টুল চালিয়ে শেষ হওয়া পর্যন্ত অপেক্ষা; ভুল হলে stderr সহ error। signal বাতিল হলে টুলও থামে */
-export function run(name, args, env, signal = undefined) {
+/** টুলের stderr দেখায় আর জমায়; টুল ঠিকমতো শেষ হলে resolve, নইলে stderr সহ error */
+function finished(child, name) {
+  let stderr = "";
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+    process.stderr.write(chunk);
+  });
   return new Promise((resolve, reject) => {
-    const child = spawn(pgTool(name, env), args, {
-      env,
-      signal,
-      stdio: ["ignore", "inherit", "pipe"],
-    });
-    let stderr = "";
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-      process.stderr.write(chunk);
-    });
     child.on("error", (error) =>
       reject(
         error.code === "ENOENT"
@@ -103,6 +99,28 @@ export function run(name, args, env, signal = undefined) {
         : reject(new Error(`${name} exited with code ${code}: ${stderr.trim().slice(-500)}`)),
     );
   });
+}
+
+/** টুল চালিয়ে শেষ হওয়া পর্যন্ত অপেক্ষা; ভুল হলে stderr সহ error। signal বাতিল হলে টুলও থামে */
+export function run(name, args, env, signal = undefined) {
+  const child = spawn(pgTool(name, env), args, {
+    env,
+    signal,
+    stdio: ["ignore", "inherit", "pipe"],
+  });
+  return finished(child, name);
+}
+
+/**
+ * run-এর মতো, কিন্তু টুলের stdout `streams`-এর ভেতর দিয়ে শেষেরটায় যায় (যেমন এনক্রিপ্ট করে ফাইলে)।
+ * টুল ঠিকমতো শেষ হলে আর সব লেখা শেষ হলে তবেই resolve।
+ */
+export async function runInto(name, args, env, streams, signal = undefined) {
+  const child = spawn(pgTool(name, env), args, { env, signal, stdio: ["ignore", "pipe", "pipe"] });
+  const exited = finished(child, name);
+  // টুল ব্যর্থ হলে লেখার পথও বন্ধ, যাতে অর্ধেক লেখা ফাইল খোলা পড়ে না থাকে
+  exited.catch(() => child.stdout.destroy());
+  await Promise.all([exited, pipeline(child.stdout, ...streams)]);
 }
 
 export function sha256File(path) {

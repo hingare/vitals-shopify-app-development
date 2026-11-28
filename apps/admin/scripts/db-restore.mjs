@@ -3,8 +3,9 @@
  * migration ব্যাকআপের .json-এর সাথে মিলিয়ে দেখা। কিছু না মিললে exit code 1।
  * কীভাবে চালাবেন: docs/backup-restore.md
  *
- *   node scripts/db-restore.mjs backups/allinone-20261116T030000Z.dump --into postgresql://.../allinone_restored
+ *   BACKUP_KEY=... node scripts/db-restore.mjs backups/allinone-20261116T030000Z.dump.enc --into postgresql://.../allinone_restored
  *
+ * এনক্রিপ্ট করা ব্যাকআপ (.dump.enc) একটা অস্থায়ী ফোল্ডারে খুলে নেয় আর শেষে, সফল হোক বা না হোক, মুছে দেয়।
  * চলমান ডাটাবেসে কখনো লেখে না: লক্ষ্যের ডাটাবেসে কোনো টেবিল থাকলে থেমে যায়।
  */
 import { spawnSync } from "node:child_process";
@@ -27,6 +28,7 @@ import {
   toolMajorVersion,
   withoutSchemaEntry,
 } from "./pg.mjs";
+import { backupKey, decryptFile, keyId } from "./backup-crypto.mjs";
 
 const args = process.argv.slice(2);
 const file = args.find((arg, index) => !arg.startsWith("--") && !args[index - 1]?.startsWith("--"));
@@ -35,7 +37,7 @@ const jobs = Number(option(args, "jobs", String(Math.min(4, availableParallelism
 
 if (!file || !target) {
   console.error(
-    "Usage: node scripts/db-restore.mjs <backup.dump> --into <postgresql://... new database>",
+    "Usage: node scripts/db-restore.mjs <backup.dump.enc> --into <postgresql://... new database>",
   );
   process.exit(1);
 }
@@ -50,22 +52,39 @@ function fail(message) {
 }
 
 const started = Date.now();
+const manifestFile = file.replace(/\.dump(?:\.enc)?$/, ".json");
 let manifest;
 try {
-  manifest = JSON.parse(await readFile(file.replace(/\.dump$/, ".json"), "utf8"));
+  manifest = JSON.parse(await readFile(manifestFile, "utf8"));
 } catch {
-  fail(
-    `${file.replace(/\.dump$/, ".json")} is missing or unreadable; it is written next to every backup.`,
-  );
+  fail(`${manifestFile} is missing or unreadable; it is written next to every backup.`);
+}
+
+/** এনক্রিপ্ট করা ব্যাকআপের চাবি: BACKUP_KEY থেকে, আর ব্যাকআপ যে চাবিতে হয়েছিল সেটাই কিনা */
+function keyFor(manifest) {
+  if (!process.env.BACKUP_KEY) {
+    throw new Error("this backup is encrypted; set BACKUP_KEY to the key it was made with");
+  }
+  const key = backupKey(process.env.BACKUP_KEY);
+  if (keyId(key) !== manifest.keyId) {
+    throw new Error(
+      `BACKUP_KEY is not the key this backup was made with (key id ${manifest.keyId}, ` +
+        `BACKUP_KEY has ${keyId(key)})`,
+    );
+  }
+  return key;
 }
 
 if (manifest) {
   const db = new PrismaClient({ datasourceUrl: target });
+  // অস্থায়ী কাজের ফোল্ডার (খোলা ব্যাকআপ আর pg_restore-এর তালিকা); শেষে সবসময় মোছে
+  const work = await mkdtemp(join(tmpdir(), "db-restore-"));
   try {
     const bytes = (await stat(file)).size;
     if (bytes !== manifest.bytes || (await sha256File(file)) !== manifest.sha256) {
       throw new Error("the backup file does not match its .json (damaged or incomplete copy)");
     }
+    const key = manifest.encrypted ? keyFor(manifest) : null;
     if (schemaOf(target) !== manifest.schema) {
       throw new Error(
         `the backup is of schema "${manifest.schema}"; add ?schema=${manifest.schema} to --into`,
@@ -99,35 +118,35 @@ if (manifest) {
       `Restoring ${manifest.file} (${formatBytes(bytes)}, taken ${manifest.createdAt}) ` +
         `into "${pgEnv(target).PGDATABASE}"...`,
     );
-    const toc = spawnSync(pgTool("pg_restore"), ["--list", file], {
+    let dump = file;
+    if (key) {
+      dump = join(work, "backup.dump");
+      await decryptFile(file, dump, key);
+    }
+    const toc = spawnSync(pgTool("pg_restore"), ["--list", dump], {
       encoding: "utf8",
       maxBuffer: 256 * 1024 * 1024,
     });
     if (toc.status !== 0) throw new Error(`cannot read the backup: ${toc.stderr.trim()}`);
-    const listDir = await mkdtemp(join(tmpdir(), "db-restore-"));
-    try {
-      const listFile = join(listDir, "toc.list");
-      // নতুন ডাটাবেসে public স্কিমা আগে থেকেই থাকে; সেটা আবার বানানো বাদ দিয়ে বাকি সব ফেরত আনা হয়
-      await writeFile(
-        listFile,
-        exists ? withoutSchemaEntry(toc.stdout, manifest.schema) : toc.stdout,
-      );
-      await run(
-        "pg_restore",
-        [
-          "--no-owner",
-          "--no-privileges",
-          "--exit-on-error",
-          `--jobs=${jobs}`,
-          `--use-list=${listFile}`,
-          `--dbname=${pgEnv(target).PGDATABASE}`,
-          file,
-        ],
-        toolEnv(target),
-      );
-    } finally {
-      await rm(listDir, { recursive: true, force: true });
-    }
+    const listFile = join(work, "toc.list");
+    // নতুন ডাটাবেসে public স্কিমা আগে থেকেই থাকে; সেটা আবার বানানো বাদ দিয়ে বাকি সব ফেরত আনা হয়
+    await writeFile(
+      listFile,
+      exists ? withoutSchemaEntry(toc.stdout, manifest.schema) : toc.stdout,
+    );
+    await run(
+      "pg_restore",
+      [
+        "--no-owner",
+        "--no-privileges",
+        "--exit-on-error",
+        `--jobs=${jobs}`,
+        `--use-list=${listFile}`,
+        `--dbname=${pgEnv(target).PGDATABASE}`,
+        dump,
+      ],
+      toolEnv(target),
+    );
     // রিস্টোরের পরে Postgres-এর পরিসংখ্যান খালি থাকে; না করলে প্রথম দিকের query ধীর চলে
     await db.$executeRawUnsafe("ANALYZE");
 
@@ -162,6 +181,7 @@ if (manifest) {
   } catch (error) {
     fail(error instanceof Error ? error.message : String(error));
   } finally {
+    await rm(work, { recursive: true, force: true });
     await db.$disconnect();
   }
 }

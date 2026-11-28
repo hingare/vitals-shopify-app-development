@@ -22,10 +22,10 @@ embedded = true
 # write_online_store_pages: AI Page Builder-এর পেজ স্টোরে লুকানো খসড়া হিসেবে তৈরি করা (মার্চেন্ট দেখে প্রকাশ করেন),
 #   আর ফেরালে সেই খসড়া মোছা, যদি তখনো অপ্রকাশিত আর অপরিবর্তিত থাকে।
 #
-# ক্রেতার তথ্য (protected customer data): Partner Dashboard > API access requests-এ "Protected customer data"
-# আর Name, Email, Phone ফিল্ড বেছে নিতে হয়; নইলে Shopify নিচের customers, checkouts আর orders webhook দেয় না,
-# বা ক্রেতার ঘরগুলো ফাঁকা পাঠায়।
-# Phone লাগে শুধু Order Tracker-এ ফোন নম্বর দিয়ে খোঁজার জন্য; Address কোথাও লাগে না।
+# ক্রেতার তথ্য (protected customer data): Dev Dashboard > Apps > অ্যাপ > Settings > Access requests >
+# Protected customer data-য় "Customer data" আর Name, Email, Phone ফিল্ড বেছে নিতে হয়; নইলে Shopify নিচের
+# customers, checkouts আর orders webhook দেয় না, বা ক্রেতার ঘরগুলো ফাঁকা পাঠায়। কী লিখবেন:
+# docs/protected-customer-data.md। Phone লাগে শুধু Order Tracker-এ ফোন নম্বর দিয়ে খোঁজার জন্য; Address কোথাও লাগে না।
 scopes = "read_themes,read_orders,write_pixels,read_customer_events,write_app_proxy,write_products,write_files,write_discounts,write_customers,write_online_store_pages"
 
 [webhooks]

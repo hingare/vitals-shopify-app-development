@@ -15,7 +15,7 @@ vi.mock("./admin-client.server", async (original) => ({
 
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
 const { runJob } = await import("./queue.server");
-const { notifyBackInStock, queueStockCheck, requestStockAlert } =
+const { notifyBackInStock, pruneStockAlerts, queueStockCheck, requestStockAlert } =
   await import("./stock-alerts.server");
 
 const now = new Date("2026-11-10T10:00:00Z");
@@ -317,5 +317,31 @@ describe("the stock check job", () => {
     await runJob(context(db.job.rows[0] as Record<string, unknown>));
     expect(jobAdmin.graphql).not.toHaveBeenCalled();
     expect(db.message.rows).toHaveLength(0);
+  });
+});
+
+describe("pruneStockAlerts", () => {
+  it("drops alerts 30 days after the email went out, and requests still waiting after a year", async () => {
+    const ago = (days: number) => new Date(now.getTime() - days * 86_400_000);
+    const alert = (email: string, extra: Record<string, unknown>) =>
+      db.stockAlert.seed({ shopId: shop.id, productId: "77", variantId: "501", email, ...extra });
+    alert("told-long-ago@example.com", {
+      status: "notified",
+      notifiedAt: ago(31),
+      createdAt: ago(40),
+    });
+    alert("told-recently@example.com", {
+      status: "notified",
+      notifiedAt: ago(29),
+      createdAt: ago(40),
+    });
+    alert("still-waiting@example.com", { status: "waiting", createdAt: ago(364) });
+    alert("never-restocked@example.com", { status: "waiting", createdAt: ago(366) });
+
+    expect(await pruneStockAlerts(now)).toBe(2);
+    expect(db.stockAlert.rows.map((row) => row.email).sort()).toEqual([
+      "still-waiting@example.com",
+      "told-recently@example.com",
+    ]);
   });
 });
