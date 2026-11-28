@@ -9,7 +9,7 @@ export const privacy: LegalDoc = {
   title: "Privacy Policy",
   description:
     "What data {brand} collects about merchants, their customers and visitors to this website, who it's shared with and how long it's kept.",
-  updated: "2026-11-16",
+  updated: "2026-11-28",
   body: [
     {
       type: "p",
@@ -56,6 +56,11 @@ export const privacy: LegalDoc = {
           "While the app is installed",
         ],
         [
+          "Spin Wheel",
+          "The email address, prize and discount code of each spin, so each shopper spins only as often as the store allows",
+          "1 year",
+        ],
+        [
           "Abandoned checkout emails",
           "Email address, first name and cart of checkouts that weren't finished",
           "30 days",
@@ -71,9 +76,19 @@ export const privacy: LegalDoc = {
           "While the app is installed; photos are stored in your Shopify Files",
         ],
         [
-          "Back in Stock and Wishlist",
-          "Email addresses for stock alerts, and the products on each wishlist",
+          "Back in Stock",
+          "The email address and product of each stock alert",
+          "30 days after the shopper is emailed; a year at most if the product never comes back",
+        ],
+        [
+          "Wishlist",
+          "The products on each wishlist, saved under the customer's account or a random code",
           "While the app is installed",
+        ],
+        [
+          "Order Tracker",
+          "The order number and the email address or phone number a shopper types, checked against that order in Shopify. Only the order's status, items and tracking are shown.",
+          "Not kept by us",
         ],
         [
           "Live Chat",
@@ -188,6 +203,7 @@ export const privacy: LegalDoc = {
       items: [
         "Recordings, and photos and videos made with AI tools: 30 days.",
         "Abandoned checkouts: 30 days. Live chats: 180 days after the last message. The log of emails sent: 180 days.",
+        "Stock alerts: 30 days after the shopper is emailed, and a year at most while waiting. Spin Wheel spins: 1 year.",
         "Scrambled visitor codes for analytics: 2 days.",
         "Everything else: while the app is installed. 48 hours after you uninstall, Shopify asks us to erase your store's data, and we do.",
       ],
@@ -195,7 +211,7 @@ export const privacy: LegalDoc = {
     { type: "h2", text: "Security" },
     {
       type: "p",
-      text: "Data is encrypted on its way over the internet, and keys for services you connect are stored encrypted. Only the people who need access to run the service have it.",
+      text: "Data is encrypted on its way over the internet, our backups are encrypted, and keys for services you connect are stored encrypted. Only the people who need access to run the service have it.",
     },
     { type: "h2", text: "Your rights" },
     {
