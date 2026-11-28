@@ -11,16 +11,24 @@ import {
 } from "./checks";
 import { ONLY_ON } from "../src/pages";
 import type { ToolModule } from "../src/types";
-import { SCENARIOS, STOREFRONT_TOOLS } from "./scenarios";
-import { PATHS, THEME, openStore, type PageKind } from "./store";
+import { ALL_TOOLS, SCENARIOS, STOREFRONT_TOOLS } from "./scenarios";
+import { PATHS, THEME, openStore, type PageKind, type Store } from "./store";
 
 /**
  * প্রতিটা টুল একা চালু করে নকল দোকানের পাতায়: টুলটা দেখা যায় কিনা, axe-core-এ serious বা critical
- * সমস্যা আছে কিনা, পাতা কতটা সরে যায় (CLS) আর কোনো জাভাস্ক্রিপ্ট ভুল হয় কিনা।
+ * সমস্যা আছে কিনা, পাতা কতটা সরে যায় (CLS) আর কোনো জাভাস্ক্রিপ্ট ভুল হয় কিনা। টুলের ফাইল আসে পাতা
+ * আঁকার পরে, আসল দোকানের মতো (late), যাতে পরে আসা উইজেট লেখা নিচে ঠেললে ধরা পড়ে।
  */
 
 /** একটা টুলের জন্য পাতা এর বেশি সরলে ব্যর্থ (প্ল্যানের "টুল সম্পূর্ণ" শর্ত) */
 const MAX_CLS = 0.01;
+
+/**
+ * টুলের ফাইল পাতা আঁকার পরে এলে (late) পাতা একটুও সরা উচিত না, কারণ পাতার ভেতরের সব উইজেট early.ts আগেই
+ * বসায় (মাপে ঠিক ০)। তাই ০.০১-এর নিচের ছোট সরাও ধরা হয়: নকল পাতার চেয়ে আসল দোকানে, বা কয়েকটা টুল মিলে, সেটা
+ * বড় হয়। ধীরে আসা পাতার পরীক্ষায় (slow) MAX_CLS থাকে।
+ */
+const STILL = 0.001;
 
 /**
  * পাতার ভেতরে বসা টুলগুলো (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস, বিবরণের ট্যাব...)
@@ -63,6 +71,7 @@ for (const id of STOREFRONT_TOOLS) {
       ...scenario.store,
       page: scenario.page,
       tools: [{ id, settings: scenario.settings }],
+      late: true,
     });
     if (scenario.expect) await expect(page.locator(scenario.expect).first()).toBeAttached();
     await settle(page);
@@ -78,7 +87,82 @@ for (const id of STOREFRONT_TOOLS) {
     const violations = blocking(all);
     expect(violations, describeViolations(violations)).toEqual([]);
     const { cls, shifts } = await layoutShift(page);
-    expect(cls, `layout shift:\n${shifts.join("\n")}`).toBeLessThan(MAX_CLS);
+    expect(cls, `layout shift:\n${shifts.join("\n")}`).toBeLessThan(STILL);
+    expect(errors).toEqual([]);
+  });
+}
+
+/**
+ * সব টুল একসাথে, ফাইল দেরিতে এলে: পাতা সরে না। একা প্রতিটা টুল ঠিক থাকলেও একসাথে একটা আরেকটাকে ঠেলতে
+ * পারে, যেমন পরে আসা উইজেট আগে বসা উইজেটের ওপরে বসলে, বা ফর্মের ভেতরে বাটন যোগ হলে নিচের সবকিছু।
+ */
+/**
+ * আগেভাগে বসা বাটন টুলের ফাইল আসার আগেই চাপলে চাপটা হারায় না (early.ts মনে রাখে): ফাইল এলে কাজটা হয়।
+ * আসল দোকানে লোডার টুল আনে পাতা আঁকার পরে, ধীর ফোনে কয়েক সেকেন্ড পরে, আর বাটন তার আগেই দেখা যায়।
+ */
+const PRESSED: Record<string, (page: Page, store: Store) => Promise<unknown>> = {
+  // নকল সার্ভার তালিকা সবসময় খালি ফেরত দেয়, তাই বাটনের অবস্থা নয়, সার্ভারে যাওয়া অনুরোধ দেখা হয়
+  wishlist: (_page, store) => expect.poll(() => store.proxyCalls).toContain("POST wishlist"),
+  "size-chart": (page) => expect(page.locator("dialog[open]")).toBeVisible(),
+  "back-in-stock": (page) =>
+    expect(page.locator('[data-app-widget="back-in-stock"] input[type=email]')).toBeFocused(),
+  "accelerated-checkout": (page) => page.waitForURL("**/checkout"),
+};
+for (const [id, done] of Object.entries(PRESSED)) {
+  test(`${id} remembers a press made before its file arrives`, async ({ page }) => {
+    const scenario = SCENARIOS[id]!;
+    const errors = collectErrors(page);
+    let release = () => {};
+    const hold = new Promise<void>((resolve) => (release = resolve));
+    const store = await openStore(page, {
+      ...scenario.store,
+      page: scenario.page,
+      tools: [{ id, settings: scenario.settings }],
+      hold,
+    });
+    await page.route("**/checkout", (route) =>
+      route.fulfill({ contentType: "text/html", body: "<title>Checkout</title>" }),
+    );
+    await page.locator(`[data-app-widget="${id}"] button, button[data-app-widget="${id}"]`).click();
+    release();
+    await done(page, store);
+    expect(errors).toEqual([]);
+  });
+}
+
+/**
+ * আগেভাগে বসা Wishlist বাটন শুরু থেকেই আসল অবস্থায়: জমানো প্রোডাক্টে "যোগ করুন" দেখিয়ে চাপ নিলে পরে উল্টো কাজ
+ * (তালিকা থেকে বাদ) হত।
+ */
+test("wishlist shows a saved product as saved before its file arrives", async ({ page }) => {
+  let release = () => {};
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  await openStore(page, {
+    page: "product",
+    tools: [{ id: "wishlist" }],
+    hold,
+    storage: {
+      app_wishlist: JSON.stringify({ o: 0, items: [{ productId: "1001", handle: "cotton-tee" }] }),
+    },
+  });
+  const button = page.locator('[data-app-widget="wishlist"] button');
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+  release();
+});
+
+for (const kind of ["product", "cart"] as PageKind[]) {
+  test(`all tools together keep the ${kind} page still`, async ({ page }) => {
+    await watchLayout(page);
+    const errors = collectErrors(page);
+    await openStore(page, {
+      ...ALL_TOOLS,
+      page: kind,
+      cart: kind === "cart" ? [{ variant_id: 111, quantity: 1 }] : undefined,
+      late: true,
+    });
+    await settle(page);
+    const { cls, shifts } = await layoutShift(page);
+    expect(cls, `layout shift:\n${shifts.join("\n")}`).toBeLessThan(STILL);
     expect(errors).toEqual([]);
   });
 }

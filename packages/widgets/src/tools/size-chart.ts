@@ -2,25 +2,12 @@ import type { ToolContext } from "../types";
 import { widgetT } from "../i18n";
 import { track } from "../analytics";
 import { placeAfterProductForm, readPageProduct } from "../product";
+import { adopt, takeTap } from "../early/run";
+import { type ChartSettings, buildChartButton, chartShows, parseChart } from "../early/size-chart";
+
+export { parseChart };
 
 const TOOL_ID = "size-chart";
-
-interface Settings {
-  buttonText: string;
-  title: string;
-  chart: string;
-  note: string;
-  onlyTag: string;
-  colors: { background: string; text: string; accent: string };
-}
-
-/** "Size, Chest\nS, 36" → সারি আর ঘর */
-export function parseChart(text: string): string[][] {
-  return text
-    .split(/\r?\n/)
-    .map((line) => line.split(",").map((cell) => cell.trim()))
-    .filter((row) => row.some(Boolean));
-}
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, css = "", text = "") {
   const node = document.createElement(tag);
@@ -29,15 +16,14 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, css = "", text = "") 
   return node;
 }
 
-/** সাইজ চার্ট বাটন; চাপলে ব্রাউজারের নিজের <dialog>-এ টেবিল (Esc আর ফোকাস নিজে থেকেই ঠিক থাকে) */
+/**
+ * সাইজ চার্ট বাটন; চাপলে ব্রাউজারের নিজের <dialog>-এ টেবিল (Esc আর ফোকাস নিজে থেকেই ঠিক থাকে)।
+ * বাটনটা early.ts পাতা আঁকার আগেই বসায়; এখানে চার্টের জানালা জুড়ে দেওয়া হয়।
+ */
 export function mount({ config, settings }: ToolContext) {
-  const s = settings as unknown as Settings;
-  if (config.pageType !== "product") return;
-  const product = readPageProduct();
-  const tag = s.onlyTag.trim().toLowerCase();
-  if (tag && !product?.tags?.some((t) => t.trim().toLowerCase() === tag)) return;
+  const s = settings as unknown as ChartSettings;
+  if (config.pageType !== "product" || !chartShows(s, readPageProduct())) return;
   const rows = parseChart(s.chart);
-  if (rows.length === 0) return;
 
   const dialog = el(
     "dialog",
@@ -74,16 +60,14 @@ export function mount({ config, settings }: ToolContext) {
   if (s.note) dialog.appendChild(el("p", "margin:12px 0 0;font-size:13px;opacity:.75", s.note));
   document.body.appendChild(dialog);
 
-  const button = el(
-    "button",
-    `background:none;border:0;padding:6px 0;color:${s.colors.accent};text-decoration:underline;cursor:pointer;font:inherit;min-height:32px`,
-    s.buttonText,
-  );
-  button.type = "button";
-  button.setAttribute("aria-haspopup", "dialog");
+  const host = adopt(TOOL_ID);
+  const early = host?.querySelector("button");
+  const button = early ?? buildChartButton(s);
   button.addEventListener("click", () => {
     track(TOOL_ID, "click");
     dialog.showModal();
   });
-  placeAfterProductForm(TOOL_ID).appendChild(button);
+  if (!early) placeAfterProductForm(TOOL_ID).appendChild(button);
+  // ফাইল আসার আগেই কেউ চেপে থাকলে
+  if (host) takeTap(host)?.click();
 }

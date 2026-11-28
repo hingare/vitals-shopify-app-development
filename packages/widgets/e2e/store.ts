@@ -277,10 +277,20 @@ export interface StoreOptions {
    * পরীক্ষায়, e2e/themes.ts)। /password-এ সঠিক পাসওয়ার্ড POST করলে কুকি দেয়।
    */
   password?: string;
+  /**
+   * আসল দোকানের মতো: টুলের ফাইল পাতা আঁকার পরে আসে (LATE_MS দেরিতে)। নকল দোকান এত দ্রুত যে নইলে
+   * অনেক টুল পাতা আঁকার আগেই বসে যায়, আর পরে আসা উইজেট লেখা নিচে ঠেলে কিনা ধরা পড়ে না।
+   */
+  late?: boolean;
+  /** টুলের ফাইল এটা মেটার পরে আসে: পরীক্ষা নিজে ছাড়ে, যেমন টুল আসার আগে বাটন চাপা দেখতে */
+  hold?: Promise<unknown>;
 }
 
 /** slow পাতায় প্রতিটা থামা কতক্ষণ (এর মধ্যে ব্রাউজার পাতা আঁকে) */
 const PAUSE_MS = 200;
+
+/** late দোকানে টুলের ফাইল কতটা দেরিতে আসে; ততক্ষণে পাতা আঁকা হয়ে যায় */
+const LATE_MS = 300;
 
 /** দোকানে আসা একটা অনুরোধ; Playwright-এর route বা আসল সার্ভার, দুই জায়গা থেকেই আসে */
 export interface StoreRequest {
@@ -732,6 +742,10 @@ function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0
               <h2>Care</h2>
               <p>Wash cold, dry flat.</p>
             </div>
+            <div class="product__accordion">
+              <details><summary>Shipping and returns</summary><p>Free shipping over $50. Free returns within 30 days.</p></details>
+              <details><summary>Size and fit</summary><p>True to size. The model is 180 cm and wears a Large.</p></details>
+            </div>
           </div>
         </div>
       </section>`,
@@ -780,6 +794,7 @@ function page(kind: PageKind, options: StoreOptions, origin: string, extraKb = 0
     .product img { width: 100%; height: auto; background: #eee; }
     @media (max-width: 749px) { .product { grid-template-columns: 1fr; } }
     .price-item--regular { color: #555; margin-left: 8px; }
+    .product__accordion summary { padding: 12px 0; border-top: 1px solid #ddd; cursor: pointer; }
     label { display: block; margin-top: 12px; }
     select, input { font: inherit; padding: 8px; min-height: 44px; box-sizing: border-box; }
     .button, .shopify-payment-button__button { display: block; width: 100%; margin-top: 12px; min-height: 48px; font: inherit; background: #121212; color: #fff; border: 0; cursor: pointer; }
@@ -900,6 +915,10 @@ export function createStore(options: StoreOptions, origin = ORIGIN): Store {
 
     if (path.startsWith("/cdn/assets/")) {
       const file = path.slice("/cdn/assets/".length);
+      if (options.late && file.startsWith("tool-")) {
+        await new Promise((resolve) => setTimeout(resolve, LATE_MS));
+      }
+      if (options.hold && file.startsWith("tool-")) await options.hold;
       try {
         const content = readFileSync(ASSETS + file);
         return {

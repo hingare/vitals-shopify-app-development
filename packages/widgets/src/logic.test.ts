@@ -6,6 +6,8 @@ import { parseChart } from "./tools/size-chart";
 import { parseRedirects } from "./tools/geolocation-redirect";
 import { remember } from "./tools/recently-viewed";
 import { links } from "./tools/quick-links";
+import { buttonStyle } from "./ui";
+import { outlinedButton } from "./early/button";
 
 const day = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -218,5 +220,16 @@ describe("pre-orders", async () => {
     expect(preorderText({ ...s, shipDate: "", preorderMessage: "Back soon" }, "en")).toBe(
       "Back soon",
     );
+  });
+});
+
+describe("early outlined button", () => {
+  // early.ts-এর বাটন (Wishlist, স্টকে এলে জানাও) আর টুলের নিজের বাটন একই মাপের না হলে টুল এসে বদলালে পাতা সরে
+  it("is the same CSS as buttonStyle(colors, true)", () => {
+    const colors = { background: "#fff", text: "#111", accent: "#c00" };
+    const css = Object.entries(buttonStyle(colors, true))
+      .map(([key, value]) => `${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}:${value}`)
+      .join(";");
+    expect(outlinedButton(colors.accent)).toBe(css);
   });
 });

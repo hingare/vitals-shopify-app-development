@@ -1,9 +1,3 @@
-{%- comment -%}
-  AI SEO Schema: Google আর AI সার্চের জন্য JSON-LD, সার্ভারেই লেখা (JS ছাড়া ক্রলাররাও পড়ে)।
-  প্রতিটা মান json ফিল্টার দিয়ে যায়, তাই দোকানের লেখায় " বা </script> থাকলেও JSON ভাঙে না, স্ক্রিপ্টও ঢোকে না।
-  data-app-schema চিহ্ন দিয়ে আমাদের schema চেনা যায় (থিমের একই schema সরানোর সময় এগুলো থাকে)।
-  প্যারামিটার: s = টুলের সেটিংস, reviews_on = রিভিউ টুল চালু কিনা।
-{%- endcomment -%}
 {%- assign home = request.origin | append: routes.root_url -%}
 {%- if s.organizationSchema and request.page_type == 'index' -%}
   <script type="application/ld+json" data-app-schema>

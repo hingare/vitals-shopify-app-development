@@ -15,6 +15,16 @@ export const earlyStrings = {
     minutes: "Mins",
     seconds: "Secs",
     close: "Close",
+    "secure-checkout": "Secure checkout",
+    "free-shipping": "Free shipping",
+    "money-back": "Money-back guarantee",
+    "easy-returns": "Easy returns",
+    support: "Customer support",
+    quality: "Quality guaranteed",
+    bogoFree: "Buy {buy}, get {get} free",
+    bogoOff: "Buy {buy}, get {get} at {value} off",
+    share: "Share on",
+    copyLink: "Copy link",
   },
 } satisfies Record<string, Record<string, string>>;
 

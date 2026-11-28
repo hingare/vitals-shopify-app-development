@@ -40,10 +40,8 @@ for (const bad of ["</script", "<!--", "endraw"]) {
   }
 }
 
-const snippet = `{%- comment -%}
-  স্বয়ংক্রিয়ভাবে বানানো, হাতে বদলাবেন না: packages/widgets/src/early.ts বদলে
-  \`pnpm --filter @app/widgets build\` চালান (CI মিলিয়ে দেখে)।
-{%- endcomment -%}
+// মন্তব্যটা ইংরেজিতে আর ছোট, কারণ Liquid Shopify-র ১০০KB সীমায় গোনা হয় (docs/theme-extension.md)
+const snippet = `{%- comment -%} Generated from packages/widgets/src/early.ts, do not edit: run \`pnpm --filter @app/widgets build\` {%- endcomment -%}
 <script>{% raw %}${code}{% endraw %}</script>
 `;
 
