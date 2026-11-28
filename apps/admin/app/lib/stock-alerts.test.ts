@@ -15,8 +15,14 @@ vi.mock("./admin-client.server", async (original) => ({
 
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
 const { runJob } = await import("./queue.server");
-const { notifyBackInStock, pruneStockAlerts, queueStockCheck, requestStockAlert } =
-  await import("./stock-alerts.server");
+const {
+  listStockAlerts,
+  notifyBackInStock,
+  pruneStockAlerts,
+  queueStockCheck,
+  requestStockAlert,
+  variantNames,
+} = await import("./stock-alerts.server");
 
 const now = new Date("2026-11-10T10:00:00Z");
 let shop: { id: string; domain: string; plan: string | null };
@@ -343,5 +349,73 @@ describe("pruneStockAlerts", () => {
       "still-waiting@example.com",
       "told-recently@example.com",
     ]);
+  });
+});
+
+describe("the merchant's list of requests", () => {
+  it("shows this store's requests newest first, with the counts, a page at a time", async () => {
+    const at = (minutes: number) => new Date(now.getTime() + minutes * 60_000);
+    db.stockAlert.seed({
+      shopId: shop.id,
+      productId: "77",
+      variantId: "501",
+      email: "first@example.com",
+      createdAt: at(0),
+    });
+    db.stockAlert.seed({
+      shopId: shop.id,
+      productId: "77",
+      variantId: "502",
+      email: "second@example.com",
+      status: "notified",
+      createdAt: at(1),
+      notifiedAt: at(30),
+    });
+    db.stockAlert.seed({
+      shopId: shop.id,
+      productId: "78",
+      variantId: "601",
+      email: "third@example.com",
+      createdAt: at(2),
+    });
+    const other = db.shop.seed({ domain: "other.myshopify.com" });
+    db.stockAlert.seed({
+      shopId: other.id,
+      productId: "77",
+      variantId: "501",
+      email: "not-yours@example.com",
+      createdAt: at(3),
+    });
+
+    const list = await listStockAlerts(shop.id, 2);
+    expect(list).toMatchObject({ total: 3, waiting: 2, notified: 1 });
+    expect(list.rows.map((row) => row.email)).toEqual(["third@example.com", "second@example.com"]);
+    expect(list.rows[1]).toMatchObject({
+      status: "notified",
+      variantId: "502",
+      createdAt: at(1).toISOString(),
+      notifiedAt: at(30).toISOString(),
+    });
+  });
+
+  it("names each variant from Shopify once, and leaves out variants that were deleted", async () => {
+    const client = admin([
+      {
+        nodes: [
+          { id: "gid://shopify/ProductVariant/501", displayName: "Blue Shirt - Large" },
+          null,
+        ],
+      },
+    ]);
+    const names = await variantNames(client, ["501", "999", "501"]);
+    expect([...names]).toEqual([["501", "Blue Shirt - Large"]]);
+    expect(client.graphql).toHaveBeenCalledTimes(1);
+    expect(client.graphql.mock.calls[0]?.[1]).toEqual({
+      variables: {
+        ids: ["gid://shopify/ProductVariant/501", "gid://shopify/ProductVariant/999"],
+      },
+    });
+    expect([...(await variantNames(client, []))]).toEqual([]);
+    expect(client.graphql).toHaveBeenCalledTimes(1);
   });
 });

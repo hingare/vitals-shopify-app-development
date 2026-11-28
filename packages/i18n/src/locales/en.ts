@@ -56,6 +56,7 @@ export const en = {
   "tools.page.push-notifications": "Send a notification",
   "tools.page.seo-alt-tags": "Add alt text",
   "tools.page.eu-withdrawal": "Withdrawal requests",
+  "tools.page.back-in-stock": "View requests",
   "tools.page.ai-product-faq": "Write FAQs with AI",
   "tools.page.seo-meta-templates": "Fill in empty fields",
   "tools.page.ai-seo-schema": "Check your AI visibility",
@@ -1591,6 +1592,26 @@ export const en = {
   "seoMeta.error.off": "Turn on SEO Meta Templates first.",
   "seoMeta.error.busy": "A run is already in progress.",
   "seoMeta.error.unknown": "Something went wrong. Please try again.",
+
+  // ---- Back in Stock ----
+  "backInStock.title": "Back in Stock requests",
+  "backInStock.settings": "Settings",
+  "backInStock.off":
+    "Back in Stock is turned off, so shoppers can't ask to hear when a product is back.",
+  "backInStock.turnOn": "Turn it on",
+  "backInStock.help":
+    "Shoppers who asked to hear when a sold-out product can be bought again. Each one gets one email when it's back. Requests are deleted 30 days after the email, or after a year of waiting.",
+  "backInStock.summary": "{waiting} waiting, {notified} emailed in the last 30 days",
+  "backInStock.empty": "No requests yet.",
+  "backInStock.product": "Product",
+  "backInStock.email": "Email",
+  "backInStock.requested": "Requested",
+  "backInStock.status": "Status",
+  "backInStock.waiting": "Waiting",
+  "backInStock.notified": "Emailed {date}",
+  "backInStock.deleted": "Product no longer in your store",
+  "backInStock.unnamed": "Product {id}",
+  "backInStock.showMore": "Show older requests",
 
   // ---- EU Withdrawal ----
   "withdrawals.title": "Withdrawal requests",

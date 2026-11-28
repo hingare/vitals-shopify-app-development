@@ -257,3 +257,63 @@ export async function stockAlertCounts(shopId: string) {
   ]);
   return { waiting, notified };
 }
+
+export const STOCK_ALERTS_PAGE = 50;
+
+export interface StockAlertRow {
+  id: string;
+  productId: string;
+  variantId: string;
+  email: string;
+  status: "waiting" | "notified";
+  createdAt: string;
+  notifiedAt: string | null;
+}
+
+/**
+ * অ্যাডমিনের তালিকা, নতুন অনুরোধ ওপরে। দোকান থেকে নেওয়া ক্রেতার তথ্য মার্চেন্ট নিজে দেখতে পান
+ * (App Store-এর শর্ত ৫.১.৫); নিউজলেটারে রাজি না হওয়া ক্রেতার ইমেইল আর কোথাও দেখা যেত না।
+ */
+export async function listStockAlerts(shopId: string, take = STOCK_ALERTS_PAGE) {
+  const [rows, total, counts] = await Promise.all([
+    db.stockAlert.findMany({ where: { shopId }, orderBy: { createdAt: "desc" }, take }),
+    db.stockAlert.count({ where: { shopId } }),
+    stockAlertCounts(shopId),
+  ]);
+  return {
+    total,
+    ...counts,
+    rows: rows.map((row): StockAlertRow => ({
+      id: row.id,
+      productId: row.productId,
+      variantId: row.variantId,
+      email: row.email,
+      status: row.status === "notified" ? "notified" : "waiting",
+      createdAt: row.createdAt.toISOString(),
+      notifiedAt: row.notifiedAt?.toISOString() ?? null,
+    })),
+  };
+}
+
+const VARIANT_NAMES = `#graphql
+  query StockAlertVariants($ids: [ID!]!) {
+    nodes(ids: $ids) { ... on ProductVariant { id displayName } }
+  }`;
+
+/** ভ্যারিয়েন্টের নাম ("প্রোডাক্ট - ভ্যারিয়েন্ট") Shopify থেকে, id দিয়ে; মুছে ফেলা ভ্যারিয়েন্ট তালিকায় আসে না */
+export async function variantNames(admin: GraphqlClient, variantIds: string[]) {
+  const ids = [...new Set(variantIds)].map((id) => `gid://shopify/ProductVariant/${id}`);
+  const names = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 250) {
+    const data = await gql<{ nodes: Array<{ id?: string; displayName?: string } | null> }>(
+      admin,
+      VARIANT_NAMES,
+      { ids: ids.slice(i, i + 250) },
+    );
+    for (const node of data.nodes) {
+      const id = node?.id?.split("/").pop();
+      if (id && node?.displayName) names.set(id, node.displayName);
+    }
+  }
+  return names;
+}
