@@ -31,6 +31,9 @@ interface Offer {
 const STRINGS = {
   heading: "Add this to your order",
   callout: "It's not too late to add this to your order",
+  addProduct: "Add {product} to your order.",
+  addPercent: "Add {product} to your order and get {percent}% off.",
+  addSave: "Add {product} to your order and save {amount}.",
   noPayment: "No need to enter your payment details again.",
   price: "Price",
   shipping: "Shipping",
@@ -55,6 +58,11 @@ function purchaseBody(input: PurchaseInput) {
     productIds: input.initialPurchase.lineItems.map((l) => String(l.product.id)),
     total: Number(input.initialPurchase.totalPriceSet.shopMoney.amount) || 0,
   };
+}
+
+/** "{product}" ধরনের জায়গায় মান বসায় */
+function fill(text: string, values: Record<string, string>) {
+  return text.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
 }
 
 async function post(path: string, token: string, body: unknown) {
@@ -104,6 +112,24 @@ extend(
       }
     };
 
+    /**
+     * App Store-এর শর্ত ৫.৮.৭: উপরের ব্যানারে প্রোডাক্টের নাম আর ছাড়। শতাংশের ছাড় সাথে সাথেই জানা,
+     * নির্দিষ্ট টাকার ছাড় কত বাঁচল তা Shopify-র হিসাবের পরে বসে (ক্রেতার মুদ্রায়)।
+     */
+    const bannerLine = (saved: string) => {
+      const discount = offer.discount;
+      if (discount?.valueType === "percentage" && discount.value > 0) {
+        return fill(STRINGS.addPercent, {
+          product: product.title,
+          percent: String(discount.value),
+        });
+      }
+      if (saved) return fill(STRINGS.addSave, { product: product.title, amount: saved });
+      return fill(STRINGS.addProduct, { product: product.title });
+    };
+    const bannerText = root.createText(bannerLine(""));
+    // শর্ত ৫.৮.৩: দোকানের আসল দাম কেটে দিয়ে পাশে ছাড়ের দাম, যাতে দাম দোকানের সাথে মেলে
+    const originalText = root.createText("");
     const priceText = root.createText("…");
     const shippingText = root.createText("…");
     const taxText = root.createText("…");
@@ -154,6 +180,12 @@ extend(
       const m = (bag?: { presentmentMoney: { amount: string; currencyCode: string } }) =>
         money(bag?.presentmentMoney.amount, bag?.presentmentMoney.currencyCode);
       priceText.updateText(m(line?.totalPriceSet));
+      const currency = line?.totalPriceSet.presentmentMoney.currencyCode;
+      const original = Number(line?.priceSet.presentmentMoney.amount) * (line?.quantity ?? 1);
+      const paid = Number(line?.totalPriceSet.presentmentMoney.amount);
+      const saved = original > paid ? (original - paid).toFixed(2) : "";
+      originalText.updateText(saved ? money(original.toFixed(2), currency) : "");
+      bannerText.updateText(bannerLine(saved ? money(saved, currency) : ""));
       shippingText.updateText(m(p.addedShippingLines[0]?.priceSet ?? zero(p.totalOutstandingSet)));
       taxText.updateText(m(p.addedTaxLines[0]?.priceSet ?? zero(p.totalOutstandingSet)));
       totalText.updateText(m(p.totalOutstandingSet));
@@ -198,7 +230,14 @@ extend(
         : []),
       root.createComponent(Separator),
       root.createComponent(BlockStack, { spacing: "tight" }, [
-        row(STRINGS.price, priceText),
+        root.createComponent(Tiles, {}, [
+          root.createComponent(TextBlock, { size: "small" }, STRINGS.price),
+          root.createComponent(TextContainer, { alignment: "trailing" }, [
+            root.createComponent(Text, { role: "deletion", subdued: true }, originalText),
+            " ",
+            root.createComponent(Text, {}, priceText),
+          ]),
+        ]),
         row(STRINGS.shipping, shippingText),
         row(STRINGS.taxes, taxText),
         row(STRINGS.total, totalText, true),
@@ -208,11 +247,12 @@ extend(
 
     root.appendChild(
       root.createComponent(BlockStack, { spacing: "loose" }, [
-        root.createComponent(
-          CalloutBanner,
-          { title: offer.title || STRINGS.callout },
-          STRINGS.noPayment,
-        ),
+        root.createComponent(CalloutBanner, { title: offer.title || STRINGS.callout }, [
+          root.createComponent(BlockStack, { spacing: "xtight" }, [
+            root.createComponent(TextBlock, {}, bannerText),
+            root.createComponent(TextBlock, { subdued: true }, STRINGS.noPayment),
+          ]),
+        ]),
         root.createComponent(
           Layout,
           {
