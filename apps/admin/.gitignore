@@ -38,3 +38,4 @@ yarn.lock
 # ডাটাবেসের ব্যাকআপ (scripts/db-backup.mjs): ক্রেতাদের ইমেইল থাকে, কখনো GitHub-এ নয়
 /backups
 *.dump
+*.dump.enc

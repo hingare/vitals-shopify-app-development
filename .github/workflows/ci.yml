@@ -117,12 +117,14 @@ jobs:
         run: |
           pnpm exec prisma migrate deploy
           node loadtest/seed.mjs --stores 20
-      - name: Back up, restore into a new database, compare every table
+      - name: Back up (encrypted), restore into a new database, compare every table
         working-directory: apps/admin
         run: |
+          # এই রানের জন্য নতুন একটা চাবি; আসল সার্ভারের চাবি থাকে শুধু তার .env আর password manager-এ
+          export BACKUP_KEY="$(node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))")"
           node scripts/db-backup.mjs --out backups
           PGPASSWORD=postgres "$PG_BIN/createdb" -h localhost -U postgres restored
-          node scripts/db-restore.mjs backups/*.dump --into "$RESTORED_URL"
+          node scripts/db-restore.mjs backups/*.dump.enc --into "$RESTORED_URL"
           DATABASE_URL="$RESTORED_URL" pnpm exec prisma migrate status
 
   functions:
