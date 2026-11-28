@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../db.server", async () => ({ default: (await import("./test-db")).fakeDb }));
 
 const { fakeDb: db, resetFakeDb } = await import("./test-db");
-const { activeSlices, makeCode, pickSlice, spin } = await import("./wheel.server");
+const { spinWheel } = await import("@app/tools");
+const { SPIN_KEEP_DAYS, activeSlices, makeCode, pickSlice, pruneWheelSpins, spin } =
+  await import("./wheel.server");
 
 const now = new Date("2026-11-10T10:00:00Z");
 let shop: { id: string; domain: string; plan: string | null };
@@ -181,5 +183,33 @@ describe("spin", () => {
         },
       },
     ]);
+  });
+});
+
+describe("pruneWheelSpins", () => {
+  it("keeps spins at least as long as the longest wait between spins a merchant can set", () => {
+    expect(spinWheel.settings.safeParse({ frequencyDays: SPIN_KEEP_DAYS }).success).toBe(true);
+    expect(spinWheel.settings.safeParse({ frequencyDays: SPIN_KEEP_DAYS + 1 }).success).toBe(false);
+  });
+
+  it("drops spins older than that, with their email addresses", async () => {
+    const ago = (days: number) => new Date(now.getTime() - days * 86_400_000);
+    db.wheelSpin.seed({
+      shopId: shop.id,
+      email: "recent@example.com",
+      slice: 1,
+      label: "5% off",
+      createdAt: ago(364),
+    });
+    db.wheelSpin.seed({
+      shopId: shop.id,
+      email: "old@example.com",
+      slice: 2,
+      label: "No prize",
+      createdAt: ago(366),
+    });
+
+    expect(await pruneWheelSpins(now)).toBe(1);
+    expect(db.wheelSpin.rows.map((row) => row.email)).toEqual(["recent@example.com"]);
   });
 });
