@@ -14,7 +14,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, billing, session } = await authenticate.admin(request);
   const shop = await ensureShop(session.shop);
   const [plan, embedEnabled, tools, speed, stats, withdrawals, currency] = await Promise.all([
-    syncPlanFromBilling(billing, session.shop),
+    syncPlanFromBilling({ admin, billing }, session.shop),
     getEmbedStatus(admin),
     getToolStates(shop.id),
     getSpeedSummary(shop.id),

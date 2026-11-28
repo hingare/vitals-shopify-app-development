@@ -9,19 +9,19 @@ import { isPlanKey, PLAN_KEYS, PRICES, TRIAL_DAYS } from "../lib/plans";
 import { useT } from "../lib/i18n";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const { billing, session } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
   await ensureShop(session.shop);
-  const plan = await syncPlanFromBilling(billing, session.shop);
+  const plan = await syncPlanFromBilling({ admin, billing }, session.shop);
   return { plan };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing } = await authenticate.admin(request);
+  const { admin, billing, session } = await authenticate.admin(request);
   const form = await request.formData();
   const key = form.get("plan");
   if (!isPlanKey(key)) throw new Response("Unknown plan", { status: 400 });
   // Shopify-র বিল অনুমোদন পেজে নিয়ে যায়; অনুমোদনের পর অ্যাপে ফিরে আসে
-  return billing.request({ plan: key, isTest: isTestBilling() });
+  return billing.request({ plan: key, isTest: await isTestBilling(admin, session.shop) });
 };
 
 export default function PlansPage() {
