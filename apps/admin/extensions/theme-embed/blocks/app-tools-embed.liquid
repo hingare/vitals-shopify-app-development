@@ -8,7 +8,7 @@
     {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
     {%- if tool.id == 'ai-seo-schema' -%}{%- assign seo_schema = tool.settings -%}{%- endif -%}
     {%- case tool.id -%}
-      {%- when 'announcement-bar', 'spending-goal', 'countdown-timer', 'volume-discounts', 'bundles', 'upsells', 'cart-notice', 'agree-to-terms', 'description-tabs', 'accelerated-checkout', 'payment-logos', 'trust-seals', 'stock-scarcity', 'shipping-info', 'size-chart', 'wishlist', 'back-in-stock', 'bogo', 'social-buttons' -%}
+      {%- when 'announcement-bar', 'spending-goal', 'countdown-timer', 'volume-discounts', 'bundles', 'upsells', 'cart-notice', 'agree-to-terms', 'description-tabs', 'accelerated-checkout', 'payment-logos', 'trust-seals', 'stock-scarcity', 'shipping-info', 'size-chart', 'wishlist', 'back-in-stock', 'bogo', 'social-buttons', 'pre-orders' -%}
         {%- assign early = true -%}
     {%- endcase -%}
   {%- endfor -%}

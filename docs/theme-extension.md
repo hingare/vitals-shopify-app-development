@@ -12,10 +12,10 @@ Shopify একটা theme app extension-এর সব Liquid (`blocks` আর `
 - `apps/admin/app/lib/theme-extension.test.ts` সব Liquid মিলিয়ে মাপে আর ১,০০,০০০ বাইট পেরোলে ব্যর্থ হয়
   (Shopify KB বলতে ১০০০ না ১০২৪ বাইট বোঝায় তা লেখেনি, তাই ছোটটা)। ৩০ ব্লক আর ব্লকের নাম ২৫ অক্ষরের সীমাও
   সেখানে দেখা হয়।
-- সবচেয়ে বড় ফাইল `snippets/app-early.liquid` (পাতা আঁকার আগে চলা স্ক্রিপ্ট, প্রায় ২৫KB)। `src/early.ts` বা
+- সবচেয়ে বড় ফাইল `snippets/app-early.liquid` (পাতা আঁকার আগে চলা স্ক্রিপ্ট, প্রায় ২৭KB)। `src/early.ts` বা
   `src/early/`-এ কিছু যোগ করলে এটাও বাড়ে, তাই আগে মাপ দেখুন:
   `find apps/admin/extensions/theme-embed -name "*.liquid" -printf "%s\n" | awk '{s+=$1}END{print s}'`।
-  ২০২৬-১১-এ মোট প্রায় ৯৪,০০০ বাইট।
+  ২০২৬-১১-এ মোট প্রায় ৯৬,৫০০ বাইট।
 
 ## app embed: `blocks/app-tools-embed.liquid`
 
@@ -47,8 +47,8 @@ embed পাতার `<head>`-এ বসে (`target: head`), যাতে `app
 - **দ্রুত চেকআউট বাটন লুকানো** (Hide dynamic checkout): `<style>` পাতা আঁকার আগেই, যাতে বাটন এক মুহূর্তের
   জন্যও না দেখায়।
 - **`ai-seo-schema`** snippet, নিচে।
-- **`app-early`**: পাতার ভেতরে বসা উইজেট (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস, বিবরণের ট্যাব)
-  থিমের HTML পড়ার সময়েই বসায়, পাতা আঁকার আগে।
+- **`app-early`**: পাতার ভেতরে বসা উইজেট (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস, বিবরণের ট্যাব,
+  প্রি-অর্ডারের বাটনের লেখা) থিমের HTML পড়ার সময়েই বসায়, পাতা আঁকার আগে।
 - শেষে লোডার (`loader.js`, `defer`)।
 
 ### Best Sellers Protection

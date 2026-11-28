@@ -97,6 +97,11 @@ export const SCENARIOS: Record<string, Scenario> = {
   },
   "pre-orders": {
     page: "product",
+    // দুই লাইনের বার্তা: এক লাইনের বাক্স প্রায় লুকানো Shop Pay বাটনের সমান উঁচু, তাতে পরে বসলেও সরাটা প্রায় ধরা পড়ত না
+    settings: {
+      preorderMessage:
+        "This item is on pre-order. We will ship it as soon as the next batch arrives, usually within two to three weeks.",
+    },
     store: {
       // Large-এর স্টক শেষ, কিন্তু "স্টক না থাকলেও বিক্রি" চালু
       product: {

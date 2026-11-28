@@ -47,8 +47,8 @@ pnpm --filter @app/widgets e2e -g popup     # নামে "popup" আছে এ
 
 যে টুলগুলো পাতার ভেতরে কিছু বসায়, সেগুলো পাতা আঁকার আগেই বসে, তাই পরে লেখা নিচে সরে না: Announcement bar আর
 Spending goal (উপরে); Add to cart-এর নিচে Countdown timer, Volume discounts, Bundles, Upsells, Trust seals, Payment
-logos, Stock scarcity, Back in stock, Wishlist, BOGO, Size chart, Shipping info আর Social buttons; ফর্মের ভেতরে Buy
-now বাটন (Accelerated checkout); কার্ট পেজে Cart notice, Agree to terms, Trust seals আর Payment logos; Description
+logos, Stock scarcity, Back in stock, Wishlist, BOGO, Size chart, Shipping info, Social buttons আর Pre-orders-এর বার্তা
+(সাথে Add to cart-এর লেখা আর লুকানো দ্রুত চেকআউট বাটন); ফর্মের ভেতরে Buy now বাটন (Accelerated checkout); কার্ট পেজে Cart notice, Agree to terms, Trust seals আর Payment logos; Description
 tabs।
 
 - app embed পাতার `<head>`-এ বসে (`target: head`)। এই টুলগুলোর কোনোটা চালু থাকলে embed `snippets/app-early.liquid`
@@ -67,8 +67,11 @@ tabs।
   `"<টুল> remembers a press made before its file arrives"` (`hold` অপশন টুলের ফাইল আটকে রাখে, পরীক্ষা চেপে তবে ছাড়ে)।
 - স্নিপেটটা git-এ থাকে; হাতে বদলাবেন না। `early.ts` বা `src/early/` বদলালে `pnpm --filter @app/widgets build` চালিয়ে
   স্নিপেটসহ commit করুন। `pnpm test` মিলিয়ে দেখে, পুরনো থাকলে ব্যর্থ হয়।
+- স্ক্রিপ্টটা থিমের HTML পড়ার মাঝখানে চলে, তাই এখানে ভারী কাজ পাতা আঁকা পিছিয়ে দেয়। যেমন পাতায় প্রথম Intl ডাক
+  (তারিখ লেখা) ফোনে কয়েক দশ ms নেয়, তাই ইংরেজি তারিখ `src/dates.ts` Intl ছাড়াই লেখে (`formatDay`, `formatDate`;
+  `logic.test.ts` মিলিয়ে দেখে Intl-এর লেখার সাথে হুবহু মেলে কিনা)।
 - স্ক্রিপ্টটা Shopify-র ১০০KB Liquid সীমায় গোনা হয় (`apps/admin/app/lib/theme-extension.test.ts` দেখে)। এখন সব Liquid
-  মিলিয়ে প্রায় ৯৪KB, তাই এখানে নতুন কিছু যোগ করার আগে মাপ দেখুন ([theme-extension.md](theme-extension.md))। আর
+  মিলিয়ে প্রায় ৯৬.৫KB, তাই এখানে নতুন কিছু যোগ করার আগে মাপ দেখুন ([theme-extension.md](theme-extension.md))। আর
   স্ক্রিপ্টটা প্রতিটা পাতার HTML-এ যায়, তাই গতির পরীক্ষার HTML সীমাতেও গোনা হয়।
 
 পরীক্ষা: প্রতিটা টুলের সাধারণ পরীক্ষা ছাড়াও `"<টুল> while the page is still arriving"` পাতাটা ধীরে আনে (`slow`

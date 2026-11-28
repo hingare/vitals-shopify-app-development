@@ -64,7 +64,6 @@ const strings = {
     quantity: "Quantity",
     free: "Free",
     taxesAtCheckout: "Taxes and shipping are calculated at checkout.",
-    preorderNoDate: "Pre-order now. We'll ship it as soon as it's back in stock.",
     preorderLine: "Pre-order",
     addFailed: "Could not add this item. Please try again.",
     giftProgress: "Spend {amount} more to get a free {gift}",

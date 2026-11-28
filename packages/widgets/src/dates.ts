@@ -79,6 +79,18 @@ export function formatDay(d: Date, locale: string): string {
   }
 }
 
+/** "Dec 5, 2026" (Intl-এর dateStyle "medium"), ইংরেজিতে formatDay-এর মতো Intl ছাড়াই; ভুল তারিখে null */
+export function formatDate(y: number, m: number, d: number, locale: string): string | null {
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return null;
+  if (locale === "en") return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+  } catch {
+    return null;
+  }
+}
+
 /** 8100000 → "2h 15m" */
 export function formatDuration(ms: number): string {
   const minutes = Math.max(1, Math.ceil(ms / 60_000));

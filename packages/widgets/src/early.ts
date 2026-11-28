@@ -43,6 +43,14 @@ import { type SaveSettings, buildSave, isSaved } from "./early/save";
 import { type NotifySettings, buildNotify, isSoldOut } from "./early/notify";
 import { type BogoSettings, bogoOffer, buildBogo } from "./early/bogo";
 import { type SocialSettings, buildSocial } from "./early/social";
+import {
+  type PreorderSettings,
+  buildPreorder,
+  hideFastCheckout,
+  preorderIds,
+  preorderLabel,
+  preorderText,
+} from "./early/preorder";
 import { barHost, isMobile, parsed } from "./dom";
 import {
   checkoutAnchorReady,
@@ -179,6 +187,22 @@ function start(config: StoreConfig) {
       const deal = bogo?.showBadge ? bogoOffer(config, product) : undefined;
       if (bogo && deal)
         after.push(["bogo", (host) => host.appendChild(buildBogo(bogo, deal, config))]);
+      // প্রি-অর্ডার: দ্রুত চেকআউট বাটন শুরু থেকেই লুকানো, বার্তা ফর্মের নিচে, Add to cart-এর লেখা বদলানো
+      const pre = settings<PreorderSettings>("pre-orders");
+      if (pre && preorderIds(pre, product).has(variant)) {
+        document.head.appendChild(hideFastCheckout());
+        after.push([
+          "pre-orders",
+          (host) => host.appendChild(buildPreorder(pre, preorderText(pre, config.locale))),
+        ]);
+        jobs.push((last) => {
+          const form = productForm();
+          const submit = form && submitOf(form);
+          if (!last && !(submit && parsed(submit))) return false;
+          if (submit) preorderLabel(submit, pre.buttonText);
+          return true;
+        });
+      }
     }
     const chart = settings<ChartSettings>("size-chart");
     if (chart && chartShows(chart, product)) {

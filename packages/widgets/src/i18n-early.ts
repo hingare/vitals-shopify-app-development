@@ -25,6 +25,7 @@ export const earlyStrings = {
     bogoOff: "Buy {buy}, get {get} at {value} off",
     share: "Share on",
     copyLink: "Copy link",
+    preorderNoDate: "Pre-order now. We'll ship it as soon as it's back in stock.",
   },
 } satisfies Record<string, Record<string, string>>;
 

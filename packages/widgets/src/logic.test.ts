@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliveryWindow, formatDay, formatDuration, offsetMinutes } from "./dates";
+import { deliveryWindow, formatDate, formatDay, formatDuration, offsetMinutes } from "./dates";
 import { labelsFor } from "./labels";
 import { currencyForLocale, formatShopMoney, parseMoney, replaceMoney } from "./money";
 import { parseChart } from "./tools/size-chart";
@@ -202,7 +202,7 @@ describe("offers on the storefront", async () => {
 });
 
 describe("pre-orders", async () => {
-  const { preorderText } = await import("./tools/pre-orders");
+  const { preorderText } = await import("./early/preorder");
   const s = {
     buttonText: "Pre-order",
     preorderMessage: "Pre-order now. Ships by {date}.",
@@ -252,5 +252,21 @@ describe("formatDay", () => {
     const d = new Date(Date.UTC(2026, 11, 1));
     expect(formatDay(d, "fr")).toBe(intl("fr").format(d));
     expect(formatDay(d, "fr")).not.toBe(formatDay(d, "en"));
+  });
+});
+
+describe("formatDate", () => {
+  const intl = (locale: string) => new Intl.DateTimeFormat(locale, { dateStyle: "medium" });
+  it("writes English dates exactly like Intl, without starting Intl", () => {
+    for (let day = 0; day < 400; day += 3) {
+      const d = new Date(2026, 0, 1 + day);
+      expect(formatDate(d.getFullYear(), d.getMonth() + 1, d.getDate(), "en")).toBe(
+        intl("en").format(d),
+      );
+    }
+  });
+  it("uses Intl for other languages and gives up on a broken date", () => {
+    expect(formatDate(2026, 12, 5, "fr")).toBe(intl("fr").format(new Date(2026, 11, 5)));
+    expect(formatDate(Number.NaN, 12, 5, "en")).toBeNull();
   });
 });

@@ -150,6 +150,42 @@ test("wishlist shows a saved product as saved before its file arrives", async ({
   release();
 });
 
+/**
+ * Pre-order: বার্তা, বাটনের লেখা আর লুকানো দ্রুত চেকআউট বাটন টুলের ফাইল আসার আগেই ঠিক থাকে। ফাইল এলে টুল
+ * সেগুলোই নেয়, তাই অন্য ভ্যারিয়েন্ট বাছলে থিমের লেখা আর বাটন ফেরত আসে।
+ */
+test("pre-orders is in place before its file arrives and undone on another variant", async ({
+  page,
+}) => {
+  const scenario = SCENARIOS["pre-orders"]!;
+  const errors = collectErrors(page);
+  let release = () => {};
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  await openStore(page, {
+    ...scenario.store,
+    page: "product",
+    tools: [{ id: "pre-orders", settings: scenario.settings }],
+    hold,
+  });
+  const add = page.locator('button[name="add"]');
+  const message = page.locator('[data-app-widget="pre-orders"]');
+  const fast = page.locator(".shopify-payment-button");
+  await expect(add).toHaveText("Pre-order");
+  await expect(message).toBeVisible();
+  await expect(fast).toBeHidden();
+  release();
+  await expect(page.locator('#product-form-main input[name^="properties["]')).toBeAttached();
+  await page.locator("#variant-select").selectOption("111");
+  await expect(add).toHaveText("Add to cart");
+  await expect(message).toBeHidden();
+  await expect(fast).toBeVisible();
+  await page.locator("#variant-select").selectOption("112");
+  await expect(add).toHaveText("Pre-order");
+  await expect(message).toBeVisible();
+  await expect(fast).toBeHidden();
+  expect(errors).toEqual([]);
+});
+
 for (const kind of ["product", "cart"] as PageKind[]) {
   test(`all tools together keep the ${kind} page still`, async ({ page }) => {
     await watchLayout(page);
