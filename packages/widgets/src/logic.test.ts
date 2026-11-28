@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deliveryWindow, formatDuration, offsetMinutes } from "./dates";
+import { deliveryWindow, formatDay, formatDuration, offsetMinutes } from "./dates";
 import { labelsFor } from "./labels";
 import { currencyForLocale, formatShopMoney, parseMoney, replaceMoney } from "./money";
 import { parseChart } from "./tools/size-chart";
@@ -231,5 +231,26 @@ describe("early outlined button", () => {
       .map(([key, value]) => `${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}:${value}`)
       .join(";");
     expect(outlinedButton(colors.accent)).toBe(css);
+  });
+});
+
+describe("formatDay", () => {
+  const intl = (locale: string) =>
+    new Intl.DateTimeFormat(locale, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    });
+  it("writes English days exactly like Intl, without starting Intl", () => {
+    for (let day = 0; day < 400; day += 3) {
+      const d = new Date(Date.UTC(2026, 0, 1 + day));
+      expect(formatDay(d, "en")).toBe(intl("en").format(d));
+    }
+  });
+  it("uses Intl for other languages", () => {
+    const d = new Date(Date.UTC(2026, 11, 1));
+    expect(formatDay(d, "fr")).toBe(intl("fr").format(d));
+    expect(formatDay(d, "fr")).not.toBe(formatDay(d, "en"));
   });
 });

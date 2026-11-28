@@ -57,7 +57,16 @@ export function deliveryWindow(
   };
 }
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "Mon, Dec 1"। ইংরেজি দোকানে Intl ছাড়াই (হুবহু একই লেখা, logic.test.ts মিলিয়ে দেখে): পাতায় প্রথমবার Intl চালু
+ * হতে ফোনে কয়েক দশ ms লাগে, আর Shipping info-র লেখা early.ts পাতা আঁকার আগেই বানায়, যখন সেটা পাতা আঁকা পেছাত।
+ */
 export function formatDay(d: Date, locale: string): string {
+  if (locale === "en")
+    return `${DAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
   try {
     return new Intl.DateTimeFormat(locale, {
       weekday: "short",
