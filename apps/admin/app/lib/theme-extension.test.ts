@@ -2,7 +2,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// Shopify-র theme app extension সীমা: সর্বোচ্চ ৩০ ব্লক, মোট Liquid ১০০KB, ব্লকের নাম ২৫ অক্ষর
+// Shopify-র theme app extension সীমা: সর্বোচ্চ ৩০ ব্লক, মোট Liquid ১০০KB, ব্লকের নাম ২৫ অক্ষর।
+// Shopify KB বলতে ১০০০ না ১০২৪ বাইট বোঝায় তা লেখেনি, তাই ছোটটা (১,০০,০০০ বাইট) ধরা হয়;
+// জায়গা বাঁচানোর নিয়ম docs/theme-extension.md-এ।
 const EXT = join(__dirname, "../../extensions/theme-embed");
 const liquid = (dir: string) =>
   readdirSync(join(EXT, dir))
@@ -18,7 +20,7 @@ describe("theme app extension limits", () => {
 
   it("keeps all Liquid under 100KB", () => {
     const total = [...blocks, ...liquid("snippets")].reduce((sum, f) => sum + statSync(f).size, 0);
-    expect(total).toBeLessThan(100 * 1024);
+    expect(total).toBeLessThanOrEqual(100_000);
   });
 
   it("uses block names of 25 characters or less", () => {

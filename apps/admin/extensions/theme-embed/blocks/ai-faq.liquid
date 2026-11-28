@@ -1,7 +1,3 @@
-{% comment %}
-  AI FAQ: প্রোডাক্টের প্রশ্ন-উত্তর কোথায় বসবে তা মার্চেন্ট থিম এডিটরে ঠিক করেন। টুল চালু না থাকলে কিছু দেখায় না।
-  এই ব্লক না থাকলে app embed প্রোডাক্ট সেকশনের পরে বসায় (tool-ai-product-faq.js)।
-{% endcomment %}
 {%- liquid
   assign faq_settings = nil
   for tool in app.metafields.app_config.tools.value.tools

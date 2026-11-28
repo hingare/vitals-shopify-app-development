@@ -2,14 +2,23 @@
  * পাতা আঁকার আগে চলা ছোট স্ক্রিপ্ট। app embed <head>-এ বসে, আর এটা সেখানে inline থাকে (স্নিপেট
  * app-early.liquid, scripts/build-early.mjs বানায়), তাই থিমের HTML পড়া শুরুর আগেই চলে।
  *
- * পাতার ভেতরে বসা উইজেটগুলো (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস আর শর্তের
- * টিকবক্স, বিবরণের ট্যাব) থিমের যে জিনিসের পাশে বসে সেটা পড়া হলেই বসিয়ে দেয়, পাতা আঁকার আগে;
- * তাই পরে লেখা নিচে সরে না (CLS)। বান্ডেল আর আপসেলের প্রোডাক্ট পরে আসে, তাই তাদের শুধু মাপমতো
+ * পাতার ভেতরে বসা উইজেটগুলো (উপরের বার, Add to cart-এর নিচের সব উইজেট আর Buy now বাটন, কার্টের
+ * নোটিস, ব্যাজ আর পেমেন্ট লোগো, শর্তের টিকবক্স, বিবরণের ট্যাব) থিমের যে জিনিসের পাশে বসে সেটা পড়া
+ * হলেই বসিয়ে দেয়, পাতা আঁকার আগে; তাই পরে লেখা নিচে সরে না (CLS)। টুলের ফাইল আসে পাতা আঁকার পরে,
+ * তখন পাতার ভেতরে নতুন কিছু বসালেই নিচের সবকিছু সরে যেত। বান্ডেল আর আপসেলের প্রোডাক্ট পরে আসে, তাই তাদের শুধু মাপমতো
  * জায়গা রাখা হয়। বাকি কাজ (মেসেজ ঘোরানো, কার্ট বদলালে লেখা বদলানো, গোনা) টুলের নিজের ফাইল পরে
  * এসে করে। কোথাও ভুল হলে চুপচাপ থামে: তখন টুলের ফাইল আগের মতো নিজেই উইজেট বসায়।
  */
 import type { StoreConfig } from "./types";
-import { type Job, markEarly, adopt, placed, slotReady, whileParsing } from "./early/run";
+import {
+  type Job,
+  markEarly,
+  adopt,
+  placed,
+  rememberTaps,
+  slotReady,
+  whileParsing,
+} from "./early/run";
 import {
   type AnnouncementSettings,
   type GoalSettings,
@@ -24,6 +33,24 @@ import { bundleHeight, reserve, upsellHeight } from "./early/reserve";
 import { type NoticeSettings, buildNotice } from "./early/notice";
 import { type TermsSettings, setupTerms } from "./early/terms";
 import { type TabsSettings, findDescription, transform } from "./early/tabs";
+import { BUY_NOW, type BuyNowSettings, buildBuyNow, placeBuyNow, submitOf } from "./early/buy-now";
+import { type LogosSettings, buildLogos, paymentIcons } from "./early/logos";
+import { type SealsSettings, buildSeals, knownBadges } from "./early/seals";
+import { type ScarcitySettings, buildScarcity, lowStock } from "./early/scarcity";
+import { type ShippingSettings, buildShipping } from "./early/shipping";
+import { type ChartSettings, buildChartButton, chartShows } from "./early/size-chart";
+import { type SaveSettings, buildSave, isSaved } from "./early/save";
+import { type NotifySettings, buildNotify, isSoldOut } from "./early/notify";
+import { type BogoSettings, bogoOffer, buildBogo } from "./early/bogo";
+import { type SocialSettings, buildSocial } from "./early/social";
+import {
+  type PreorderSettings,
+  buildPreorder,
+  hideFastCheckout,
+  preorderIds,
+  preorderLabel,
+  preorderText,
+} from "./early/preorder";
 import { barHost, isMobile, parsed } from "./dom";
 import {
   checkoutAnchorReady,
@@ -85,6 +112,12 @@ function start(config: StoreConfig) {
     });
   }
 
+  // ব্যাজ আর পেমেন্ট লোগো: প্রোডাক্ট পাতায় Add to cart-এর নিচে, কার্টে চেকআউটের কাছে
+  const sealSettings = settings<SealsSettings>("trust-seals");
+  const seals = sealSettings ? knownBadges(sealSettings) : [];
+  const logos = settings<LogosSettings>("payment-logos");
+  const icons = logos ? paymentIcons() : null;
+
   if (config.pageType === "product") {
     const product = readPageProduct();
     const after: Array<[string, Build]> = [];
@@ -123,6 +156,73 @@ function start(config: StoreConfig) {
       if (rows) after.push(["upsells", (host) => reserve(host, upsellHeight(rows))]);
     }
 
+    // বাকি উইজেট: লেখা আর ছবি সব সেটিংস আর পাতার তথ্য থেকেই, তাই আসল জিনিসটাই এখন বসে; টুলের ফাইল
+    // পরে এসে কাজ জুড়ে দেয় বা একই জিনিস আবার বানিয়ে বদলায় (মাপ একই, তাই কিছু সরে না)
+    if (seals.length > 0) {
+      after.push([
+        "trust-seals",
+        (host) => host.appendChild(buildSeals(sealSettings!, seals, config.locale)),
+      ]);
+    }
+    if (logos?.showOnProduct && icons) {
+      after.push(["payment-logos", (host) => host.appendChild(buildLogos(logos, icons))]);
+    }
+    if (product) {
+      const variant = String(product.variantId);
+      const scarcity = settings<ScarcitySettings>("stock-scarcity");
+      const left = scarcity ? lowStock(product.inventory, variant, scarcity.threshold) : null;
+      if (scarcity && left !== null) {
+        after.push(["stock-scarcity", (host) => host.appendChild(buildScarcity(scarcity, left))]);
+      }
+      const notify = settings<NotifySettings>("back-in-stock");
+      if (notify && isSoldOut(product.inventory, variant)) {
+        after.push(["back-in-stock", (host) => host.appendChild(buildNotify(notify))]);
+      }
+      const save = settings<SaveSettings>("wishlist");
+      if (save && product.handle) {
+        const saved = isSaved(String(product.productId), config.customerId ?? null);
+        after.push(["wishlist", (host) => host.appendChild(buildSave(save, saved))]);
+      }
+      const bogo = settings<BogoSettings>("bogo");
+      const deal = bogo?.showBadge ? bogoOffer(config, product) : undefined;
+      if (bogo && deal)
+        after.push(["bogo", (host) => host.appendChild(buildBogo(bogo, deal, config))]);
+      // প্রি-অর্ডার: দ্রুত চেকআউট বাটন শুরু থেকেই লুকানো, বার্তা ফর্মের নিচে, Add to cart-এর লেখা বদলানো
+      const pre = settings<PreorderSettings>("pre-orders");
+      if (pre && preorderIds(pre, product).has(variant)) {
+        document.head.appendChild(hideFastCheckout());
+        after.push([
+          "pre-orders",
+          (host) => host.appendChild(buildPreorder(pre, preorderText(pre, config.locale))),
+        ]);
+        jobs.push((last) => {
+          const form = productForm();
+          const submit = form && submitOf(form);
+          if (!last && !(submit && parsed(submit))) return false;
+          if (submit) preorderLabel(submit, pre.buttonText);
+          return true;
+        });
+      }
+    }
+    const chart = settings<ChartSettings>("size-chart");
+    if (chart && chartShows(chart, product)) {
+      after.push(["size-chart", (host) => host.appendChild(buildChartButton(chart))]);
+    }
+    const shipping = settings<ShippingSettings>("shipping-info");
+    if (shipping) {
+      after.push([
+        "shipping-info",
+        (host) => host.appendChild(buildShipping(shipping, config.tzOffset, config.locale)),
+      ]);
+    }
+    const social = settings<SocialSettings>("social-buttons");
+    if (social && social.networks.length > 0) {
+      after.push([
+        "social-buttons",
+        (host) => host.appendChild(buildSocial(social, config.locale)),
+      ]);
+    }
+
     for (const [tool, build] of after) near(tool, productAnchorReady, placeAfterProductForm, build);
     if (after.length > 0) {
       // মার্চেন্টের app block ফর্মের পরে থাকলে উইজেট সেখানে সরে যায়, তখনো পাতা আঁকা হয়নি
@@ -131,6 +231,20 @@ function start(config: StoreConfig) {
         return last;
       });
     }
+
+    // Buy now: ফর্মের ভেতরে, থিমের Add to cart পড়া হলেই তার পরে
+    const buyNow = settings<BuyNowSettings>(BUY_NOW);
+    if (buyNow?.buyNowButton) {
+      jobs.push((last) => {
+        const form = productForm();
+        const submit = form && submitOf(form);
+        if (!last && !(submit && parsed(submit))) return false;
+        if (form && !placed(BUY_NOW)) placeBuyNow(form, markEarly(buildBuyNow(buyNow), BUY_NOW));
+        return true;
+      });
+    }
+    // টুলের ফাইল আসার আগে বাটন (Buy now, Wishlist, Size chart, স্টকে এলে জানাও) চাপলে চাপটা মনে রাখা
+    if (after.length > 0 || buyNow?.buyNowButton) rememberTaps();
 
     const tabs = settings<TabsSettings>("description-tabs");
     if (tabs) {
@@ -150,6 +264,16 @@ function start(config: StoreConfig) {
     const note = notice ? buildNotice(notice) : null;
     if (note)
       near("cart-notice", checkoutAnchorReady, placeNearCheckout, (host) => host.appendChild(note));
+    if (sealSettings?.showOnCart && seals.length > 0) {
+      near("trust-seals", checkoutAnchorReady, placeNearCheckout, (host) =>
+        host.appendChild(buildSeals(sealSettings, seals, config.locale)),
+      );
+    }
+    if (logos?.showOnCart && icons) {
+      near("payment-logos", checkoutAnchorReady, placeNearCheckout, (host) =>
+        host.appendChild(buildLogos(logos, icons)),
+      );
+    }
   }
 
   // কার্ট পেজ আর কার্ট ড্রয়ার দুই জায়গাতেই চেকআউট বাটন থাকে, তাই সব পাতায়

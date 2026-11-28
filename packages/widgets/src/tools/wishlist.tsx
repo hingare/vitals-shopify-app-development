@@ -16,9 +16,13 @@ import {
 } from "../product";
 import { proxyGet, proxyPost } from "../proxy";
 import { buttonStyle, type Colors, Modal, overlayHost } from "../ui";
+import { adopt, takeTap } from "../early/run";
+import { CACHE_KEY, type WishlistItem, buildSave, isItem, readCache } from "../early/save";
+
+export { readCache };
+export type { WishlistItem };
 
 const TOOL_ID = "wishlist";
-const CACHE_KEY = "app_wishlist";
 const GUEST_KEY = "app_wishlist_guest";
 const SYNC_KEY = "app_wishlist_synced";
 /** তালিকা খুললে একসাথে এতগুলো প্রোডাক্ট আনা হয় */
@@ -34,41 +38,9 @@ interface Settings {
   colors: Colors;
 }
 
-export interface WishlistItem {
-  productId: string;
-  handle: string;
-}
-
 interface ServerList {
   items: WishlistItem[];
   customer: boolean;
-}
-
-const isItem = (value: unknown): value is WishlistItem => {
-  const item = value as WishlistItem | null;
-  return (
-    Boolean(item) &&
-    typeof item === "object" &&
-    typeof item?.productId === "string" &&
-    typeof item.handle === "string"
-  );
-};
-
-/**
- * ব্রাউজারে রাখা তালিকা পড়ে। তালিকাটা কার (`o`: ক্রেতার id, অতিথির জন্য ০) তা সাথে লেখা থাকে:
- * ক্রেতা লগআউট করলে বা অন্য ক্রেতা লগইন করলে আগের জনের তালিকা আর দেখানো হয় না।
- * অতিথির তালিকা লগইনের পরেও দেখায়, কারণ সার্ভার সেটা ক্রেতার তালিকায় মিশিয়ে দেয়।
- */
-export function readCache(raw: string | null, customerId: number | null): WishlistItem[] {
-  try {
-    const cache = JSON.parse(raw ?? "null") as { o?: unknown; items?: unknown } | null;
-    if (!cache || !Array.isArray(cache.items)) return [];
-    const owner = typeof cache.o === "number" ? cache.o : 0;
-    if (owner !== 0 && owner !== (customerId ?? 0)) return [];
-    return cache.items.filter(isItem);
-  } catch {
-    return [];
-  }
 }
 
 /** তালিকায় না থাকলে সামনে যোগ হয়, থাকলে বাদ যায় */
@@ -171,31 +143,30 @@ function Heart({ filled }: { filled: boolean }) {
   );
 }
 
-/** প্রোডাক্ট পেজে "Add to wishlist" বাটন */
-function SaveButton({ s, list, entry }: { s: Settings; list: List; entry: WishlistItem }) {
-  const saved = useItems(list).some((item) => item.productId === entry.productId);
-  return (
-    <div style={{ margin: "12px 0" }}>
-      <button
-        type="button"
-        aria-pressed={saved}
-        onClick={() => void list.toggle(entry)}
-        style={{
-          ...buttonStyle(s.colors, true),
-          width: "100%",
-          display: "flex",
-          gap: "8px",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span style={{ color: s.colors.accent, display: "flex" }}>
-          <Heart filled={saved} />
-        </span>
-        {saved ? s.addedText : s.addText}
-      </button>
-    </div>
-  );
+/**
+ * প্রোডাক্ট পেজে "Add to wishlist" বাটন। early.ts পাতা আঁকার আগেই বসায় (early/save.ts); এখানে সেই
+ * বাটনেই আসল অবস্থা দেখানো আর চাপার কাজ। বাটন বদলানো হয় না, তাই চাপার পরেও ফোকাস সেখানেই থাকে।
+ */
+function saveButton(s: Settings, list: List, entry: WishlistItem) {
+  const host = adopt(TOOL_ID);
+  let button = host?.querySelector("button");
+  if (!button) {
+    const box = buildSave(s, false);
+    placeAfterProductForm(TOOL_ID).appendChild(box);
+    button = box.querySelector("button")!;
+  }
+  const self = button;
+  const draw = () => {
+    const saved = list.get().some((item) => item.productId === entry.productId);
+    self.setAttribute("aria-pressed", String(saved));
+    self.querySelector("svg")?.setAttribute("fill", saved ? "currentColor" : "none");
+    if (self.lastChild) self.lastChild.textContent = saved ? s.addedText : s.addText;
+  };
+  self.addEventListener("click", () => void list.toggle(entry));
+  draw();
+  list.subscribe(draw);
+  // ফাইল আসার আগেই কেউ চেপে থাকলে
+  if (host) takeTap(host)?.click();
 }
 
 function Row({
@@ -424,7 +395,7 @@ export function mount({ config, settings }: ToolContext) {
     const product = readPageProduct();
     if (product?.handle) {
       const entry = { productId: String(product.productId), handle: product.handle };
-      render(<SaveButton s={s} list={list} entry={entry} />, placeAfterProductForm(TOOL_ID));
+      saveButton(s, list, entry);
     }
   }
 

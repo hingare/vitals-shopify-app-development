@@ -1,10 +1,4 @@
-{% comment %}
-  একটি মাত্র app embed সব টুল চালায়।
-  চালু টুলের কনফিগ app-owned metafield (app_config.tools) থেকে আসে, তাই কোনো API কল লাগে না।
-  লোডার ৫KB-র কম, আর শুধু চালু টুলগুলোর ফাইল আলাদাভাবে লোড করে।
-  embed পাতার <head>-এ বসে (target: head), যাতে app-early স্নিপেট থিমের HTML পড়ার সময়েই
-  পাতার ভেতরের উইজেটের জায়গা নিতে পারে; তাতে পাতা আঁকার পরে লেখা নিচে সরে না (CLS)।
-{% endcomment %}
+{%- comment -%} Explained in docs/theme-extension.md. Liquid counts toward Shopify's 100 KB limit: keep comments short. {%- endcomment -%}
 {%- assign app_config = app.metafields.app_config.tools.value -%}
 {%- if app_config and app_config.tools.size > 0 -%}
   {%- assign reviews_on = false -%}
@@ -14,24 +8,10 @@
     {%- if tool.id == 'product-reviews' -%}{%- assign reviews_on = true -%}{%- endif -%}
     {%- if tool.id == 'ai-seo-schema' -%}{%- assign seo_schema = tool.settings -%}{%- endif -%}
     {%- case tool.id -%}
-      {%- when 'announcement-bar', 'spending-goal', 'countdown-timer', 'volume-discounts', 'bundles', 'upsells', 'cart-notice', 'agree-to-terms', 'description-tabs' -%}
+      {%- when 'announcement-bar', 'spending-goal', 'countdown-timer', 'volume-discounts', 'bundles', 'upsells', 'cart-notice', 'agree-to-terms', 'description-tabs', 'accelerated-checkout', 'payment-logos', 'trust-seals', 'stock-scarcity', 'shipping-info', 'size-chart', 'wishlist', 'back-in-stock', 'bogo', 'social-buttons', 'pre-orders' -%}
         {%- assign early = true -%}
     {%- endcase -%}
   {%- endfor -%}
-  {%- comment -%}
-    Best Sellers Protection: কেউ ?sort_by=best-selling লিংকে এলে সাধারণ ক্রমে পাঠানো হয়।
-    এটা এখানে (লোডারের আগে) থাকে যাতে তালিকাটা যত কম সময় সম্ভব চোখে পড়ে; থিম পেজ নতুন করে লোড না
-    করে ক্রম বদলালে উইজেট এই একই ফাংশন (window.__APP_BSP__) ডাকে।
-    মার্চেন্ট নিজে কালেকশনের মূল ক্রম best-selling রাখলে কিছু করা হয় না।
-
-    অনন্ত ঘোরাঘুরি ঠেকানো: কিছু থিমে এমন কোড থাকে যা সাধারণ পেজ খুললেই best-selling-এ পাঠায়; সেখানে
-    আমরা ফেরত পাঠালে পেজ থামত না। তাই sessionStorage-এ ("app-bsp") মনে রাখা হয় শেষ কখন পাঠানো হলো আর
-    এই ট্যাবে মোট কতবার। পাঠানোর ৩০ সেকেন্ডের মধ্যে একই পেজের সাধারণ ঠিকানা থেকে (document.referrer)
-    আবার best-selling-এ আসা হলে সেটা থিমের কাজ ধরে নেওয়া হয়; তখন, বা এই ট্যাবে ৩ বার পাঠানো হয়ে গেলে,
-    মান "off" হয় আর এই ট্যাবে আর পাঠানো হয় না। sessionStorage বন্ধ থাকলে পাঠানোই হয় না।
-    নতুন পেজ আসা পর্যন্ত তালিকা আড়ালে থাকে; ৫ সেকেন্ডেও না এলে পেজ আবার দেখা যায়।
-    (স্ক্রিপ্টের ভেতরে মন্তব্য রাখা হয়নি, কারণ সেগুলো ক্রেতার ব্রাউজারে যেত।)
-  {%- endcomment -%}
   {%- if request.page_type == 'collection' and collection.default_sort_by != 'best-selling' -%}
     {%- for tool in app_config.tools -%}
       {%- if tool.id == 'best-sellers-protection' and tool.settings.redirectVisits -%}
@@ -135,7 +115,6 @@
             {%- endif -%}
           {%- endfor -%}
         },
-        {%- comment -%} Pre-Orders: স্টক শেষ কিন্তু "স্টক না থাকলেও বিক্রি" চালু এমন ভ্যারিয়েন্ট {%- endcomment -%}
         "preorder": [
           {%- assign first = true -%}
           {%- for v in product.variants -%}
@@ -147,9 +126,6 @@
         ]
       }
     </script>
-    {%- comment -%}
-      AI FAQ: থিমে "AI FAQ" ব্লক না থাকলে tool-ai-product-faq.js এই template থেকে প্রোডাক্ট সেকশনের পরে বসায়।
-    {%- endcomment -%}
     {%- for tool in app_config.tools -%}
       {%- if tool.id == 'ai-product-faq' -%}
         {%- assign faq = product.metafields['$app'].ai_faq.value -%}
@@ -158,10 +134,6 @@
         {%- endif -%}
       {%- endif -%}
     {%- endfor -%}
-    {%- comment -%}
-      রিভিউ চালু থাকলে Google-এর জন্য রেটিং (Shopify-র reviews.* metafield থেকে)। AI SEO Schema-র পুরো
-      Product schema চালু থাকলে রেটিং সেখানেই থাকে, তাই এখানে আলাদা করে দেওয়া হয় না (একই প্রোডাক্ট দুবার নয়)।
-    {%- endcomment -%}
     {%- assign rating_count = product.metafields.reviews.rating_count.value | default: 0 -%}
     {%- if reviews_on and rating_count > 0 and seo_schema.productSchema != true -%}
       <script type="application/ld+json">
@@ -181,7 +153,6 @@
       </script>
     {%- endif -%}
   {%- endif -%}
-  {%- comment -%} পেমেন্ট লোগো: Shopify নিজেই স্টোরে চালু পেমেন্টের লোগো দেয় {%- endcomment -%}
   {%- for tool in app_config.tools -%}
     {%- if tool.id == 'payment-logos' -%}
       <template id="app-payment-icons">
@@ -191,7 +162,6 @@
       </template>
     {%- endif -%}
   {%- endfor -%}
-  {%- comment -%} দ্রুত চেকআউট বাটন লুকানো: পেজ আঁকার আগেই, যাতে এক মুহূর্তের জন্যও না দেখায় {%- endcomment -%}
   {%- for tool in app_config.tools -%}
     {%- if tool.id == 'hide-dynamic-checkout' -%}
       <style>
@@ -207,11 +177,6 @@
   {%- if seo_schema -%}
     {%- render 'ai-seo-schema', s: seo_schema, reviews_on: reviews_on, product: product, collection: collection -%}
   {%- endif -%}
-  {%- comment -%}
-    পাতার ভেতরে বসা উইজেট (উপরের বার, Add to cart-এর নিচের বাক্স, কার্টের নোটিস, বিবরণের ট্যাব) থিমের
-    HTML পড়ার সময়েই বসে যায়, পাতা আঁকার আগে। স্নিপেটটা packages/widgets/src/early.ts থেকে বানানো;
-    হাতে বদলাবেন না, `pnpm --filter @app/widgets build` চালান।
-  {%- endcomment -%}
   {%- if early -%}
     {%- render 'app-early' -%}
   {%- endif -%}

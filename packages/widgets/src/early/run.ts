@@ -50,3 +50,33 @@ export function adopt(tool: string): HTMLElement | null {
   if (host && block && !block.contains(host)) block.appendChild(host);
   return host;
 }
+
+/**
+ * early.ts-এর বাটন টুলের ফাইল আসার আগেই চাপলে চাপটা হারায় না: কোন বাটন চাপা হলো তা জায়গাটায় লেখা থাকে
+ * (data-app-tap), আর টুল নিজের কাজ জুড়ে দেওয়ার পরে takeTap() দিয়ে সেটা নিয়ে আবার চাপে।
+ */
+export function rememberTaps() {
+  document.addEventListener(
+    "click",
+    (event) => {
+      const button = (event.target as Element | null)?.closest?.("button");
+      const host = button?.closest<HTMLElement>("[data-app-early]");
+      if (button && host && host.dataset.appLive === undefined) {
+        host.dataset.appTap = String([...host.querySelectorAll("button")].indexOf(button));
+      }
+    },
+    true,
+  );
+}
+
+/** টুল early.ts-এর জায়গায় নিজের কাজ জুড়ে দিয়েছে: এর আগে চাপা বাটন (একবারই), না চাপলে null */
+export function takeTap(host: HTMLElement): HTMLElement | null {
+  host.dataset.appLive = "";
+  const index = host.dataset.appTap;
+  if (index === undefined) return null;
+  delete host.dataset.appTap;
+  // -1: জায়গাটা নিজেই বাটন (Buy now)
+  return index === "-1"
+    ? host
+    : (host.querySelectorAll<HTMLElement>("button")[Number(index)] ?? null);
+}

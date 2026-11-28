@@ -1,7 +1,3 @@
-{% comment %}
-  একটাই ব্লক দিয়ে যেকোনো উইজেট থিমের যেকোনো জায়গায় বসানো যায় (Shopify-র ৩০ ব্লকের সীমা বাঁচাতে)।
-  মার্চেন্ট "Widget" থেকে বাছেন; সেই টুল চালু থাকলে উইজেট এখানেই বসে, না হলে কিছুই দেখায় না।
-{% endcomment %}
 <div data-app-slot="{{ block.settings.widget }}" {{ block.shopify_attributes }}></div>
 
 {% schema %}

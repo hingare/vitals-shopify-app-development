@@ -3,12 +3,12 @@ import { widgetT } from "../i18n";
 import { attribute, track } from "../analytics";
 import { QUIET_ADD_PATH } from "../cart-api";
 import { productForm, root } from "../product";
+import { adopt, takeTap } from "../early/run";
+import { BUY_NOW, type BuyNowSettings, buildBuyNow, placeBuyNow } from "../early/buy-now";
 
-const TOOL_ID = "accelerated-checkout";
+const TOOL_ID = BUY_NOW;
 
-interface Settings {
-  buyNowButton: boolean;
-  buttonText: string;
+interface Settings extends BuyNowSettings {
   skipCart: boolean;
   colors: { background: string; text: string; accent: string };
 }
@@ -58,18 +58,17 @@ export function mount({ config, settings }: ToolContext) {
   };
 
   if (s.buyNowButton) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.appWidget = TOOL_ID;
-    button.textContent = s.buttonText;
-    button.style.cssText = `display:block;width:100%;margin-top:10px;padding:14px 16px;border:0;border-radius:6px;cursor:pointer;font:inherit;font-weight:700;background:${s.colors.accent};color:#fff`;
+    // পাতা আঁকার আগে early.ts বসিয়ে রাখে; না থাকলে (পুরনো embed, অচেনা থিম) এখন বসানো
+    const early = adopt(TOOL_ID) as HTMLButtonElement | null;
+    const button = early ?? buildBuyNow(s);
+    if (!early) placeBuyNow(form, button);
     button.addEventListener("click", () => {
       track(TOOL_ID, "click");
       void go(button);
     });
-    const submit = form.querySelector<HTMLElement>('[type="submit"], [name="add"]');
-    (submit ?? form.lastElementChild ?? form).after(button);
     button.after(error);
+    // ফাইল আসার আগেই কেউ চেপে থাকলে
+    if (early) takeTap(early)?.click();
   } else {
     form.append(error);
   }

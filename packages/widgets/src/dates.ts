@@ -57,7 +57,16 @@ export function deliveryWindow(
   };
 }
 
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * "Mon, Dec 1"। ইংরেজি দোকানে Intl ছাড়াই (হুবহু একই লেখা, logic.test.ts মিলিয়ে দেখে): পাতায় প্রথমবার Intl চালু
+ * হতে ফোনে কয়েক দশ ms লাগে, আর Shipping info-র লেখা early.ts পাতা আঁকার আগেই বানায়, যখন সেটা পাতা আঁকা পেছাত।
+ */
 export function formatDay(d: Date, locale: string): string {
+  if (locale === "en")
+    return `${DAYS[d.getUTCDay()]}, ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`;
   try {
     return new Intl.DateTimeFormat(locale, {
       weekday: "short",
@@ -67,6 +76,18 @@ export function formatDay(d: Date, locale: string): string {
     }).format(d);
   } catch {
     return d.toISOString().slice(0, 10);
+  }
+}
+
+/** "Dec 5, 2026" (Intl-এর dateStyle "medium"), ইংরেজিতে formatDay-এর মতো Intl ছাড়াই; ভুল তারিখে null */
+export function formatDate(y: number, m: number, d: number, locale: string): string | null {
+  const date = new Date(y, m - 1, d);
+  if (Number.isNaN(date.getTime())) return null;
+  if (locale === "en") return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  try {
+    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
+  } catch {
+    return null;
   }
 }
 

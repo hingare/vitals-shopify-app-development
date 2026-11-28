@@ -1,7 +1,3 @@
-{% comment %}
-  প্রোডাক্টের নামের নিচে স্টার রেটিং। কোনো JavaScript নেই, সরাসরি reviews.* metafield থেকে আসে।
-  ক্লিক করলে পেজের রিভিউ অংশে যায়।
-{% endcomment %}
 {%- assign rating_product = product -%}
 {%- assign count = rating_product.metafields.reviews.rating_count.value | default: 0 -%}
 {%- if count > 0 or block.settings.show_empty -%}

@@ -13,6 +13,8 @@ import {
 import { proxyPost } from "../proxy";
 import { buttonStyle, type Colors, inputStyle } from "../ui";
 import { identifyVisitor } from "../visitor";
+import { adopt, takeTap } from "../early/run";
+import { isSoldOut, notifyBox, notifyButton } from "../early/notify";
 
 const TOOL_ID = "back-in-stock";
 
@@ -26,19 +28,23 @@ interface Settings {
   colors: Colors;
 }
 
-/**
- * এই ভ্যারিয়েন্ট এখন কেনা যায় না কিনা। পেজের `inventory`-তে শুধু সেই ভ্যারিয়েন্টগুলো থাকে যাদের
- * স্টক Shopify গোনে আর স্টক শেষে বিক্রি বন্ধ; সেখানে ০ বা কম মানেই স্টক শেষ।
- */
-export function isSoldOut(inventory: Record<string, number> | undefined, variantId: string) {
-  const quantity = inventory?.[variantId];
-  return typeof quantity === "number" && quantity <= 0;
-}
+export { isSoldOut };
 
-function NotifyForm({ s, product, locale }: { s: Settings; product: PageProduct; locale: string }) {
+function NotifyForm({
+  s,
+  product,
+  locale,
+  opened = false,
+}: {
+  s: Settings;
+  product: PageProduct;
+  locale: string;
+  /** early.ts-এর বাটন ফাইল আসার আগেই চাপা হয়েছিল */
+  opened?: boolean;
+}) {
   const read = () => currentVariantId(product.variantId);
   const [variantId, setVariantId] = useState(read);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(opened);
   const [sending, setSending] = useState(false);
   // এই পেজে যেসব ভ্যারিয়েন্টের জন্য ইমেইল দেওয়া হয়ে গেছে (ভ্যারিয়েন্ট বদলে ফিরলেও ফর্ম আবার আসে না)
   const [done, setDone] = useState<string[]>([]);
@@ -99,13 +105,10 @@ function NotifyForm({ s, product, locale }: { s: Settings; product: PageProduct;
     );
   }
   if (!open) {
+    // early.ts-এর বাটনের মতো হুবহু (early/notify.ts), যাতে টুল এসে বদলালে পাতা না সরে
     return (
-      <div style={box}>
-        <button
-          type="button"
-          style={{ ...buttonStyle(s.colors, true), width: "100%" }}
-          onClick={() => setOpen(true)}
-        >
+      <div style={notifyBox(s)}>
+        <button type="button" style={notifyButton(s)} onClick={() => setOpen(true)}>
           {s.notifyText}
         </button>
       </div>
@@ -143,15 +146,32 @@ function NotifyForm({ s, product, locale }: { s: Settings; product: PageProduct;
   );
 }
 
-/** স্টক-শেষ ভ্যারিয়েন্টে "স্টকে এলে জানাও" বাটন; ভ্যারিয়েন্ট বদলালে নিজে থেকেই দেখায় বা লুকায় */
+/**
+ * স্টক-শেষ ভ্যারিয়েন্টে "স্টকে এলে জানাও" বাটন; ভ্যারিয়েন্ট বদলালে নিজে থেকেই দেখায় বা লুকায়।
+ * বেছে রাখা ভ্যারিয়েন্টের স্টক শেষ হলে বাটনটা early.ts পাতা আঁকার আগেই বসায়; এখানে একই বাটন বসে।
+ */
 export function mount({ config, settings }: ToolContext) {
   if (config.pageType !== "product") return;
   const product = readPageProduct();
   if (!product?.inventory) return;
   // কোনো ভ্যারিয়েন্টেরই স্টক শেষ না হলে কিছু বসানোর দরকার নেই
   if (!Object.values(product.inventory).some((quantity) => quantity <= 0)) return;
+  const early = adopt(TOOL_ID);
+  // early.ts-এর বাটন বদলে Preact-এর একই রকম বাটন বসে: আগে চাপা হয়ে থাকলে ফর্ম খোলা অবস্থায়, শুধু ফোকাস
+  // থাকলে ফোকাস নতুন বাটনে (কীবোর্ডে থাকা ক্রেতা জায়গা না হারান)
+  const tapped = early ? takeTap(early) !== null : false;
+  const focused = early?.contains(document.activeElement) ?? false;
+  const host = early ?? placeAfterProductForm(TOOL_ID);
+  host.replaceChildren();
   render(
-    <NotifyForm s={settings as unknown as Settings} product={product} locale={config.locale} />,
-    placeAfterProductForm(TOOL_ID),
+    <NotifyForm
+      s={settings as unknown as Settings}
+      product={product}
+      locale={config.locale}
+      opened={tapped}
+    />,
+    host,
   );
+  if (tapped) host.querySelector("input")?.focus();
+  else if (focused) host.querySelector("button")?.focus();
 }
